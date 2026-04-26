@@ -18,6 +18,10 @@
   --color-negative: #dc2626;
   --color-neutral: #a1a1aa;
   --color-accent: #1e40af;
+  /* Player status indicator dots — static palette values, not theme-adaptive */
+  --color-status-warning: #fbbf24; /* amber-400 */
+  --color-status-danger: #ef4444; /* red-500   */
+  --color-status-muted: #a3a3a3; /* neutral-400 */
 }
 
 /* ── Dynamic tokens ────────────────────────────────────────────────────────

@@ -18,9 +18,9 @@ function dotVariant(status: string): DotVariant | null {
 }
 
 const DOT_CLASSES: Record<DotVariant, string> = {
-  amber: 'bg-amber-400',
-  red: 'bg-red-500',
-  gray: 'bg-neutral-400',
+  amber: 'bg-status-warning',
+  red: 'bg-status-danger',
+  gray: 'bg-status-muted',
 };
 
 /**
