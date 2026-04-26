@@ -44,5 +44,13 @@ next-env.d.ts
 /playwright-report/
 /test-results/
 
+# database — production DB is gitignored; test DB must never reach prod
+/data/fpl.db
+/data/fpl.db-*
+/data/fpl.test.db
+/data/fpl.test.db-*
+/data/*.test.db
+/data/*.test.db-*
+
 # dev utilities
 /screenshots/

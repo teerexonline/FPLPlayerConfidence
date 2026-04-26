@@ -9,15 +9,26 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-    passWithNoTests: true, // TODO(step-2): remove once calculator tests exist
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/lib/**', 'src/components/**'],
-      // TODO(step-2): re-enable thresholds once calculator tests are written.
-      // Coverage thresholds fail when no tests exist — v8 reports 0% for all
-      // instrumented files even with passWithNoTests. Floors per TESTING.md §8:
-      // src/lib/ → 90% lines+branches; src/components/ → 70% lines.
+      include: [
+        'src/lib/**/*.ts',
+        'src/lib/**/*.tsx',
+        'src/components/**/*.ts',
+        'src/components/**/*.tsx',
+        'src/app/players/_components/**/*.ts',
+        'src/app/players/_components/**/*.tsx',
+        'src/app/players/[id]/_components/**/*.ts',
+        'src/app/players/[id]/_components/**/*.tsx',
+      ],
+      exclude: ['**/__fixtures__/**'],
+      thresholds: {
+        'src/lib/**': { lines: 90, branches: 90 },
+        'src/components/**': { lines: 70 },
+        'src/app/players/_components/**': { lines: 70 },
+        'src/app/players/[id]/_components/**': { lines: 70 },
+      },
     },
   },
   resolve: {

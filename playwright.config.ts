@@ -1,7 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Isolate E2E runs to a separate SQLite file so they never touch the
+// production database. Must be set before globalSetup runs.
+process.env['DB_PATH'] = 'data/fpl.test.db';
+
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: './e2e/setup/seed-db.ts',
   fullyParallel: true,
   forbidOnly: !!process.env['CI'],
   retries: 0,
@@ -26,5 +31,8 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,
+    env: {
+      DB_PATH: 'data/fpl.test.db',
+    },
   },
 });

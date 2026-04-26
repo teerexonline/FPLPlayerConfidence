@@ -48,6 +48,9 @@ export interface PlayerDetailData {
   readonly latestGameweek: number;
   /** Full season history, ascending by gameweek. Empty for players with no appearances. */
   readonly snapshots: readonly SnapshotPoint[];
+  readonly status: string;
+  readonly chanceOfPlaying: number | null;
+  readonly news: string;
 }
 
 // ── DGW reason parsing ────────────────────────────────────────────────────────

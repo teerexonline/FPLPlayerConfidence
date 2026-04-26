@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Fraunces, Geist } from 'next/font/google';
 import { Providers } from '@/components/layout/Providers';
+import { Topbar } from '@/components/layout/Topbar';
 import './globals.css';
 
 const geistSans = Geist({
@@ -33,7 +34,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">
-        <Providers>{children}</Providers>
+        <Providers>
+          <Topbar />
+          {children}
+        </Providers>
       </body>
     </html>
   );

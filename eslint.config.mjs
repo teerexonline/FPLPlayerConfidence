@@ -45,7 +45,24 @@ const eslintConfig = defineConfig([
 
       // No unnecessary type parameters
       '@typescript-eslint/no-unnecessary-type-parameters': 'error',
+
+      // Allow _-prefixed parameters that are intentionally unused (stubs, callbacks)
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+
+  // The logger module is the one permitted place to call console.* directly.
+  // All other source code must use the Logger interface from src/lib/logger/.
+  // Tests in this directory use vi.spyOn(console, ...) which also references console.
+  {
+    files: ['src/lib/logger/**'],
+    rules: { 'no-console': 'off' },
+  },
+
+  // Scripts are developer tools, not production source — allow console.* and other relaxations.
+  {
+    files: ['scripts/**'],
+    rules: { 'no-console': 'off' },
   },
 
   // Disable rules that conflict with Prettier (must be last)
@@ -59,6 +76,7 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     'playwright-report/**',
     'test-results/**',
+    'scripts/**',
   ]),
 ]);
 

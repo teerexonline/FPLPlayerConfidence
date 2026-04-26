@@ -315,13 +315,67 @@ CREATE TABLE IF NOT EXISTS sync_meta (
 
 CREATE INDEX IF NOT EXISTS idx_confidence_player ON confidence_snapshots(player_id);
 CREATE INDEX IF NOT EXISTS idx_confidence_gw ON confidence_snapshots(gameweek);
+
+CREATE TABLE IF NOT EXISTS manager_squads (
+  team_id         INTEGER NOT NULL,
+  gameweek        INTEGER NOT NULL,
+  player_id       INTEGER NOT NULL,
+  squad_position  INTEGER NOT NULL,
+  is_captain      INTEGER NOT NULL DEFAULT 0,
+  is_vice_captain INTEGER NOT NULL DEFAULT 0,
+  fetched_at      INTEGER NOT NULL,
+  PRIMARY KEY (team_id, gameweek, squad_position)
+);
 ```
 
 All queries are parameterized — never string-concatenated (see `docs/ENGINEERING.md` §7).
 
 ---
 
-## 8. Error handling
+## 8. Manager squad endpoint
+
+### `GET https://fantasy.premierleague.com/api/entry/{team_id}/event/{gw}/picks/`
+
+Returns a manager's squad picks for a specific gameweek.
+
+- `team_id` — the manager's FPL entry ID (visible in the URL at `https://fantasy.premierleague.com/entry/{team_id}/event/{gw}`)
+- `gw` — gameweek number (1..38)
+
+**Cache: 1 hour.** After a GW deadline passes, the squad is locked and can be cached indefinitely for that GW.
+
+**404 handling:** the FPL API returns 404 (not 401) if the entry ID is invalid or the GW has not started yet. Treat 404 as `FetchError` with type `'not_found'` — this is an expected user-facing state (no team linked yet), not a bug.
+
+### Zod schema
+
+```ts
+// add to src/lib/fpl/schemas.ts
+
+export const EntryPickSchema = z.object({
+  element: z.number().int().positive(), // playerId
+  position: z.number().int().min(1).max(15), // squadPosition (1–11 = starters)
+  is_captain: z.boolean(),
+  is_vice_captain: z.boolean(),
+});
+
+export const EntryPicksSchema = z.object({
+  picks: z.array(EntryPickSchema).length(15),
+});
+```
+
+Map to `SquadPick` (see `docs/ALGORITHM.md` §11.1):
+
+```ts
+{
+  playerId:      pick.element,
+  squadPosition: pick.position,
+  isCaptain:     pick.is_captain,
+  isViceCaptain: pick.is_vice_captain,
+}
+```
+
+---
+
+## 9. Error handling
 
 - All API calls return `Result<T, FetchError>` (see `docs/ENGINEERING.md` §3.4).
 - On network failure, serve cached data with a "Last synced X minutes ago" banner.

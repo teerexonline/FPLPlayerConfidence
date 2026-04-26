@@ -1,14 +1,83 @@
-import { notFound } from 'next/navigation';
+import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
+import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
+import { SkeletonRow } from '@/app/players/_components/SkeletonRow';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { MatchHistoryCard } from '@/app/players/[id]/_components/MatchHistoryCard';
 
-// Excluded from production — returns 404 when NODE_ENV !== 'development'.
-// Note: Next.js App Router treats `_`-prefixed folders as private (non-routable),
+/* ── ConfidenceTrend showcase data ───────────────────────────────────────── */
+
+const SMOKE_PLAYERS = [
+  { name: 'M. Salah', team: 'LIV', pos: 'MID', price: '£13.0m', conf: 3, deltas: [2, 1, 2, 3, 2] },
+  {
+    name: 'E. Haaland',
+    team: 'MCI',
+    pos: 'FWD',
+    price: '£14.5m',
+    conf: 0,
+    deltas: [1, -1, 1, -1, 0],
+  },
+  { name: 'B. Saka', team: 'ARS', pos: 'MID', price: '£10.0m', conf: 2, deltas: [1, 2, -1, 2, 1] },
+  {
+    name: 'V. van Dijk',
+    team: 'LIV',
+    pos: 'DEF',
+    price: '£6.5m',
+    conf: 0,
+    deltas: [-1, -1, 1, -1, 0],
+  },
+  {
+    name: 'J. Pickford',
+    team: 'EVE',
+    pos: 'GK',
+    price: '£5.5m',
+    conf: -4,
+    deltas: [-1, -1, -1, -1, -1],
+  },
+] as const;
+
+interface TrendShowcaseProps {
+  readonly variant: 'sparkline' | 'strip' | 'both';
+}
+
+function TrendShowcase({ variant }: TrendShowcaseProps) {
+  return (
+    <div className="border-border bg-surface overflow-hidden rounded-lg border">
+      <div className="border-border grid grid-cols-[1fr_88px_60px_72px_72px_96px] border-b px-4 py-2.5">
+        {['Player', 'Team', 'Pos', 'Price', 'Confidence', 'Last 5'].map((h) => (
+          <span key={h} className="text-muted text-[11px] font-medium tracking-[0.05em] uppercase">
+            {h}
+          </span>
+        ))}
+      </div>
+      {SMOKE_PLAYERS.map((p) => (
+        <div
+          key={p.name}
+          className="border-border hover:border-l-accent hover:bg-bg grid h-14 grid-cols-[1fr_88px_60px_72px_72px_96px] items-center border-b px-4 last:border-0 hover:border-l-2"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-border h-8 w-8 shrink-0 rounded-full" aria-hidden="true" />
+            <span className="text-text text-[14px] font-medium">{p.name}</span>
+          </div>
+          <span className="text-muted text-[13px]">{p.team}</span>
+          <span className="border-border text-muted inline-flex h-6 w-fit items-center rounded-full border px-2.5 text-[11px] font-medium">
+            {p.pos}
+          </span>
+          <span className="text-muted text-[14px] tabular-nums">{p.price}</span>
+          <ConfidenceNumber value={p.conf} size="sm" animated={false} />
+          <ConfidenceTrend deltas={p.deltas} variant={variant} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Dev-only design system review page at /dev/styles.
+// The '.dev.tsx' extension is only registered in pageExtensions when
+// NODE_ENV === 'development' (see next.config.ts), so this file is completely
+// invisible to the production build — the route does not exist at all in prod.
+// Next.js App Router treats '_'-prefixed folders as private (non-routable),
 // so this lives at /dev/styles rather than /_dev/styles.
 export default function StylesPage() {
-  if (process.env.NODE_ENV !== 'development') {
-    notFound();
-  }
-
   return (
     <div className="bg-bg text-text min-h-screen font-sans">
       {/* ── Sticky header ─────────────────────────────────────────────── */}
@@ -164,45 +233,33 @@ export default function StylesPage() {
           </div>
         </Section>
 
-        {/* ── §4 Confidence number — the protagonist ──────────────────── */}
-        <Section label="04" title="Confidence number — the protagonist">
+        {/* ── §4 ConfidenceNumber — the protagonist ───────────────────── */}
+        <Section label="04" title="ConfidenceNumber — the protagonist">
           <p className="text-muted mb-8 text-[13px]">
-            Every size × every sign state. Uses Unicode minus (U+2212), not ASCII hyphen. Exposes{' '}
-            <code className="bg-surface rounded px-1 font-mono text-[12px]">data-sign</code> for
-            test assertions.
+            Real component. Three sizes × five sign states × animated on/off. Uses Unicode minus
+            (U+2212), not ASCII hyphen. Exposes{' '}
+            <code className="bg-surface rounded px-1 font-mono text-[12px]">data-sign</code> and{' '}
+            <code className="bg-surface rounded px-1 font-mono text-[12px]">data-size</code> for
+            test assertions. Animated versions count up from 0 on mount.
           </p>
 
-          {/* XL — detail page hero */}
-          <div className="mb-10">
-            <SectionSubtitle>xl — 96px — player detail hero</SectionSubtitle>
-            <div className="flex flex-wrap items-end gap-10">
-              <ConfidenceDemo value={4} size="xl" label="GW positive streak" />
-              <ConfidenceDemo value={0} size="xl" label="Neutral / opening state" />
-              <ConfidenceDemo value={-3} size="xl" label="Poor run of form" />
-              <ConfidenceDemo value={5} size="xl" label="Clamped maximum" />
-              <ConfidenceDemo value={-5} size="xl" label="Clamped minimum" />
+          {/* Animated — the default experience */}
+          <div className="mb-12">
+            <SectionSubtitle>animated=true (default) — counts up from 0 on mount</SectionSubtitle>
+            <div className="space-y-10">
+              <ConfidenceRow size="xl" label="xl — 96px — player detail hero" animated />
+              <ConfidenceRow size="md" label="md — 32px — player cards" animated />
+              <ConfidenceRow size="sm" label="sm — 16px — table cells" animated />
             </div>
           </div>
 
-          {/* MD — cards */}
-          <div className="mb-10">
-            <SectionSubtitle>md — 32px — player cards</SectionSubtitle>
-            <div className="flex flex-wrap items-end gap-8">
-              <ConfidenceDemo value={3} size="md" label="Salah" />
-              <ConfidenceDemo value={1} size="md" label="Trent" />
-              <ConfidenceDemo value={0} size="md" label="Havertz" />
-              <ConfidenceDemo value={-1} size="md" label="Isak" />
-              <ConfidenceDemo value={-4} size="md" label="Pedro" />
-            </div>
-          </div>
-
-          {/* SM — table cells */}
+          {/* Static — animated={false} */}
           <div>
-            <SectionSubtitle>sm — 16px — table cells</SectionSubtitle>
-            <div className="flex flex-wrap items-center gap-6">
-              {[5, 3, 2, 1, 0, -1, -2, -4, -5].map((v) => (
-                <ConfidenceDemo key={v} value={v} size="sm" />
-              ))}
+            <SectionSubtitle>animated=false — instant render (no count-up)</SectionSubtitle>
+            <div className="space-y-10">
+              <ConfidenceRow size="xl" label="xl — 96px" />
+              <ConfidenceRow size="md" label="md — 32px" />
+              <ConfidenceRow size="sm" label="sm — 16px" />
             </div>
           </div>
         </Section>
@@ -363,6 +420,209 @@ export default function StylesPage() {
             />
           </div>
         </Section>
+
+        {/* ── §9 ConfidenceTrend — checkpoint (a) variants ─────────────── */}
+        <Section label="09" title="ConfidenceTrend — 3 variants (choose one)">
+          <p className="text-muted mb-6 text-[13px]">
+            Five smoke-test players shown for each variant. Pick one before checkpoint (a) sign-off.
+            Variant A: accent-coloured line + semantic end-dot. Variant B: 5-slot colour bar (oldest
+            → newest, left → right). Variant C: both stacked.
+          </p>
+
+          <div className="space-y-10">
+            <div>
+              <SectionSubtitle>Variant A — Sparkline</SectionSubtitle>
+              <TrendShowcase variant="sparkline" />
+            </div>
+            <div>
+              <SectionSubtitle>Variant B — Colour strip</SectionSubtitle>
+              <TrendShowcase variant="strip" />
+            </div>
+            <div>
+              <SectionSubtitle>Variant C — Both stacked</SectionSubtitle>
+              <TrendShowcase variant="both" />
+            </div>
+          </div>
+        </Section>
+
+        {/* ── §10 EmptyFilterState ─────────────────────────────────────── */}
+        <Section label="10" title="EmptyFilterState">
+          <p className="text-muted mb-4 text-[13px]">
+            Shown when filters return 0 rows. Centered, quiet. &quot;Clear all filters&quot;
+            navigates to /players with no params. (Live component shown — button navigates when
+            clicked.)
+          </p>
+          <div className="border-border rounded-lg border">
+            {/* Static preview — mirrors EmptyFilterState without the useRouter dependency */}
+            <div className="flex flex-col items-center py-24 text-center">
+              <div className="border-border bg-surface mb-5 flex h-12 w-12 items-center justify-center rounded-full border">
+                <svg
+                  width={20}
+                  height={20}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  className="text-muted"
+                  aria-hidden="true"
+                >
+                  <circle cx={11} cy={11} r={8} />
+                  <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+                  <path d="M8 11h6" strokeLinecap="round" />
+                </svg>
+              </div>
+              <p className="text-text text-[14px] font-semibold">No players match your filters</p>
+              <p className="text-muted mt-1.5 max-w-[260px] text-[13px] leading-relaxed">
+                Try broadening your search or adjusting the position and confidence filters.
+              </p>
+              <div className="border-border bg-surface text-text hover:border-accent/40 mt-5 inline-flex h-8 items-center rounded-[6px] border px-4 text-[13px] font-medium">
+                Clear all filters
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        {/* ── §13 MatchHistoryCard — 5 event types ─────────────────────── */}
+        <Section label="13" title="MatchHistoryCard — 5 event types in isolation">
+          <p className="text-muted mb-6 text-[13px]">
+            Fixed 80px-wide card. Background tint encodes delta sign at a glance. GW label top-left,
+            BIG badge top-right when applicable. Large delta number. Confidence-after footer in
+            semantic color.
+          </p>
+          <div className="flex flex-wrap gap-3" role="list" aria-label="Sample match cards">
+            <MatchHistoryCard
+              snapshot={{
+                gameweek: 28,
+                delta: 3,
+                confidenceAfter: 4,
+                reason: 'MOTM vs big team',
+                fatigueApplied: false,
+                motmCounter: 1,
+              }}
+            />
+            <MatchHistoryCard
+              snapshot={{
+                gameweek: 25,
+                delta: 2,
+                confidenceAfter: 3,
+                reason: 'MOTM vs non-big team',
+                fatigueApplied: false,
+                motmCounter: 2,
+              }}
+            />
+            <MatchHistoryCard
+              snapshot={{
+                gameweek: 22,
+                delta: 1,
+                confidenceAfter: 1,
+                reason: 'Clean sheet vs non-big team',
+                fatigueApplied: false,
+                motmCounter: 0,
+              }}
+            />
+            <MatchHistoryCard
+              snapshot={{
+                gameweek: 30,
+                delta: -2,
+                confidenceAfter: -1,
+                reason: 'Blank vs non-big team',
+                fatigueApplied: false,
+                motmCounter: 0,
+              }}
+            />
+            <MatchHistoryCard
+              snapshot={{
+                gameweek: 32,
+                delta: -1,
+                confidenceAfter: 0,
+                reason: 'Blank vs big team',
+                fatigueApplied: false,
+                motmCounter: 0,
+              }}
+            />
+            <MatchHistoryCard
+              snapshot={{
+                gameweek: 10,
+                delta: -2,
+                confidenceAfter: -3,
+                reason: 'Assist vs non-big team (MOTM) + Clean sheet vs non-big team + Fatigue −2',
+                fatigueApplied: true,
+                motmCounter: 3,
+              }}
+            />
+          </div>
+          <p className="text-muted mt-4 text-[12px]">
+            Compound reason (last card): primary event = MOTM, fatigue clause annotated below the
+            delta.
+          </p>
+        </Section>
+
+        {/* ── §10.1 Strip refinement note ──────────────────────────────── */}
+        {/* §09 strips now use full-opacity semantic colors per decision:
+            bg-positive (green), bg-negative (red), bg-neutral/25 (gray/zero).
+            No opacity encoding of magnitude — ConfidenceNumber owns magnitude. */}
+
+        {/* ── §11 Skeleton loading rows ────────────────────────────────── */}
+        <Section label="11" title="Skeleton loading rows">
+          <p className="text-muted mb-4 text-[13px]">
+            12 rows on initial load. Grid matches PlayerRow exactly — no layout shift. animate-pulse
+            with bg-border fill.
+          </p>
+          <div
+            className="border-border bg-surface overflow-hidden rounded-lg border"
+            aria-busy="true"
+            aria-label="Loading players"
+          >
+            <div className="border-border grid grid-cols-[1fr_88px_60px_72px_72px_96px] border-b px-4 py-2.5">
+              {['Player', 'Team', 'Pos', 'Price', 'Confidence', 'Last 5'].map((h) => (
+                <span
+                  key={h}
+                  className="text-muted text-[11px] font-medium tracking-[0.05em] uppercase"
+                >
+                  {h}
+                </span>
+              ))}
+            </div>
+            {Array.from({ length: 6 }, (_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
+        </Section>
+        {/* ── §12 PlayerCard — mobile layout ──────────────────────────── */}
+        <Section label="12" title="PlayerCard — mobile layout (≤ 640px)">
+          <p className="text-muted mb-6 text-[13px]">
+            Replaces the table below the sm: breakpoint. ~80px per card. Line 1: name + md
+            ConfidenceNumber (hero). Line 2: team · pos · price + 5-square strip. Same hover pattern
+            as table rows. Container constrained to 375px to simulate mobile viewport.
+          </p>
+
+          {/* Constrain to 375px. Capture at ≥440px viewport so the card isn't clipped by px-8 margins. */}
+          <div className="max-w-[375px]">
+            <div className="border-border bg-surface overflow-hidden rounded-lg border">
+              {SMOKE_PLAYERS.map((p) => (
+                <div
+                  key={p.name}
+                  className="border-border hover:border-l-accent hover:bg-bg relative border-b px-4 py-3 last:border-0 hover:border-l-2"
+                >
+                  {/* Line 1: name | confidence */}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-text min-w-0 truncate text-[15px] leading-tight font-semibold">
+                      {p.name}
+                    </span>
+                    <ConfidenceNumber value={p.conf} size="md" animated={false} />
+                  </div>
+                  {/* Line 2: meta | strip */}
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-muted text-[12px]">
+                      {p.team} · {p.pos} · {p.price}
+                    </span>
+                    <ConfidenceTrend deltas={p.deltas} variant="strip" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Section>
       </main>
     </div>
   );
@@ -421,38 +681,29 @@ function Swatch({ bg, label, hex, bordered = false }: SwatchProps) {
   );
 }
 
-interface ConfidenceDemoProps {
-  readonly value: number;
+const SHOWCASE_VALUES = [5, 2, 0, -2, -4] as const;
+
+interface ConfidenceRowProps {
   readonly size: 'xl' | 'md' | 'sm';
-  readonly label?: string;
+  readonly label: string;
+  readonly animated?: boolean;
 }
 
-function ConfidenceDemo({ value, size, label }: ConfidenceDemoProps) {
-  const sign = value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral';
-  const colorClass =
-    sign === 'positive' ? 'text-positive' : sign === 'negative' ? 'text-negative' : 'text-neutral';
-
-  // Use Unicode minus (U+2212) for negative, not ASCII hyphen-minus
-  const display =
-    value > 0 ? `+${value.toString()}` : value < 0 ? `−${Math.abs(value).toString()}` : '0';
-
-  const sizeClass =
-    size === 'xl'
-      ? 'text-[96px] font-semibold leading-none tracking-[-0.02em]'
-      : size === 'md'
-        ? 'text-[32px] font-semibold leading-none tracking-[-0.01em]'
-        : 'text-[16px] font-medium leading-none';
-
+function ConfidenceRow({ size, label, animated = false }: ConfidenceRowProps) {
+  const gap = size === 'xl' ? 'gap-10' : size === 'md' ? 'gap-8' : 'gap-6';
   return (
-    <div className="flex flex-col items-center gap-2">
-      <span
-        className={`font-sans tabular-nums ${sizeClass} ${colorClass}`}
-        data-sign={sign}
-        aria-label={`Confidence: ${display}`}
-      >
-        {display}
-      </span>
-      {label !== undefined && <span className="text-muted text-[11px]">{label}</span>}
+    <div>
+      <p className="text-muted/60 mb-4 font-mono text-[11px]">{label}</p>
+      <div className={`flex flex-wrap items-end ${gap}`}>
+        {SHOWCASE_VALUES.map((v) => (
+          <div key={v} className="flex flex-col items-center gap-2">
+            <ConfidenceNumber value={v} size={size} animated={animated} />
+            <span className="text-muted font-mono text-[10px]">
+              {v > 0 ? `+${v.toString()}` : v.toString()}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -164,6 +164,7 @@ Forbidden: parallax, scroll-triggered reveals, decorative hover lifts, bouncy sp
 ### Dashboard (`/`)
 
 - **Top bar:** wordmark left, current Gameweek pill (e.g. "GW 32") right, theme toggle right.
+- **Team Confidence hero** (visible only when the user has linked their FPL team ID): a large percentage number (`xl` ConfidenceNumber adapted for 0–100%) centered above the risers/fallers strip. Below the number, three-line positional breakdown in small muted text — "Defence · 68%" / "Midfield · 72%" / "Attack · 55%" — tabular and right-aligned. The full breakdown links to `/my-team`. Hidden entirely when no team ID is set.
 - **Hero strip (3 cards side-by-side):**
   1. **Biggest Risers** — top 3 players by positive confidence delta this GW.
   2. **Biggest Fallers** — top 3 by negative delta.
@@ -202,6 +203,15 @@ Forbidden: parallax, scroll-triggered reveals, decorative hover lifts, bouncy sp
 - **Match history strip:** horizontal-scroll of match cards. Each card shows opponent badge + name, H/A, result, event icons (goal/assist/CS/blank) with the delta applied (+3, −1, etc.), color-coded background tint.
 - **Confidence chart:** Recharts line chart, season view. X = gameweek, Y = confidence. Threshold line at 0. **Heavily restyled** — no default colors, custom tooltip, custom ticks.
 - **Big-team breakdown:** two stat blocks: "vs Big Teams" / "vs Others". Each shows avg delta + match count.
+
+### My Team (`/my-team`)
+
+- **Empty state (no team ID entered):** centered card — FPL entry ID text input, "Load my team" primary CTA, and a subtle helper link explaining how to find your FPL team ID. No spinners, no modals. Designed and tested.
+- **Loaded state:**
+  - **Hero:** Team Confidence % in `xl` size (ConfidenceNumber adapted for 0–100%). Below: three-line positional breakdown — "Defence · 68%" / "Midfield · 72%" / "Attack · 55%" — in small muted tabular text.
+  - **Starting XI list:** 11 rows in formation order (GK → DEF → MID → FWD). Each row: jersey thumb + player name + ConfidenceNumber (`sm`). Captain annotated with "C" badge, vice-captain with "V" badge in muted style.
+  - **Bench section:** 4 rows below a section-header divider labeled "BENCH". Same row structure as starters but at 50% opacity on the jersey and name — visually subordinate.
+- Screen max-width 800px (personal view, not a leaderboard).
 
 ### Settings (`/settings`)
 

@@ -19,6 +19,10 @@ function makePlayer(overrides: Partial<DashboardPlayer> = {}): DashboardPlayer {
     latestDelta: 2,
     latestGameweek: 33,
     recentDeltas: [1, 2],
+    status: 'a',
+    chanceOfPlaying: null,
+    news: '',
+    recentAppearances: 3,
     ...overrides,
   };
 }

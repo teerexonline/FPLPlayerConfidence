@@ -15,6 +15,9 @@ function makeBenchPlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRo
     isCaptain: false,
     isViceCaptain: false,
     confidence: 0,
+    status: 'a',
+    chanceOfPlaying: null,
+    news: '',
     ...overrides,
   };
 }

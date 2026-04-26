@@ -18,6 +18,9 @@ const MOCK_DATA: MyTeamData = {
   starters: [],
   bench: [],
   syncedAt: Date.now(),
+  freeHitBypassed: false,
+  freeHitGameweek: null,
+  isGw1FreeHit: false,
 };
 
 function submitForm(): void {

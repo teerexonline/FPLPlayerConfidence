@@ -21,6 +21,10 @@ function makePlayer(id: number, position: DashboardPlayer['position']): Dashboar
     latestDelta: 1,
     latestGameweek: 33,
     recentDeltas: [1],
+    status: 'a',
+    chanceOfPlaying: null,
+    news: '',
+    recentAppearances: 3,
   };
 }
 

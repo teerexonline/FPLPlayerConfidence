@@ -10,6 +10,10 @@ export interface DashboardPlayer {
   readonly latestDelta: number;
   readonly latestGameweek: number;
   readonly recentDeltas: readonly number[];
+  readonly status: string;
+  readonly chanceOfPlaying: number | null;
+  readonly news: string;
+  readonly recentAppearances: number;
 }
 
 /** Pre-computed top-10 slices by position, for the leaderboard tabs. */

@@ -6,17 +6,22 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 /* ── Static semantic tokens ────────────────────────────────────────────────
-   Mode-invariant. These generate bg-positive, text-negative, etc.          */
+   @theme {} generates both the Tailwind utilities and the CSS custom property
+   declarations. We define base (light-mode) values here, then override the
+   dark-mode values in [data-theme='dark'] below.
+   Light contrast ratios on #ffffff (WCAG AA requires ≥4.5:1 for normal text):
+     positive #15803d 5.0:1 ✓  negative #dc2626 4.9:1 ✓  accent #1e40af 8.7:1 ✓
+   Dark contrast ratios on #141414:
+     positive #4ade80 8.1:1 ✓  negative #f87171 6.9:1 ✓  accent #60a5fa 8.0:1 ✓ */
 @theme {
-  --color-positive: #16a34a;
+  --color-positive: #15803d;
   --color-negative: #dc2626;
   --color-neutral: #a1a1aa;
   --color-accent: #1e40af;
 }
 
 /* ── Dynamic tokens ────────────────────────────────────────────────────────
-   Values reference CSS vars that flip between light/dark at runtime.
-   `inline` keeps them as var() references rather than resolving at build.  */
+   `inline` keeps these as var() references rather than resolving at build.  */
 @theme inline {
   /* Font stacks — next/font injects the actual variable at runtime */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -46,6 +51,10 @@
   --border: #1f1f1f;
   --text: #fafaf9;
   --muted: #a1a1aa;
+  /* Override semantic colors with lighter variants for WCAG AA on dark backgrounds */
+  --color-positive: #4ade80;
+  --color-negative: #f87171;
+  --color-accent: #60a5fa;
 }
 
 /* ── Base typography ───────────────────────────────────────────────────────*/

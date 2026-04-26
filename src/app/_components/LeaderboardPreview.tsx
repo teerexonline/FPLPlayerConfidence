@@ -6,6 +6,8 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
+import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
 import type { DashboardLeaderboard, DashboardPlayer } from './types';
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -102,9 +104,15 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
         GW{player.latestGameweek.toString()}
       </span>
 
-      {/* Confidence */}
-      <div role="cell" className="shrink-0">
+      {/* Confidence + status/stale indicators */}
+      <div role="cell" className="flex shrink-0 items-center gap-1.5">
         <ConfidenceNumber value={player.confidence} size="sm" animated={false} />
+        <StaleDataIndicator recentAppearances={player.recentAppearances} />
+        <PlayerStatusIndicator
+          status={player.status}
+          chanceOfPlaying={player.chanceOfPlaying}
+          news={player.news}
+        />
       </div>
     </div>
   );

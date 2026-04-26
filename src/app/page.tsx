@@ -6,7 +6,6 @@ import { WatchlistCard } from './_components/WatchlistCard';
 import { LeaderboardPreview } from './_components/LeaderboardPreview';
 import { TeamConfidenceHero } from './_components/TeamConfidenceHero';
 import { DashboardEmptyState } from './_components/DashboardEmptyState';
-import { isStale } from './_components/staleness';
 import type { DashboardData, DashboardPlayer } from './_components/types';
 
 export const dynamic = 'force-dynamic';
@@ -36,10 +35,14 @@ function loadDashboard(): DashboardData {
 
   const maxGw = currentSnapshots.reduce((m, { snapshot }) => Math.max(m, snapshot.gameweek), 0);
 
-  // Resolve current GW first — needed by the stale filter below.
   const gwRaw = repos.syncMeta.get('current_gameweek');
   const parsedGw = gwRaw ? parseInt(gwRaw, 10) : NaN;
   const currentGameweek = !isNaN(parsedGw) ? parsedGw : maxGw;
+
+  // Stale indicator: count snapshots in the last 3 GW window per player.
+  const minRecentGw = Math.max(1, currentGameweek - 2);
+  const recentAppearancesMap =
+    repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
   const players: DashboardPlayer[] = currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const numericId = Number(pid);
@@ -58,21 +61,20 @@ function loadDashboard(): DashboardData {
         latestDelta: snapshot.delta,
         latestGameweek: snapshot.gameweek,
         recentDeltas: deltaMap.get(numericId) ?? [],
+        status: player.status,
+        chanceOfPlaying: player.chance_of_playing_next_round,
+        news: player.news,
+        recentAppearances: recentAppearancesMap.get(numericId) ?? 0,
       },
     ];
   });
 
-  // Exclude players whose last snapshot is >3 GWs behind the current GW.
-  // See src/app/_components/staleness.ts for the full rationale.
-  const activePlayers = players.filter((p) => !isStale(p.latestGameweek, currentGameweek));
-
-  // Sort variants — applied to active players only, filtered by delta sign.
-  // A player with delta=0 or positive shouldn't appear in Fallers, and vice versa.
-  const byConfidenceDesc = [...activePlayers].sort((a, b) => b.confidence - a.confidence);
-  const byDeltaDesc = [...activePlayers]
+  // Sort variants — all tracked players are now shown; stale ones display a flag.
+  const byConfidenceDesc = [...players].sort((a, b) => b.confidence - a.confidence);
+  const byDeltaDesc = [...players]
     .filter((p) => p.latestDelta > 0)
     .sort((a, b) => b.latestDelta - a.latestDelta);
-  const byDeltaAsc = [...activePlayers]
+  const byDeltaAsc = [...players]
     .filter((p) => p.latestDelta < 0)
     .sort((a, b) => a.latestDelta - b.latestDelta);
 
