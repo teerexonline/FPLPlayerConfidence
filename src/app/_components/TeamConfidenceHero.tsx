@@ -56,7 +56,7 @@ function LoadedCard({ data }: { data: MyTeamData }): JSX.Element {
   return (
     <Link
       href="/my-team"
-      className="border-border bg-surface group flex flex-col rounded-[8px] border px-4 pt-5 pb-4 transition-colors hover:border-[var(--color-accent)]"
+      className="border-border bg-surface group focus-visible:ring-accent flex flex-col rounded-[8px] border px-4 pt-5 pb-4 transition-colors hover:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:outline-none"
       aria-label="My Team Confidence — view full breakdown"
     >
       <h2 className="text-muted mb-3 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
