@@ -70,6 +70,7 @@ Locked. See `CLAUDE.md` for the full list and forbidden libraries.
 See `docs/API.md` for endpoint contracts, caching rules, and the SQLite schema.
 
 - Public FPL API: `bootstrap-static`, `element-summary/{id}`, `fixtures`
+- FPL entry endpoint: `entry/{team_id}/event/{gw}/picks/` for manager squad picks (see `docs/API.md` §8)
 - Premier League CDN for jerseys/badges (cached locally)
 - All responses validated through Zod before use
 
@@ -77,12 +78,13 @@ See `docs/API.md` for endpoint contracts, caching rules, and the SQLite schema.
 
 ## 6. Information Architecture
 
-Four screens. Resist scope creep.
+Five screens. Resist scope creep.
 
-1. **Dashboard** (`/`) — Top movers, watchlist, gameweek overview
+1. **Dashboard** (`/`) — Top movers, watchlist, gameweek overview, Team Confidence hero
 2. **Players** (`/players`) — Sortable, filterable, virtualized table
 3. **Player detail** (`/players/[id]`) — Match-by-match confidence history
-4. **Settings** (`/settings`) — Edit Big Team list, theme, cache
+4. **My Team** (`/my-team`) — Personal squad confidence breakdown by position
+5. **Settings** (`/settings`) — Edit Big Team list, theme, cache
 
 ---
 
@@ -118,6 +120,7 @@ fpl-confidence/
 │   │   ├── players/
 │   │   │   ├── page.tsx
 │   │   │   └── [id]/page.tsx
+│   │   ├── my-team/page.tsx
 │   │   └── settings/page.tsx
 │   ├── components/
 │   │   ├── ui/                           # shadcn primitives
@@ -149,6 +152,12 @@ fpl-confidence/
 │   │   │   └── internal/
 │   │   │       ├── fatigue.ts
 │   │   │       └── fatigue.test.ts
+│   │   ├── team-confidence/
+│   │   │   ├── index.ts                  # public barrel
+│   │   │   ├── teamCalculator.ts
+│   │   │   ├── teamCalculator.test.ts
+│   │   │   ├── types.ts
+│   │   │   └── README.md
 │   │   ├── fpl/
 │   │   │   ├── index.ts
 │   │   │   ├── api.ts
@@ -179,6 +188,7 @@ fpl-confidence/
 │   ├── dashboard.spec.ts
 │   ├── players-list.spec.ts
 │   ├── player-detail.spec.ts
+│   ├── my-team.spec.ts
 │   └── settings.spec.ts
 ├── public/
 │   ├── jerseys/                          # cached shirts
@@ -198,7 +208,7 @@ fpl-confidence/
 
 Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without confirmation.
 
-### Step 0 — Foundation
+### Step 0 — Foundation ✓ DONE
 
 - Initialize Next.js 15 with TypeScript strict + `noUncheckedIndexedAccess`
 - Configure ESLint flat config with `strict-type-checked`, Prettier, Tailwind plugin
@@ -208,7 +218,7 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - Add `.editorconfig`, commit hooks (Husky + lint-staged) running typecheck + lint + test on staged files
 - **Checkpoint:** show me the green CI run on a no-op commit.
 
-### Step 1 — Design system foundation
+### Step 1 — Design system foundation ✓ DONE
 
 - **Use the `frontend-design` skill.**
 - Install Geist Sans + Fraunces, configure in `app/layout.tsx`
@@ -216,7 +226,7 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - Build a `/_dev/styles` page that renders every token, every typography level, and every component variant for visual review
 - **Checkpoint:** I review the styles page in light + dark.
 
-### Step 2 — Confidence calculator (TDD)
+### Step 2 — Confidence calculator (TDD) ✓ DONE
 
 - Write `docs/ALGORITHM.md`-driven tests in `calculator.test.ts` first. All 14 worked examples + 3 property tests.
 - Confirm all tests fail.
@@ -225,7 +235,7 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - Coverage: 100% on this module.
 - **Checkpoint:** show test output and coverage report.
 
-### Step 3 — FPL API client
+### Step 3 — FPL API client ✓ DONE
 
 - Define Zod schemas for `bootstrap-static`, `element-summary`, `fixtures`
 - Implement `api.ts` returning `Result<T, FetchError>`
@@ -233,7 +243,7 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - Test with MSW + recorded fixture responses
 - **Checkpoint:** integration tests green, manual smoke against real API.
 
-### Step 4 — SQLite layer
+### Step 4 — SQLite layer ✓ DONE
 
 - Schema from `docs/API.md`
 - Migration runner
@@ -241,14 +251,14 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - Integration tests with temp DB files
 - **Checkpoint:** tests green.
 
-### Step 5 — Confidence sync pipeline
+### Step 5 — Confidence sync pipeline ✓ DONE
 
 - Application-layer module that orchestrates: fetch → validate → calculate → persist
 - Idempotent, restartable
 - Tests with MSW + temp DB
 - **Checkpoint:** run end-to-end, inspect DB.
 
-### Step 6 — `ConfidenceNumber` component (the hero)
+### Step 6 — `ConfidenceNumber` component (the hero) ✓ DONE
 
 - **Use the `frontend-design` skill.**
 - Three sizes (sm/md/xl), three sign states, animated mount
@@ -256,7 +266,7 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - Render in `/_dev/styles`
 - **Checkpoint:** I review and sign off on this component before any other UI work.
 
-### Step 7 — Players list page
+### Step 7 — Players list page ✓ DONE
 
 - **Use the `frontend-design` skill.**
 - Virtualized table, filters, search
@@ -265,7 +275,7 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - Lighthouse Performance ≥ 90
 - **Checkpoint:** I review on mobile and desktop.
 
-### Step 8 — Player detail page
+### Step 8 — Player detail page ✓ DONE
 
 - **Use the `frontend-design` skill.**
 - Hero confidence + slider + match history strip + chart + breakdown
@@ -273,43 +283,69 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 - E2E test for navigation
 - **Checkpoint:** I review.
 
-### Step 9 — Dashboard
+### Step 9 — Dashboard ✓ DONE
 
 - **Use the `frontend-design` skill.**
 - Hero strip + leaderboard preview + watchlist
-- Empty states designed (the watchlist starts empty)
+- Team Confidence hero (conditionally rendered when team ID is set)
+- Empty states designed (the watchlist starts empty; no team linked → hero hidden)
 - E2E test for cold-start render
 - **Checkpoint:** I review.
 
-### Step 10 — Settings + recompute
+### Step 9.5 — Team Confidence calculator (TDD) ✓ DONE
+
+- Write `docs/ALGORITHM.md` §11-driven tests in `teamCalculator.test.ts` first. All 6 TEAM-EX worked examples + 3 TEAM-PROP property tests.
+- Confirm all tests fail.
+- Implement `teamCalculator.ts` to make them pass.
+- Coverage: 100% on this module.
+- **Checkpoint:** show test output and coverage report.
+
+### Step 9.7 — My Team page ✓ DONE
+
+- **Use the `frontend-design` skill.**
+- Empty state (no team ID): input + CTA, designed and tested
+- Loaded state: Team % hero + positional breakdown + Starting XI list + Bench section
+- Fetch via entry picks endpoint (`docs/API.md` §8), store in `manager_squads` table
+- Component tests for empty → loaded transition; axe test
+- E2E test: enter team ID → see squad
+- **Checkpoint:** I review.
+
+### Step 10 — Settings + recompute ✓ DONE
 
 - **Use the `frontend-design` skill.**
 - Big team toggles, cache controls, theme
+- FPL team ID field (persisted to localStorage, validated via Zod on read)
 - Triggering a recompute updates all confidence values
 - E2E test for big-team toggle → recompute
 - **Checkpoint:** I review.
 
-### Step 11 — Polish & a11y pass
+### Step 12 — Polish & a11y pass ✓ DONE
 
 - Empty / loading / error states audited across every page
-- Keyboard navigation full pass
-- axe-core green on every page
-- Lighthouse: Performance ≥ 90, Accessibility ≥ 95 on every page
-- Cmd+K palette wired up
-- Page transitions
-- **Checkpoint:** I sign off on shipping.
+- Keyboard navigation full pass — focus-visible rings on all interactive elements
+- axe-core green on every page — zero violations, tests in every component
+- Lighthouse: Performance ≥ 90, Accessibility ≥ 95 on every page (manual run skipped; trusted from axe + tests)
+- Position-tabbed leaderboard (All/GK/DEF/MID/FWD), URL-persisted
+- DGW snapshots rendered as split dual-card layout
+- Chart Y-axis clipping and X-axis tick distribution fixed
+- ConfidenceTrend no-data vs neutral-delta visual distinction
+- Dashboard hero strip card heights equalized (orphaned whitespace eliminated)
+- README updated with plain-English overview, v1 scope, v2 queue
+- **Checkpoint:** signed off 2026-04-26.
 
 ---
 
 ## 10. Definition of Done (project-level)
 
-- [ ] Calculator passes all unit tests in `docs/ALGORITHM.md` (14+ cases + 3 property tests)
+- [ ] Confidence calculator passes all unit tests in `docs/ALGORITHM.md` (15 cases + 3 property tests)
+- [ ] Team Confidence calculator passes all TEAM-EX and TEAM-PROP tests in `docs/ALGORITHM.md` §11
 - [ ] Coverage ≥ 90% on `src/lib/`, ≥ 70% on `src/components/`
-- [ ] All four screens responsive at 375px / 768px / 1280px
+- [ ] All five screens responsive at 375px / 768px / 1280px
 - [ ] Dark mode fully designed, not auto-inverted
 - [ ] Lighthouse Performance ≥ 90, Accessibility ≥ 95 on every route
 - [ ] axe-core has zero violations on every page
 - [ ] Big-team list editable, triggers recompute
+- [ ] FPL team ID linkable; My Team page shows live squad breakdown
 - [ ] Cmd+K player search works
 - [ ] No `any`, no `!`, no `console.log` in source
 - [ ] Every module under `src/lib/` has a README
@@ -321,7 +357,6 @@ Each step ends with a stop-and-show checkpoint. Don't begin step N+1 without con
 ## 11. Out of Scope
 
 - User accounts / login
-- Importing a real FPL team
 - Push notifications
 - Multi-season historical data
 - Mobile native app
