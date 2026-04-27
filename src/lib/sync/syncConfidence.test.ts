@@ -269,6 +269,10 @@ const GW_HISTORY: ElementSummary['history'][number] = {
   clean_sheets: 0,
   saves: 0,
   defensive_contribution: 0,
+  total_points: 0,
+  influence: 0,
+  creativity: 0,
+  threat: 0,
 };
 
 function makeSummary(overrides: Partial<ElementSummary['history'][number]> = {}): ElementSummary {
@@ -515,6 +519,10 @@ describe('syncConfidence', () => {
           clean_sheets: 0,
           saves: 0,
           defensive_contribution: 0,
+          total_points: 0,
+          influence: 0,
+          creativity: 0,
+          threat: 0,
         },
         {
           round: 33,
@@ -526,6 +534,10 @@ describe('syncConfidence', () => {
           clean_sheets: 0,
           saves: 0,
           defensive_contribution: 0,
+          total_points: 0,
+          influence: 0,
+          creativity: 0,
+          threat: 0,
         },
       ],
     };
@@ -595,6 +607,10 @@ describe('syncConfidence', () => {
           clean_sheets: 0,
           saves: 0,
           defensive_contribution: 0,
+          total_points: 0,
+          influence: 0,
+          creativity: 0,
+          threat: 0,
         },
         {
           round: 33,
@@ -606,6 +622,10 @@ describe('syncConfidence', () => {
           clean_sheets: 0,
           saves: 0,
           defensive_contribution: 0,
+          total_points: 0,
+          influence: 0,
+          creativity: 0,
+          threat: 0,
         },
         {
           round: 33,
@@ -617,6 +637,10 @@ describe('syncConfidence', () => {
           clean_sheets: 0,
           saves: 0,
           defensive_contribution: 0,
+          total_points: 0,
+          influence: 0,
+          creativity: 0,
+          threat: 0,
         },
       ],
     };

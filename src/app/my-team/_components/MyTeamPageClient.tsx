@@ -153,6 +153,12 @@ export function MyTeamPageClient(): JSX.Element {
           const body = (await res.json()) as { error: MyTeamApiError };
           if (body.error === 'PRE_SEASON') {
             setFetchState({ kind: 'pre_season' });
+          } else if (existingState !== undefined) {
+            // Historical GW navigation failed (e.g. FPL returned 404 for a GW
+            // the manager didn't play, or a transient error). Restore the
+            // previous loaded state — the user stays connected and the scrubber
+            // remains usable at the last successfully fetched GW.
+            setFetchState(existingState);
           } else {
             localStorage.removeItem(LS_KEY);
             setFetchState({ kind: 'idle' });
@@ -161,6 +167,10 @@ export function MyTeamPageClient(): JSX.Element {
       })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name === 'AbortError') return;
+        if (existingState !== undefined) {
+          setFetchState(existingState);
+          return;
+        }
         setFetchState({
           kind: 'error',
           message: 'Could not load your team. Check your connection and try again.',
