@@ -1,104 +1,80 @@
 # Probability Model Calibration Results
 
-**Generated:** 2026-04-27T11:11:20.439Z
-**Model version:** v1.3.2 (MAX_INVOLVEMENT_RATIO=0.15)
 **Season:** 2025/26 (single-season; multi-season validation deferred)
 **GW range:** GW 5–33 (GW 1–4 excluded as warmup)
 **Total predictions:** 8699
 
 ---
 
-## Verdict: ❌ FAIL
-
-One or more acceptance criteria failed — see details below.
-
-**Goal model failures:**
-
-- FWD MACE 15.4pp exceeds threshold
-- Brier score 0.0729 ≥ baseline 0.0711
-
-**Assist model failures:**
-
-- Brier score 0.0726 ≥ baseline 0.0722
+## Current Verdict: ❌ FAIL (Iteration 2 in progress)
 
 ---
 
-## Overall Metrics
+## v1.4 Calibration — Iteration History
+
+### Iteration 1 — GK{goal:0.0,assist:0.05} DEF{goal:0.7,assist:1.0} MID{goal:1.0,assist:1.0} FWD{goal:1.5,assist:0.8}
+
+**Generated:** 2026-04-27T18:42:53Z · Model: v1.3.3
 
 | Metric         | Goal model | Assist model |
 | -------------- | ---------- | ------------ |
-| MACE (overall) | 2.9pp      | 1.3pp        |
-| Brier score    | 0.0729     | 0.0726       |
+| MACE (overall) | 3.4pp      | 1.2pp        |
+| Brier score    | 0.0723     | 0.0727       |
 | Baseline Brier | 0.0711     | 0.0722       |
 | Beats baseline | No ❌      | No ❌        |
 
----
-
-## Calibration Buckets
-
-### P(Goal) calibration
-
-| Bucket  | N    | Events | Observed | Expected | Error        |
-| ------- | ---- | ------ | -------- | -------- | ------------ |
-| 0–10%   | 7657 | 479    | 6.3%     | 5.0%     | 1.3pp        |
-| 10–20%  | 880  | 184    | 20.9%    | 15.0%    | 5.9pp        |
-| 20–30%  | 158  | 37     | 23.4%    | 25.0%    | 1.6pp        |
-| 30–40%  | 4    | 1      | 25.0%    | 35.0%    | — _(sparse)_ |
-| 40–50%  | 0    | 0      | 0.0%     | 45.0%    | — _(sparse)_ |
-| 50–60%  | 0    | 0      | 0.0%     | 55.0%    | — _(sparse)_ |
-| 60–70%  | 0    | 0      | 0.0%     | 65.0%    | — _(sparse)_ |
-| 70–80%  | 0    | 0      | 0.0%     | 75.0%    | — _(sparse)_ |
-| 80–90%  | 0    | 0      | 0.0%     | 85.0%    | — _(sparse)_ |
-| 90–100% | 0    | 0      | 0.0%     | 95.0%    | — _(sparse)_ |
-
-### P(Assist) calibration
-
-| Bucket  | N    | Events | Observed | Expected | Error        |
-| ------- | ---- | ------ | -------- | -------- | ------------ |
-| 0–10%   | 7078 | 458    | 6.5%     | 5.0%     | 1.5pp        |
-| 10–20%  | 1375 | 172    | 12.5%    | 15.0%    | 2.5pp        |
-| 20–30%  | 240  | 60     | 25.0%    | 25.0%    | 0.0pp        |
-| 30–40%  | 6    | 0      | 0.0%     | 35.0%    | — _(sparse)_ |
-| 40–50%  | 0    | 0      | 0.0%     | 45.0%    | — _(sparse)_ |
-| 50–60%  | 0    | 0      | 0.0%     | 55.0%    | — _(sparse)_ |
-| 60–70%  | 0    | 0      | 0.0%     | 65.0%    | — _(sparse)_ |
-| 70–80%  | 0    | 0      | 0.0%     | 75.0%    | — _(sparse)_ |
-| 80–90%  | 0    | 0      | 0.0%     | 85.0%    | — _(sparse)_ |
-| 90–100% | 0    | 0      | 0.0%     | 95.0%    | — _(sparse)_ |
-
----
-
-## Position-Stratified Results
+**Position-stratified:**
 
 | Position | N    | Goal MACE | Goal Brier | Assist MACE | Assist Brier |
 | -------- | ---- | --------- | ---------- | ----------- | ------------ |
 | GK       | 576  | 5.0pp     | 0.0000     | 4.7pp       | 0.0035       |
-| DEF      | 2986 | 1.5pp     | 0.0343     | 4.1pp       | 0.0579       |
-| MID      | 4059 | 3.5pp     | 0.0839     | 2.7pp       | 0.0946       |
-| FWD      | 1078 | 15.4pp    | 0.1768     | 2.1pp       | 0.0678       |
+| DEF      | 2986 | 1.4pp     | 0.0344     | 4.0pp       | 0.0577       |
+| MID      | 4059 | 2.5pp     | 0.0841     | 3.0pp       | 0.0949       |
+| FWD      | 1078 | 11.8pp    | 0.1711     | 1.8pp       | 0.0678       |
+
+**Goal calibration buckets:**
+
+| Bucket | N    | Events | Observed | Expected | Error        |
+| ------ | ---- | ------ | -------- | -------- | ------------ |
+| 0–10%  | 7653 | 470    | 6.1%     | 5.0%     | 1.1pp        |
+| 10–20% | 838  | 170    | 20.3%    | 15.0%    | 5.3pp        |
+| 20–30% | 188  | 54     | 28.7%    | 25.0%    | 3.7pp        |
+| 30–40% | 17   | 5      | 29.4%    | 35.0%    | — _(sparse)_ |
+| 40–50% | 3    | 2      | 66.7%    | 45.0%    | — _(sparse)_ |
+
+**Assist calibration buckets:**
+
+| Bucket | N    | Events | Observed | Expected | Error |
+| ------ | ---- | ------ | -------- | -------- | ----- |
+| 0–10%  | 7228 | 473    | 6.5%     | 5.0%     | 1.5pp |
+| 10–20% | 1295 | 173    | 13.4%    | 15.0%    | 1.6pp |
+| 20–30% | 173  | 44     | 25.4%    | 25.0%    | 0.4pp |
+
+**Failures:**
+
+- FWD goal MACE 11.8pp (threshold 5pp)
+- Goal Brier 0.0723 ≥ baseline 0.0711
+- Assist Brier 0.0727 ≥ baseline 0.0722 (marginal)
+
+**Analysis:** FWD goal multiplier 1.5 improved FWD MACE from 15.4pp → 11.8pp but still under-predicting. The 10-20% goal bucket observed 20.3% vs 15% expected (5.3pp error) — most of the error attributable to FWDs. DEF/MID/GK within threshold. Assist multipliers stable. Goal Brier above baseline is a consequence of the 10-20% bucket miscalibration: predictions of ~15% but actuals ~20%.
+
+**Action for iteration 2:** Increase FWD goal multiplier 1.5 → 2.0 (33%, within 50% cap). Observed/predicted ratio in the critical bucket ≈ 27%/15% = 1.8 → target 2.7, capped at 2.25; choosing 2.0 to avoid overshoot. All other multipliers unchanged.
 
 ---
 
-## Calibration History
+_Iteration 2 results will be appended below after the backtest completes._
+
+---
+
+## v1.3.2 Calibration History (pre-v1.4, single global constant)
 
 | Attempt           | Constant | Goal MACE | Assist MACE | Verdict                                      |
 | ----------------- | -------- | --------- | ----------- | -------------------------------------------- |
 | v1.3.1 (baseline) | —        | 28.7pp    | 23.7pp      | FAIL — cap saturation (46% at MAX_GOAL_PROB) |
 | v1.3.2 attempt 1  | 0.15     | 2.9pp ✓   | 1.3pp ✓     | FAIL — FWD MACE 15.4pp, Brier above baseline |
-| v1.3.2 attempt 2  | 0.20     | 4.5pp ✓   | 10.4pp ✗    | FAIL — assist model overshot, kept 0.15      |
+| v1.3.2 attempt 2  | 0.20     | 4.5pp ✓   | 10.4pp ✗    | FAIL — assist overshot, kept 0.15            |
 
-**Current state:** `MAX_INVOLVEMENT_RATIO = 0.15` (attempt 1). Overall MACE passes for both models. Residual failures:
-
-- FWD position-specific goal MACE (15.4pp): FWDs score ~21% of the time in the 10–20% prediction bucket, vs 15% expected. The ICT-based ranking within the FWD cohort does not fully differentiate top strikers from squad attackers.
-- Brier scores marginally above baseline (0.0729 vs 0.0711 goal; 0.0726 vs 0.0722 assist) — the model is slightly miscalibrated in the 10–20% bucket where it predicts 15% but observes ~21%.
-
-**Do not proceed to UI integration until these failures are resolved.** Root cause is structural: a single global constant cannot simultaneously calibrate goal and assist models across all four positions. Next step requires either position-specific constants or a different involvement decomposition.
-
-**Next steps (v1.4 work, requires user approval):**
-
-1. Introduce separate `INVOLVEMENT_RATIO_GOAL` and `INVOLVEMENT_RATIO_ASSIST` constants.
-2. Or: apply position-specific scaling on top of the global constant (e.g., FWD goal involvement ×1.3).
-3. Or: replace the percentile → probability mapping with an isotonic regression calibration layer trained on this backtest data.
+**Root cause (v1.3.2):** A single global constant cannot simultaneously calibrate all positions. FWD scoring rates are structurally higher — resolved in v1.3.3 with position-specific INVOLVEMENT_MULTIPLIERS.
 
 ---
 

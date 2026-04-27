@@ -111,7 +111,7 @@ describe('predict — spec test cases', () => {
     const league = buildLeagueData(players);
     const starStriker = at(players, players.length - 1);
     // Top-percentile FWD (0.95 pct in 10-player cohort), FDR1 vs FDR3, 90 min.
-    // BASE_INVOLVEMENT_RATIO=0.15 + FWD goal multiplier 1.5: lambda ≈ 0.61 → p_goal ≈ 0.46.
+    // BASE_INVOLVEMENT_RATIO=0.15 + FWD goal multiplier 2.0: lambda ≈ 0.82 → p_goal ≈ 0.56.
     const result = predict(
       starStriker.id,
       starStriker,
@@ -254,10 +254,10 @@ describe('predict — spec test cases', () => {
     expect(result.pGoal).toBeLessThan(0.1);
   });
 
-  it('(9) top-percentile striker FDR1 at 90 min → p_goal in [0.30, 0.55]', () => {
+  it('(9) top-percentile striker FDR1 at 90 min → p_goal in [0.40, 0.65]', () => {
     // Top FWD (0.95 pct in a 10-player cohort) vs easy FDR1 fixture at 90 min.
-    // BASE=0.15 + FWD goal multiplier 1.5: pGoalPerEvent=(0.95×0.15)×(0.95×0.15×1.5)≈0.0305,
-    // team_events≈20.2 (FDR1 vs FDR3), lambda≈0.61 → p_goal≈0.46.
+    // BASE=0.15 + FWD goal multiplier 2.0: pGoalPerEvent=(0.95×0.15)×(0.95×0.15×2.0)≈0.0406,
+    // team_events≈20.2 (FDR1 vs FDR3), lambda≈0.82 → p_goal≈0.56.
     const players = makeFwdLeague();
     const league = buildLeagueData(players);
     const starStriker = at(players, players.length - 1);
@@ -267,8 +267,8 @@ describe('predict — spec test cases', () => {
       { playerTeamFdr: 1, opponentTeamFdr: 3, expectedMinutes: 90 },
       league,
     );
-    expect(result.pGoal).toBeGreaterThan(0.3);
-    expect(result.pGoal).toBeLessThan(0.55);
+    expect(result.pGoal).toBeGreaterThan(0.4);
+    expect(result.pGoal).toBeLessThan(0.65);
   });
 });
 
