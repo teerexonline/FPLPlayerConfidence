@@ -134,24 +134,23 @@ export function ConfidenceChart({
     fontFamily: 'var(--font-geist-sans, ui-sans-serif)',
   } as const;
 
-  // Compute evenly-spaced X ticks: first, ~quarter, ~half, ~three-quarter, last.
+  // Compute evenly-spaced X ticks from data-array indices.
+  // XAxis type="category" places points by array position, not by GW value, so we
+  // must pick ticks from actual data points at evenly-distributed indices.
   const xTicks = (() => {
     if (data.length === 0) return [];
-    const firstPoint = data[0];
-    const lastPoint = data[data.length - 1];
-    if (firstPoint === undefined || lastPoint === undefined) return [];
-    const first = firstPoint.gameweek;
-    const last = lastPoint.gameweek;
-    if (first === last) return [first];
-    const span = last - first;
-    const candidates = [
-      first,
-      first + Math.round(span * 0.25),
-      first + Math.round(span * 0.5),
-      first + Math.round(span * 0.75),
-      last,
+    const lastIdx = data.length - 1;
+    const indices = [
+      0,
+      Math.round(lastIdx * 0.25),
+      Math.round(lastIdx * 0.5),
+      Math.round(lastIdx * 0.75),
+      lastIdx,
     ];
-    return [...new Set(candidates)];
+    return [...new Set(indices)].flatMap((i) => {
+      const point = data[i];
+      return point !== undefined ? [point.gameweek] : [];
+    });
   })();
 
   if (data.length === 0) {
@@ -171,7 +170,7 @@ export function ConfidenceChart({
 
       <div className="mt-4" style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 16, left: -16 }}>
+          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 16, left: 0 }}>
             {/* Zero threshold */}
             <ReferenceLine
               y={0}
@@ -180,25 +179,26 @@ export function ConfidenceChart({
               strokeDasharray="4 3"
             />
 
-            {/* Y axis: -5 .. +5 with minimal labels; tickMargin prevents bottom clipping */}
+            {/* Y axis: -5..+5 with minimal labels */}
             <YAxis
               domain={[-5, 5]}
               ticks={[-5, -3, 0, 3, 5]}
               tick={tickStyle}
               axisLine={false}
               tickLine={false}
-              width={28}
+              width={32}
               tickMargin={4}
               tickFormatter={(v: number) => (v > 0 ? `+${v.toString()}` : v.toString())}
             />
 
-            {/* X axis: evenly-spaced GW ticks computed from data range */}
+            {/* X axis: evenly-spaced GW ticks; interval={0} forces all to render */}
             <XAxis
               dataKey="gameweek"
               tick={tickStyle}
               axisLine={false}
               tickLine={false}
               ticks={xTicks}
+              interval={0}
               tickFormatter={(v: number) => v.toString()}
               dy={6}
             />
