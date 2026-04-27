@@ -21,7 +21,7 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
           {player.squadPosition.toString()}
         </span>
 
-        {/* Jersey — reduced opacity to signal bench status */}
+        {/* Jersey — slight fade signals bench status without looking broken */}
         {player.teamCode > 0 && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -30,16 +30,16 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
             aria-hidden="true"
             width={28}
             height={36}
-            className="h-7 w-7 shrink-0 object-contain opacity-50"
+            className="h-7 w-7 shrink-0 object-contain opacity-60"
           />
         )}
 
-        {/* Name + team — reduced opacity */}
-        <div className="min-w-0 flex-1 opacity-60">
-          <p className="text-text group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
+        {/* Name + team — muted text instead of opacity so content remains readable */}
+        <div className="min-w-0 flex-1">
+          <p className="text-muted group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
             {player.webName}
           </p>
-          <p className="text-muted font-sans text-[11px] leading-tight">
+          <p className="text-muted/60 font-sans text-[11px] leading-tight">
             {player.teamShortName} · {player.position}
           </p>
         </div>
@@ -54,8 +54,8 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
           news={player.news}
         />
 
-        {/* Confidence — also reduced opacity */}
-        <div className="w-8 shrink-0 text-right opacity-60">
+        {/* Confidence — full opacity so the value is readable */}
+        <div className="w-8 shrink-0 text-right">
           <ConfidenceNumber value={player.confidence} size="sm" animated={false} />
         </div>
       </Link>
