@@ -47,6 +47,11 @@ function LoadedView({
   const midfieldCount = starters.filter((p) => p.position === 'MID').length;
   const attackCount = starters.filter((p) => p.position === 'FWD').length;
 
+  // Earliest GW for which we have (or can fetch) squad data.
+  // All GWs from firstGw to currentGameweek are shown as clickable pills;
+  // GWs before firstGw remain "—" (no squad data and none fetchable).
+  const firstGw = availableGwSet.size > 0 ? Math.min(...availableGwSet) : data.currentGameweek;
+
   return (
     <main className="bg-bg text-text min-h-screen font-sans">
       <div className="mx-auto max-w-[800px] px-4 sm:px-8">
@@ -64,7 +69,7 @@ function LoadedView({
 
         <GwTimeline
           currentGameweek={data.currentGameweek}
-          availableGameweeks={availableGwSet}
+          firstGameweek={firstGw}
           selectedGw={selectedGw}
           onSelectGw={onSelectGw}
         />
