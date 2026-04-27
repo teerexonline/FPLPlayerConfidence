@@ -43,7 +43,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
           {webName}
         </span>
         <div className="flex shrink-0 items-center gap-1.5">
-          <ConfidenceNumber value={confidence} size="md" animated={false} />
+          <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />
           <StaleDataIndicator recentAppearances={recentAppearances} />
           <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
         </div>

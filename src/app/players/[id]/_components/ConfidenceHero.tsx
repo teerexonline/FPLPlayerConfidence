@@ -55,7 +55,7 @@ export function ConfidenceHero({
   if (!hasSnapshots) {
     return (
       <section aria-label="Player confidence" className="flex flex-col items-center gap-6 py-10">
-        <ConfidenceNumber value={0} size="xl" animated={false} />
+        <ConfidenceNumber value={0} mode="c" size="xl" animated={false} />
         <ConfidenceSlider value={0} />
         <p className="text-muted text-center text-[13px]">No matches recorded this season yet.</p>
       </section>
@@ -66,7 +66,7 @@ export function ConfidenceHero({
     <section aria-label="Player confidence" className="flex flex-col items-center gap-6 py-10">
       {/* Hero number — 96px, color-coded, count-up from 0 */}
       <div aria-live="polite">
-        <ConfidenceNumber value={confidence} size="xl" animated={animated} />
+        <ConfidenceNumber value={confidence} mode="c" size="xl" animated={animated} />
       </div>
 
       {/* Slider — pill glides from center to final position, then pulses */}

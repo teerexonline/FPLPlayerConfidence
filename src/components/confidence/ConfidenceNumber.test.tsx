@@ -141,3 +141,65 @@ describe('ConfidenceNumber', () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 });
+
+// ── mode prop (G / A probability display) ────────────────────────────────────
+
+describe('ConfidenceNumber — mode prop', () => {
+  it('mode="g" renders a raw probability as a percentage (0.35 → "35%")', () => {
+    render(<ConfidenceNumber value={0.35} mode="g" animated={false} />);
+    expect(screen.getByText('35%')).toBeInTheDocument();
+  });
+
+  it('mode="a" renders a raw probability as a percentage (0.2 → "20%")', () => {
+    render(<ConfidenceNumber value={0.2} mode="a" animated={false} />);
+    expect(screen.getByText('20%')).toBeInTheDocument();
+  });
+
+  it('mode="g" renders 0 as "0%"', () => {
+    render(<ConfidenceNumber value={0} mode="g" animated={false} />);
+    expect(screen.getByText('0%')).toBeInTheDocument();
+  });
+
+  it('mode="g" renders 1.0 as "100%"', () => {
+    render(<ConfidenceNumber value={1.0} mode="g" animated={false} />);
+    expect(screen.getByText('100%')).toBeInTheDocument();
+  });
+
+  it('mode="g" does not include a sign prefix', () => {
+    render(<ConfidenceNumber value={0.35} mode="g" animated={false} />);
+    expect(screen.queryByText('+35%')).not.toBeInTheDocument();
+    expect(screen.queryByText('-35%')).not.toBeInTheDocument();
+  });
+
+  it('mode="g" uses accent color (data-sign="accent")', () => {
+    render(<ConfidenceNumber value={0.35} mode="g" animated={false} />);
+    expect(screen.getByText('35%')).toHaveAttribute('data-sign', 'accent');
+  });
+
+  it('mode="a" uses accent color (data-sign="accent")', () => {
+    render(<ConfidenceNumber value={0.2} mode="a" animated={false} />);
+    expect(screen.getByText('20%')).toHaveAttribute('data-sign', 'accent');
+  });
+
+  it('mode="g" aria-label says "Goal probability"', () => {
+    render(<ConfidenceNumber value={0.35} mode="g" animated={false} />);
+    expect(screen.getByText('35%')).toHaveAttribute('aria-label', 'Goal probability: 35%');
+  });
+
+  it('mode="a" aria-label says "Assist probability"', () => {
+    render(<ConfidenceNumber value={0.2} mode="a" animated={false} />);
+    expect(screen.getByText('20%')).toHaveAttribute('aria-label', 'Assist probability: 20%');
+  });
+
+  it('mode="c" (explicit) preserves existing confidence behavior', () => {
+    render(<ConfidenceNumber value={3} mode="c" animated={false} />);
+    const el = screen.getByText('80%');
+    expect(el).toHaveAttribute('data-sign', 'positive');
+    expect(el).toHaveAttribute('aria-label', 'Confidence: 80%');
+  });
+
+  it('mode="g" has no accessibility violations (axe)', async () => {
+    const { container } = render(<ConfidenceNumber value={0.35} mode="g" animated={false} />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+});

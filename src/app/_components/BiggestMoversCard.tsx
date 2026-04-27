@@ -82,7 +82,7 @@ function MoverRow({ player, variant, rank }: MoverRowProps): JSX.Element {
 
       {/* Confidence number */}
       <div className="w-8 shrink-0 text-right">
-        <ConfidenceNumber value={player.confidence} size="sm" animated={false} />
+        <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
       </div>
     </Link>
   );

@@ -106,7 +106,7 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
 
       {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex shrink-0 items-center gap-1.5">
-        <ConfidenceNumber value={player.confidence} size="sm" animated={false} />
+        <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
         <StaleDataIndicator recentAppearances={player.recentAppearances} />
         <PlayerStatusIndicator
           status={player.status}

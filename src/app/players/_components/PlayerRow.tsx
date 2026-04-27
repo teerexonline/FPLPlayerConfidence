@@ -97,7 +97,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
 
       {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex items-center gap-1.5">
-        <ConfidenceNumber value={confidence} size="sm" animated={false} />
+        <ConfidenceNumber value={confidence} mode="c" size="sm" animated={false} />
         <StaleDataIndicator recentAppearances={recentAppearances} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
       </div>

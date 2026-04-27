@@ -63,7 +63,7 @@ function TrendShowcase({ variant }: TrendShowcaseProps) {
             {p.pos}
           </span>
           <span className="text-muted text-[14px] tabular-nums">{p.price}</span>
-          <ConfidenceNumber value={p.conf} size="sm" animated={false} />
+          <ConfidenceNumber value={p.conf} mode="c" size="sm" animated={false} />
           <ConfidenceTrend deltas={p.deltas} variant={variant} />
         </div>
       ))}
@@ -620,7 +620,7 @@ export default function StylesPage() {
                     <span className="text-text min-w-0 truncate text-[15px] leading-tight font-semibold">
                       {p.name}
                     </span>
-                    <ConfidenceNumber value={p.conf} size="md" animated={false} />
+                    <ConfidenceNumber value={p.conf} mode="c" size="md" animated={false} />
                   </div>
                   {/* Line 2: meta | strip */}
                   <div className="mt-1.5 flex items-center justify-between">
@@ -708,7 +708,7 @@ function ConfidenceRow({ size, label, animated = false }: ConfidenceRowProps) {
       <div className={`flex flex-wrap items-end ${gap}`}>
         {SHOWCASE_VALUES.map((v) => (
           <div key={v} className="flex flex-col items-center gap-2">
-            <ConfidenceNumber value={v} size={size} animated={animated} />
+            <ConfidenceNumber value={v} mode="c" size={size} animated={animated} />
             <span className="text-muted font-mono text-[10px]">
               {v > 0 ? `+${v.toString()}` : v.toString()}
             </span>
