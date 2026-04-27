@@ -2,7 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { fetchEntryInfo, fetchEntryPicks } from '@/lib/fpl/api';
-import { resolveFreeHit } from '@/lib/fpl/freehit';
+import { resolveSquadPicks } from '@/lib/fpl/resolveSquadPicks';
 import { getRepositories } from '@/lib/db/server';
 import { calculateTeamConfidence, confidenceToPercent } from '@/lib/team-confidence';
 import { createLogger } from '@/lib/logger';
@@ -21,20 +21,15 @@ function errorResponse(code: MyTeamApiError, status: number): NextResponse {
 /**
  * GET /api/my-team?teamId={n}
  *
- * Loads a manager's squad for the most recently completed gameweek (Option A:
- * currentGW − 1). When the manager played the Free Hit chip on that GW, falls
- * back one further GW so we show their regular squad rather than the temporary
- * FH picks. Single fallback only.
- *
- * Steps:
- *  1. Validate teamId param.
- *  2. Resolve target gameweek from sync_meta (currentGW − 1).
- *  3. Fetch picks (check for Free Hit) + entry info from FPL API.
- *  4. If FH detected and GW > 1, fetch picks one GW earlier.
+ * Loads a manager's squad for the current gameweek. Fetch strategy:
+ *  1. Try currentGw — a 200 means the deadline has passed; use those picks.
+ *  2. A 404 means deadline not yet passed; fall back to currentGw-1 (preDeadlineFallback=true).
+ *  3. Both GWs 404, or currentGw < 1 → PRE_SEASON (503).
+ *  4. Free Hit detection: if the resolved GW has FH chip, step back one more GW.
  *  5. Upsert squad to manager_squads cache.
  *  6. Join picks against confidence_snapshots.
  *  7. Run calculateTeamConfidence.
- *  8. Return MyTeamData JSON.
+ *  8. Return MyTeamData JSON with preDeadlineFallback and FH metadata.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   // Route handler query parsing — URL.searchParams is synchronous here.
@@ -64,29 +59,40 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (maxGw > 0) currentGw = maxGw;
   }
 
-  if (isNaN(currentGw) || currentGw < 2) {
+  if (isNaN(currentGw) || currentGw < 1) {
     logger.error('GET /api/my-team: cannot resolve current_gameweek', {});
     return errorResponse('NO_GAMEWEEK_DATA', 503);
   }
 
-  const initialTargetGw = currentGw - 1;
+  // Start entry info fetch immediately so it overlaps with the first picks fetch.
+  const infoPromise = fetchEntryInfo(teamId);
 
-  // Fetch picks + entry info in parallel — both calls are cached by Next.js.
-  const [picksResult, infoResult] = await Promise.all([
-    fetchEntryPicks(teamId, initialTargetGw),
-    fetchEntryInfo(teamId),
-  ]);
+  // Resolve picks with deadline-fallback and Free Hit detection encapsulated.
+  const squadResult = await resolveSquadPicks((gw) => fetchEntryPicks(teamId, gw), currentGw);
 
-  if (!picksResult.ok) {
-    logger.warn('GET /api/my-team: picks fetch failed', {
-      teamId,
-      targetGw: initialTargetGw,
-      error: picksResult.error.type,
-    });
-    if (picksResult.error.type === 'not_found') return errorResponse('NOT_FOUND', 404);
-    if (picksResult.error.type === 'network_error') return errorResponse('NETWORK_ERROR', 502);
+  if (!squadResult.ok) {
+    const { error } = squadResult;
+    if (error.type === 'pre_season') {
+      logger.info('GET /api/my-team: pre-season, no picks available', { teamId, currentGw });
+      return errorResponse('PRE_SEASON', 503);
+    }
+    // error.type === 'fetch_error'
+    logger.warn('GET /api/my-team: picks fetch failed', { teamId, error: error.inner.type });
+    if (error.inner.type === 'not_found') return errorResponse('NOT_FOUND', 404);
+    if (error.inner.type === 'network_error') return errorResponse('NETWORK_ERROR', 502);
     return errorResponse('SCHEMA_ERROR', 502);
   }
+
+  const {
+    picks: finalPicks,
+    gameweek: targetGw,
+    preDeadlineFallback,
+    freeHitBypassed,
+    freeHitGameweek,
+    isGw1FreeHit,
+  } = squadResult.value;
+
+  const infoResult = await infoPromise;
 
   if (!infoResult.ok) {
     logger.warn('GET /api/my-team: entry info fetch failed', {
@@ -98,33 +104,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return errorResponse('SCHEMA_ERROR', 502);
   }
 
-  // Free Hit detection: if the manager played FH on the initial target GW
-  // and there is a prior GW to fall back to, fetch the prior GW's picks.
-  const fhResolution = resolveFreeHit(picksResult.value.active_chip, initialTargetGw);
-  let finalPicks = picksResult.value.picks;
-  const targetGw = fhResolution.gameweek;
-
-  if (fhResolution.freeHitBypassed) {
-    logger.info('GET /api/my-team: Free Hit detected, fetching prior GW', {
-      teamId,
-      fhGw: initialTargetGw,
-      fallbackGw: targetGw,
-    });
-    const fallbackResult = await fetchEntryPicks(teamId, targetGw);
-    if (!fallbackResult.ok) {
-      logger.warn('GET /api/my-team: fallback picks fetch failed', {
-        teamId,
-        targetGw,
-        error: fallbackResult.error.type,
-      });
-      // Prefer degrading gracefully to erroring: serve the FH picks with no bypass flag.
-      // This is a rare edge case (FH on GW2 with a bad GW1 response).
-    } else {
-      finalPicks = fallbackResult.value.picks;
-    }
-  }
-
-  logger.info('GET /api/my-team: picks + info fetched successfully', { teamId, targetGw });
+  logger.info('GET /api/my-team: picks + info fetched successfully', {
+    teamId,
+    targetGw,
+    preDeadlineFallback,
+  });
 
   const info = infoResult.value;
   const now = Date.now();
@@ -231,9 +215,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     starters,
     bench,
     syncedAt,
-    freeHitBypassed: fhResolution.freeHitBypassed,
-    freeHitGameweek: fhResolution.freeHitGameweek,
-    isGw1FreeHit: fhResolution.isGw1FreeHit,
+    preDeadlineFallback,
+    freeHitBypassed,
+    freeHitGameweek,
+    isGw1FreeHit,
   };
 
   return NextResponse.json(data);

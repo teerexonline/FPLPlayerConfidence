@@ -8,22 +8,22 @@ export interface SnapshotPoint {
   readonly reason: string;
   readonly fatigueApplied: boolean;
   readonly motmCounter: number;
+  readonly defConCounter: number;
+  readonly saveConCounter: number;
 }
 
 /**
  * Parsed reason classification derived from the reason string stored in the DB.
- * The reason encodes the event type and opponent tier.
+ * Reason strings embed the FDR number ("vs FDR X opponent") rather than a big/non-big
+ * label, so there is no longer a per-tier variant — event type is the sole dimension.
  */
 export type ReasonKind =
-  | 'motm_big'
-  | 'motm_nonbig'
-  | 'clean_sheet_big'
-  | 'clean_sheet_nonbig'
-  | 'blank_big'
-  | 'blank_nonbig'
-  | 'performance_big'
-  | 'performance_nonbig'
+  | 'motm'
+  | 'clean_sheet'
+  | 'blank'
+  | 'performance'
   | 'defcon'
+  | 'savecon'
   | 'fatigue'
   | 'dgw'
   | 'other';
@@ -100,31 +100,20 @@ export function parseDgwReason(reason: string): readonly DgwPart[] | null {
   return entries.length >= 2 ? entries : null;
 }
 
-/**
- * True when the reason indicates a big-team opponent.
- * Reason strings use "vs big team" for big opponents and "vs non-big team" for others.
- * We match "vs big team" explicitly to avoid "non-big team" containing "big team".
- */
-export function isBigTeamMatch(reason: string): boolean {
-  return /vs big team/i.test(reason) && !/non-big team/i.test(reason);
-}
-
 /** Classifies a reason string into a structured kind based on the PRIMARY event clause. */
 export function classifyReason(reason: string): ReasonKind {
   const lower = reason.toLowerCase();
   if (lower.startsWith('dgw:')) return 'dgw';
   // Examine only the primary clause (before the first " + ") so compound reasons like
-  // "Performance vs big team + DefCon" classify by Performance, not DefCon.
+  // "Performance vs FDR 3 opponent + DefCon" classify by Performance, not DefCon.
   const primaryClause = reason.split(' + ')[0] ?? reason;
   const primaryLower = primaryClause.toLowerCase();
-  // Use isBigTeamMatch to correctly distinguish "vs big team" from "vs non-big team"
-  const big = isBigTeamMatch(reason);
-  if (primaryLower.includes('motm') || primaryLower.includes('assist'))
-    return big ? 'motm_big' : 'motm_nonbig';
-  if (primaryLower.includes('clean sheet')) return big ? 'clean_sheet_big' : 'clean_sheet_nonbig';
-  if (primaryLower.includes('blank')) return big ? 'blank_big' : 'blank_nonbig';
-  if (primaryLower.includes('performance')) return big ? 'performance_big' : 'performance_nonbig';
+  if (primaryLower.includes('motm') || primaryLower.includes('assist')) return 'motm';
+  if (primaryLower.includes('clean sheet')) return 'clean_sheet';
+  if (primaryLower.includes('blank')) return 'blank';
+  if (primaryLower.includes('performance')) return 'performance';
   if (primaryLower.includes('defcon')) return 'defcon';
+  if (primaryLower.includes('savecon')) return 'savecon';
   if (primaryLower.includes('fatigue')) return 'fatigue';
   return 'other';
 }

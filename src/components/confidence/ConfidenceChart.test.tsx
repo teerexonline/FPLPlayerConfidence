@@ -23,15 +23,24 @@ function makeSnap(
   gameweek: number,
   confidenceAfter: number,
   delta: number,
-  reason = 'MOTM vs non-big team',
+  reason = 'MOTM vs FDR 3 opponent',
 ): SnapshotPoint {
-  return { gameweek, confidenceAfter, delta, reason, fatigueApplied: false, motmCounter: 0 };
+  return {
+    gameweek,
+    confidenceAfter,
+    delta,
+    reason,
+    fatigueApplied: false,
+    motmCounter: 0,
+    defConCounter: 0,
+    saveConCounter: 0,
+  };
 }
 
 const SNAPSHOTS: SnapshotPoint[] = [
   makeSnap(1, 2, 2),
   makeSnap(2, 3, 1),
-  makeSnap(3, 1, -2, 'Blank vs non-big team'),
+  makeSnap(3, 1, -2, 'Blank vs FDR 3 opponent'),
   makeSnap(4, 3, 2),
   makeSnap(5, 5, 2),
 ];

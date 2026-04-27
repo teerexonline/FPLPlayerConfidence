@@ -17,6 +17,8 @@ function aSnapshot(overrides: Partial<DbConfidenceSnapshot> = {}): DbConfidenceS
     reason: 'test',
     fatigue_applied: false,
     motm_counter: 0,
+    defcon_counter: 0,
+    savecon_counter: 0,
     ...overrides,
   };
 }

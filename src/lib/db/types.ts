@@ -39,6 +39,8 @@ export interface DbConfidenceSnapshot {
   readonly reason: string;
   readonly fatigue_applied: boolean;
   readonly motm_counter: number;
+  readonly defcon_counter: number;
+  readonly savecon_counter: number;
 }
 
 export interface DbSyncMeta {

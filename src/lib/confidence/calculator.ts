@@ -53,6 +53,8 @@ interface MatchAdjustment {
   readonly raw: number;
   readonly reasons: readonly string[];
   readonly isMotm: boolean;
+  readonly isDefCon: boolean; // DefCon fired as primary (no goal/assist/CS in same match)
+  readonly isSaveCon: boolean; // SaveCon fired as primary (GK only, same conditions)
 }
 
 function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
@@ -65,6 +67,8 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
       raw: roundAwayFromZero(2 * posMul),
       reasons: [`MOTM vs FDR ${fdr.toString()} opponent`],
       isMotm: true,
+      isDefCon: false,
+      isSaveCon: false,
     };
   }
 
@@ -73,6 +77,8 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
       raw: roundAwayFromZero(1 * posMul),
       reasons: [`Performance vs FDR ${fdr.toString()} opponent`],
       isMotm: false,
+      isDefCon: false,
+      isSaveCon: false,
     };
   }
 
@@ -81,6 +87,8 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
       raw: 1,
       reasons: [`DefCon vs FDR ${fdr.toString()} opponent`],
       isMotm: false,
+      isDefCon: true,
+      isSaveCon: false,
     };
   }
 
@@ -88,6 +96,8 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
     raw: roundAwayFromZero(-1 * blkMul),
     reasons: [`Blank vs FDR ${fdr.toString()} opponent`],
     isMotm: false,
+    isDefCon: false,
+    isSaveCon: false,
   };
 }
 
@@ -121,43 +131,53 @@ function resolveGkDef(
 
   // SaveCon/DefCon fire only when no positive event has already fired (Blank substitutes).
   // Exactly one of these three branches executes.
+  let isDefCon = false;
+  let isSaveCon = false;
   if (!isMotm && !match.cleanSheet) {
     if (defContrib) {
       rawFloat += 1; // flat, no FDR
       reasons.push(`DefCon vs FDR ${fdr.toString()} opponent`);
+      isDefCon = true;
     } else if (position === 'GK' && match.saves >= SAVECON_THRESHOLD) {
       rawFloat += 1; // flat, no FDR
       reasons.push(`SaveCon vs FDR ${fdr.toString()} opponent`);
+      isSaveCon = true;
     } else {
       rawFloat += -1 * blkMul;
       reasons.push(`Blank vs FDR ${fdr.toString()} opponent`);
     }
   }
 
-  return { raw: roundAwayFromZero(rawFloat), reasons, isMotm };
+  return { raw: roundAwayFromZero(rawFloat), reasons, isMotm, isDefCon, isSaveCon };
 }
 
 export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
   let confidence = 0;
   let motmCount = 0;
+  let defConFatigueCount = 0;
+  let saveConFatigueCount = 0;
   const history: MatchDelta[] = [];
 
   for (const match of input.matches) {
     const before = confidence;
     const defconHit = isDefConThresholdMet(input.position, match.defensiveContribution);
 
-    const { raw, reasons, isMotm } =
+    const { raw, reasons, isMotm, isDefCon, isSaveCon } =
       input.position === 'GK' || input.position === 'DEF'
         ? resolveGkDef(match, input.position, defconHit)
         : resolveMidFwd(match, defconHit);
 
     const reasonList = [...reasons];
     let fatigueApplied = false;
+    let dcFatigueApplied = false;
+    let scFatigueApplied = false;
 
-    // Clamp after the MOTM gain first. When fatigue fires, it is applied to the
-    // already-clamped value so the ceiling cannot silently absorb the penalty.
+    // Clamp after the event gain first. Fatigue (if triggered) is then applied to
+    // the already-clamped value so the ceiling cannot silently absorb the penalty.
     confidence = clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX);
 
+    // isMotm, isDefCon, and isSaveCon are mutually exclusive — the resolver only
+    // sets one of them per match. The else-if chain encodes this structurally (§6.4).
     if (isMotm) {
       motmCount += 1;
       if (motmCount >= FATIGUE_THRESHOLD) {
@@ -172,6 +192,32 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
         }
         motmCount = 0;
       }
+    } else if (isDefCon) {
+      defConFatigueCount += 1;
+      if (defConFatigueCount >= FATIGUE_THRESHOLD) {
+        const hypotheticalPostFatigue = confidence + FATIGUE_PENALTY;
+        if (hypotheticalPostFatigue > 0) {
+          confidence = hypotheticalPostFatigue;
+          reasonList.push('DC Fatigue −2');
+          dcFatigueApplied = true;
+        } else {
+          reasonList.push('DC Fatigue waived');
+        }
+        defConFatigueCount = 0;
+      }
+    } else if (isSaveCon) {
+      saveConFatigueCount += 1;
+      if (saveConFatigueCount >= FATIGUE_THRESHOLD) {
+        const hypotheticalPostFatigue = confidence + FATIGUE_PENALTY;
+        if (hypotheticalPostFatigue > 0) {
+          confidence = hypotheticalPostFatigue;
+          reasonList.push('SC Fatigue −2');
+          scFatigueApplied = true;
+        } else {
+          reasonList.push('SC Fatigue waived');
+        }
+        saveConFatigueCount = 0;
+      }
     }
 
     history.push({
@@ -179,8 +225,12 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
       delta: confidence - before,
       reason: reasonList.join(' + '),
       fatigueApplied,
+      dcFatigueApplied,
+      scFatigueApplied,
       confidenceAfter: confidence,
       motmCounterAfter: motmCount,
+      defConCounterAfter: defConFatigueCount,
+      saveConCounterAfter: saveConFatigueCount,
     });
   }
 

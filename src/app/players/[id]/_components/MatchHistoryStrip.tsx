@@ -8,13 +8,21 @@ import type { SnapshotPoint } from './types';
 
 interface MatchHistoryStripProps {
   readonly snapshots: readonly SnapshotPoint[];
+  /** The currently selected GW — card receives accent ring when matched. */
+  readonly selectedGw?: number;
+  /** Called when the user clicks a match card. */
+  readonly onSelectGw?: (gw: number) => void;
 }
 
 /**
  * Horizontal-scrolling strip of match history cards, oldest → newest (left → right).
  * Masked on both edges with a fade so the scroll affordance is clear.
  */
-export function MatchHistoryStrip({ snapshots }: MatchHistoryStripProps): JSX.Element {
+export function MatchHistoryStrip({
+  snapshots,
+  selectedGw,
+  onSelectGw,
+}: MatchHistoryStripProps): JSX.Element {
   if (snapshots.length === 0) {
     return (
       <section aria-label="Match history" className="mt-12">
@@ -46,10 +54,29 @@ export function MatchHistoryStrip({ snapshots }: MatchHistoryStripProps): JSX.El
         >
           {snapshots.map((snapshot) => {
             const dgwParts = parseDgwReason(snapshot.reason);
+            const isSelected = selectedGw === snapshot.gameweek;
+            const clickProps = onSelectGw
+              ? {
+                  onClick: () => {
+                    onSelectGw(snapshot.gameweek);
+                  },
+                }
+              : {};
             return dgwParts !== null ? (
-              <DgwMatchCard key={snapshot.gameweek} snapshot={snapshot} parts={dgwParts} />
+              <DgwMatchCard
+                key={snapshot.gameweek}
+                snapshot={snapshot}
+                parts={dgwParts}
+                isSelected={isSelected}
+                {...clickProps}
+              />
             ) : (
-              <MatchHistoryCard key={snapshot.gameweek} snapshot={snapshot} />
+              <MatchHistoryCard
+                key={snapshot.gameweek}
+                snapshot={snapshot}
+                isSelected={isSelected}
+                {...clickProps}
+              />
             );
           })}
         </div>

@@ -9,9 +9,11 @@ function makeSnapshot(overrides: Partial<SnapshotPoint> = {}): SnapshotPoint {
     gameweek: 12,
     confidenceAfter: 2,
     delta: 2,
-    reason: 'MOTM vs non-big team',
+    reason: 'MOTM vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 1,
+    defConCounter: 0,
+    saveConCounter: 0,
     ...overrides,
   };
 }
@@ -22,25 +24,15 @@ describe('MatchHistoryCard', () => {
     expect(screen.getByText('GW17')).toBeInTheDocument();
   });
 
-  it('renders a BIG badge for big team matches', () => {
-    render(<MatchHistoryCard snapshot={makeSnapshot({ reason: 'MOTM vs big team' })} />);
-    expect(screen.getByText('BIG')).toBeInTheDocument();
-  });
-
-  it('does not render BIG badge for non-big team matches', () => {
-    render(<MatchHistoryCard snapshot={makeSnapshot({ reason: 'Blank vs non-big team' })} />);
-    expect(screen.queryByText('BIG')).not.toBeInTheDocument();
-  });
-
   it('shows MOTM label for motm reasons', () => {
-    render(<MatchHistoryCard snapshot={makeSnapshot({ reason: 'MOTM vs non-big team' })} />);
+    render(<MatchHistoryCard snapshot={makeSnapshot({ reason: 'MOTM vs FDR 3 opponent' })} />);
     expect(screen.getByText('MOTM')).toBeInTheDocument();
   });
 
   it('shows Clean Sheet label for clean sheet reasons', () => {
     render(
       <MatchHistoryCard
-        snapshot={makeSnapshot({ reason: 'Clean sheet vs non-big team', delta: 1 })}
+        snapshot={makeSnapshot({ reason: 'Clean sheet vs FDR 2 opponent', delta: 1 })}
       />,
     );
     expect(screen.getByText('Clean Sheet')).toBeInTheDocument();
@@ -48,9 +40,29 @@ describe('MatchHistoryCard', () => {
 
   it('shows Blank label for blank reasons', () => {
     render(
-      <MatchHistoryCard snapshot={makeSnapshot({ reason: 'Blank vs non-big team', delta: -2 })} />,
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ reason: 'Blank vs FDR 3 opponent', delta: -1 })}
+      />,
     );
     expect(screen.getByText('Blank')).toBeInTheDocument();
+  });
+
+  it('shows DefCon label for defcon reasons', () => {
+    render(
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ reason: 'DefCon vs FDR 3 opponent', delta: 1 })}
+      />,
+    );
+    expect(screen.getByText('DefCon')).toBeInTheDocument();
+  });
+
+  it('shows SaveCon label for savecon reasons', () => {
+    render(
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ reason: 'SaveCon vs FDR 4 opponent', delta: 1 })}
+      />,
+    );
+    expect(screen.getByText('SaveCon')).toBeInTheDocument();
   });
 
   it('shows Fatigue label for fatigue reasons', () => {
@@ -67,11 +79,14 @@ describe('MatchHistoryCard', () => {
   it('formats negative delta with unicode minus', () => {
     const { container } = render(
       <MatchHistoryCard
-        snapshot={makeSnapshot({ delta: -2, reason: 'Blank vs non-big team', confidenceAfter: -1 })}
+        snapshot={makeSnapshot({
+          delta: -2,
+          reason: 'Blank vs FDR 3 opponent',
+          confidenceAfter: -1,
+        })}
       />,
     );
     const deltaEl = container.querySelector('[data-sign="negative"]');
-    // Unicode minus U+2212
     expect(deltaEl?.textContent).toMatch(/−2/);
   });
 
@@ -80,7 +95,7 @@ describe('MatchHistoryCard', () => {
       <MatchHistoryCard
         snapshot={makeSnapshot({
           delta: 0,
-          reason: 'Assist vs non-big team (MOTM) + Clean sheet vs non-big team',
+          reason: 'MOTM vs FDR 3 opponent + Clean sheet vs FDR 3 opponent',
           confidenceAfter: 5,
         })}
       />,
@@ -92,7 +107,11 @@ describe('MatchHistoryCard', () => {
   it('shows fatigue annotation when fatigueApplied is true', () => {
     render(
       <MatchHistoryCard
-        snapshot={makeSnapshot({ fatigueApplied: true, reason: 'MOTM vs non-big team', delta: -2 })}
+        snapshot={makeSnapshot({
+          fatigueApplied: true,
+          reason: 'MOTM vs FDR 3 opponent + Fatigue −2',
+          delta: -2,
+        })}
       />,
     );
     expect(screen.getByText(/fatigue/i)).toBeInTheDocument();
@@ -102,7 +121,7 @@ describe('MatchHistoryCard', () => {
     render(
       <MatchHistoryCard
         snapshot={makeSnapshot({
-          reason: 'Assist vs non-big team (MOTM) + Clean sheet vs non-big team + Fatigue −2',
+          reason: 'MOTM vs FDR 3 opponent + Clean sheet vs FDR 3 opponent + Fatigue −2',
           fatigueApplied: true,
           delta: -2,
         })}
@@ -117,7 +136,6 @@ describe('MatchHistoryCard', () => {
   });
 
   it('has no axe violations when rendered inside a list', async () => {
-    // role=listitem requires a list parent — wrap as it is in MatchHistoryStrip
     const { container } = render(
       <ul role="list">
         <MatchHistoryCard snapshot={makeSnapshot()} />

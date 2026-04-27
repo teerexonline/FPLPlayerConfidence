@@ -22,31 +22,31 @@ describe('PlayerStatusIndicator', () => {
     render(<PlayerStatusIndicator status="d" chanceOfPlaying={50} news="Knock" />);
     const dot = screen.getByRole('img');
     expect(dot).toBeInTheDocument();
-    expect(dot.className).toContain('amber');
+    expect(dot.className).toContain('status-warning');
   });
 
   it('renders an amber dot for status="n" (not available)', () => {
     render(<PlayerStatusIndicator status="n" chanceOfPlaying={25} news="" />);
     const dot = screen.getByRole('img');
-    expect(dot.className).toContain('amber');
+    expect(dot.className).toContain('status-warning');
   });
 
   it('renders a red dot for status="i" (injured)', () => {
     render(<PlayerStatusIndicator status="i" chanceOfPlaying={0} news="Hamstring" />);
     const dot = screen.getByRole('img');
-    expect(dot.className).toContain('red');
+    expect(dot.className).toContain('status-danger');
   });
 
   it('renders a red dot for status="s" (suspended)', () => {
     render(<PlayerStatusIndicator status="s" chanceOfPlaying={0} news="Ban" />);
     const dot = screen.getByRole('img');
-    expect(dot.className).toContain('red');
+    expect(dot.className).toContain('status-danger');
   });
 
   it('renders a gray dot for status="u" (unavailable/left club)', () => {
     render(<PlayerStatusIndicator status="u" chanceOfPlaying={null} news="Left on loan" />);
     const dot = screen.getByRole('img');
-    expect(dot.className).toContain('neutral');
+    expect(dot.className).toContain('status-muted');
   });
 
   it('combines news and chanceOfPlaying in the tooltip', () => {

@@ -59,6 +59,7 @@ const MOCK_DATA: MyTeamData = {
   freeHitBypassed: false,
   freeHitGameweek: null,
   isGw1FreeHit: false,
+  preDeadlineFallback: false,
 };
 
 const MOCK_BODY = JSON.stringify(MOCK_DATA);

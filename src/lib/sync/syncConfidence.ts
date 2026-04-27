@@ -48,6 +48,8 @@ function collapseByGameweek(pid: number, history: readonly MatchDelta[]): DbConf
       reason,
       fatigue_applied: entries.some((e) => e.fatigueApplied),
       motm_counter: last.motmCounterAfter,
+      defcon_counter: last.defConCounterAfter,
+      savecon_counter: last.saveConCounterAfter,
     });
   }
   return result;

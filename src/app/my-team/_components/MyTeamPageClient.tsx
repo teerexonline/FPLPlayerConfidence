@@ -3,79 +3,27 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { ConnectTeamForm } from './ConnectTeamForm';
+import { ManagerHeader } from './ManagerHeader';
 import { MyTeamHero } from './MyTeamHero';
 import { PositionalBreakdown } from './PositionalBreakdown';
 import { StartingXIList } from './StartingXIList';
 import { BenchSection } from './BenchSection';
 import { TeamSyncFooter } from './TeamSyncFooter';
-import type { MyTeamData } from './types';
+import type { MyTeamData, MyTeamApiError } from './types';
 
 const LS_KEY = 'fpl-team-id';
 
 type FetchState =
   | { kind: 'idle' }
   | { kind: 'loaded'; data: MyTeamData }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string }
+  | { kind: 'pre_season' };
 
 function getStoredTeamId(): number | null {
   const stored = localStorage.getItem(LS_KEY);
   if (!stored) return null;
   const teamId = parseInt(stored, 10);
   return isNaN(teamId) ? null : teamId;
-}
-
-function ManagerHeader({
-  managerName,
-  teamName,
-  overallRank,
-  overallPoints,
-  gameweek,
-  freeHitBypassed,
-  freeHitGameweek,
-  isGw1FreeHit,
-}: Pick<
-  MyTeamData,
-  | 'managerName'
-  | 'teamName'
-  | 'overallRank'
-  | 'overallPoints'
-  | 'gameweek'
-  | 'freeHitBypassed'
-  | 'freeHitGameweek'
-  | 'isGw1FreeHit'
->): JSX.Element {
-  return (
-    <div className="border-border border-b pt-8 pb-6">
-      {/* Manager name in display serif — the second Fraunces moment in the product */}
-      <h1 className="font-display text-[44px] leading-tight font-[400] tracking-[-0.01em]">
-        {managerName}
-      </h1>
-      <div className="text-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-sans text-[13px]">
-        <span>{teamName}</span>
-        {overallRank !== null && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span>Rank {overallRank.toLocaleString()}</span>
-          </>
-        )}
-        <span aria-hidden="true">·</span>
-        <span>{overallPoints.toLocaleString()} pts</span>
-        <span aria-hidden="true">·</span>
-        <span>GW{gameweek.toString()}</span>
-      </div>
-      {freeHitBypassed && freeHitGameweek !== null && (
-        <p className="text-muted/60 mt-1.5 font-sans text-[12px]">
-          Showing your pre-Free Hit squad from GW{gameweek.toString()} — Free Hit was played in GW
-          {freeHitGameweek.toString()}
-        </p>
-      )}
-      {isGw1FreeHit && (
-        <p className="text-muted/60 mt-1.5 font-sans text-[12px]">
-          Showing your Free Hit squad — your regular squad data isn&apos;t available yet
-        </p>
-      )}
-    </div>
-  );
 }
 
 function LoadedView({
@@ -104,6 +52,7 @@ function LoadedView({
           freeHitBypassed={data.freeHitBypassed}
           freeHitGameweek={data.freeHitGameweek}
           isGw1FreeHit={data.isGw1FreeHit}
+          preDeadlineFallback={data.preDeadlineFallback}
         />
 
         <MyTeamHero
@@ -174,8 +123,14 @@ export function MyTeamPageClient(): JSX.Element {
           const data = (await res.json()) as MyTeamData;
           setFetchState({ kind: 'loaded', data });
         } else {
-          localStorage.removeItem(LS_KEY);
-          setFetchState({ kind: 'idle' });
+          const body = (await res.json()) as { error: MyTeamApiError };
+          if (body.error === 'PRE_SEASON') {
+            // Team ID is valid; season hasn't started yet. Keep it in localStorage.
+            setFetchState({ kind: 'pre_season' });
+          } else {
+            localStorage.removeItem(LS_KEY);
+            setFetchState({ kind: 'idle' });
+          }
         }
       })
       .catch((err: unknown) => {
@@ -196,6 +151,11 @@ export function MyTeamPageClient(): JSX.Element {
     setFetchState({ kind: 'loaded', data });
   }
 
+  function handlePreSeason(teamId: number): void {
+    localStorage.setItem(LS_KEY, teamId.toString());
+    setFetchState({ kind: 'pre_season' });
+  }
+
   function handleChangeTeam(): void {
     localStorage.removeItem(LS_KEY);
     setFetchState({ kind: 'idle' });
@@ -203,6 +163,25 @@ export function MyTeamPageClient(): JSX.Element {
 
   if (fetchState.kind === 'loaded') {
     return <LoadedView data={fetchState.data} onChangeTeam={handleChangeTeam} />;
+  }
+
+  if (fetchState.kind === 'pre_season') {
+    return (
+      <main className="bg-bg text-text flex min-h-[calc(100vh-56px)] items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-text font-sans text-[15px] font-medium">
+            Your team will appear once the season starts
+          </p>
+          <button
+            type="button"
+            onClick={handleChangeTeam}
+            className="text-accent mt-4 cursor-pointer font-sans text-[14px] underline underline-offset-2"
+          >
+            Use a different team ID
+          </button>
+        </div>
+      </main>
+    );
   }
 
   if (fetchState.kind === 'error') {
@@ -235,5 +214,5 @@ export function MyTeamPageClient(): JSX.Element {
   }
 
   // Empty state: no team ID in localStorage (or server render)
-  return <ConnectTeamForm onSuccess={handleFormSuccess} />;
+  return <ConnectTeamForm onSuccess={handleFormSuccess} onPreSeason={handlePreSeason} />;
 }

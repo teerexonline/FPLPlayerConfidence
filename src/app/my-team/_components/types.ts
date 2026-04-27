@@ -42,6 +42,8 @@ export interface MyTeamData {
   readonly freeHitGameweek: number | null;
   /** True when the Free Hit was played on GW1 (no prior GW to fall back to). */
   readonly isGw1FreeHit: boolean;
+  /** True when currentGw returned 404 (deadline not yet passed) and we fell back to currentGw-1. */
+  readonly preDeadlineFallback: boolean;
 }
 
 /** Shape of error responses from GET /api/my-team. */
@@ -50,4 +52,5 @@ export type MyTeamApiError =
   | 'NOT_FOUND'
   | 'NETWORK_ERROR'
   | 'NO_GAMEWEEK_DATA'
-  | 'SCHEMA_ERROR';
+  | 'SCHEMA_ERROR'
+  | 'PRE_SEASON';

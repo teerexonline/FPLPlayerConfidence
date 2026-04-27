@@ -21,6 +21,7 @@ const MOCK_DATA: MyTeamData = {
   freeHitBypassed: false,
   freeHitGameweek: null,
   isGw1FreeHit: false,
+  preDeadlineFallback: false,
 };
 
 function submitForm(): void {

@@ -10,25 +10,31 @@ const SAMPLE_SNAPSHOTS: SnapshotPoint[] = [
     gameweek: 1,
     confidenceAfter: 1,
     delta: 1,
-    reason: 'Clean sheet vs non-big team',
+    reason: 'Clean sheet vs FDR 2 opponent',
     fatigueApplied: false,
     motmCounter: 0,
+    defConCounter: 0,
+    saveConCounter: 0,
   },
   {
     gameweek: 2,
     confidenceAfter: 3,
     delta: 2,
-    reason: 'MOTM vs non-big team',
+    reason: 'MOTM vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 1,
+    defConCounter: 0,
+    saveConCounter: 0,
   },
   {
     gameweek: 3,
     confidenceAfter: 1,
     delta: -2,
-    reason: 'Blank vs non-big team',
+    reason: 'Blank vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 0,
+    defConCounter: 0,
+    saveConCounter: 0,
   },
 ];
 
@@ -86,6 +92,8 @@ describe('MatchHistoryStrip', () => {
       reason: 'DGW: Blank vs FDR 3 opponent (-1) + Blank vs FDR 2 opponent (-1)',
       fatigueApplied: false,
       motmCounter: 0,
+      defConCounter: 0,
+      saveConCounter: 0,
     };
     render(<MatchHistoryStrip snapshots={[dgwSnapshot]} />);
     expect(screen.getByText('DGW')).toBeInTheDocument();
@@ -100,6 +108,8 @@ describe('MatchHistoryStrip', () => {
       reason: 'DGW: MOTM vs FDR 3 opponent + Fatigue −2 (+0) + Blank vs FDR 2 opponent (-1)',
       fatigueApplied: true,
       motmCounter: 0,
+      defConCounter: 0,
+      saveConCounter: 0,
     };
     render(<MatchHistoryStrip snapshots={[dgwSnapshot]} />);
     expect(screen.getByText('DGW')).toBeInTheDocument();

@@ -8,6 +8,8 @@ export const SQL_MIGRATIONS: readonly string[] = [
   `ALTER TABLE players ADD COLUMN status TEXT NOT NULL DEFAULT 'a'`,
   `ALTER TABLE players ADD COLUMN chance_of_playing_next_round INTEGER`,
   `ALTER TABLE players ADD COLUMN news TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE confidence_snapshots ADD COLUMN defcon_counter INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE confidence_snapshots ADD COLUMN savecon_counter INTEGER NOT NULL DEFAULT 0`,
 ];
 
 export const SQL_SCHEMA = `

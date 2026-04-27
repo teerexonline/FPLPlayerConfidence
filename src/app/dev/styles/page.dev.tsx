@@ -483,11 +483,10 @@ export default function StylesPage() {
         </Section>
 
         {/* ── §13 MatchHistoryCard — 5 event types ─────────────────────── */}
-        <Section label="13" title="MatchHistoryCard — 5 event types in isolation">
+        <Section label="13" title="MatchHistoryCard — event types in isolation">
           <p className="text-muted mb-6 text-[13px]">
-            Fixed 80px-wide card. Background tint encodes delta sign at a glance. GW label top-left,
-            BIG badge top-right when applicable. Large delta number. Confidence-after footer in
-            semantic color.
+            Fixed 80px-wide card. Background tint encodes delta sign at a glance. GW label top-left.
+            Large delta number. Confidence-after footer in semantic color.
           </p>
           <div className="flex flex-wrap gap-3" role="list" aria-label="Sample match cards">
             <MatchHistoryCard
@@ -495,9 +494,11 @@ export default function StylesPage() {
                 gameweek: 28,
                 delta: 3,
                 confidenceAfter: 4,
-                reason: 'MOTM vs big team',
+                reason: 'MOTM vs FDR 5 opponent',
                 fatigueApplied: false,
                 motmCounter: 1,
+                defConCounter: 0,
+                saveConCounter: 0,
               }}
             />
             <MatchHistoryCard
@@ -505,9 +506,11 @@ export default function StylesPage() {
                 gameweek: 25,
                 delta: 2,
                 confidenceAfter: 3,
-                reason: 'MOTM vs non-big team',
+                reason: 'MOTM vs FDR 3 opponent',
                 fatigueApplied: false,
                 motmCounter: 2,
+                defConCounter: 0,
+                saveConCounter: 0,
               }}
             />
             <MatchHistoryCard
@@ -515,29 +518,35 @@ export default function StylesPage() {
                 gameweek: 22,
                 delta: 1,
                 confidenceAfter: 1,
-                reason: 'Clean sheet vs non-big team',
+                reason: 'Clean sheet vs FDR 2 opponent',
                 fatigueApplied: false,
                 motmCounter: 0,
+                defConCounter: 0,
+                saveConCounter: 0,
               }}
             />
             <MatchHistoryCard
               snapshot={{
                 gameweek: 30,
-                delta: -2,
+                delta: -1,
                 confidenceAfter: -1,
-                reason: 'Blank vs non-big team',
+                reason: 'Blank vs FDR 3 opponent',
                 fatigueApplied: false,
                 motmCounter: 0,
+                defConCounter: 0,
+                saveConCounter: 0,
               }}
             />
             <MatchHistoryCard
               snapshot={{
                 gameweek: 32,
-                delta: -1,
+                delta: -2,
                 confidenceAfter: 0,
-                reason: 'Blank vs big team',
+                reason: 'Blank vs FDR 1 opponent',
                 fatigueApplied: false,
                 motmCounter: 0,
+                defConCounter: 0,
+                saveConCounter: 0,
               }}
             />
             <MatchHistoryCard
@@ -545,9 +554,11 @@ export default function StylesPage() {
                 gameweek: 10,
                 delta: -2,
                 confidenceAfter: -3,
-                reason: 'Assist vs non-big team (MOTM) + Clean sheet vs non-big team + Fatigue −2',
+                reason: 'MOTM vs FDR 3 opponent + Fatigue −2',
                 fatigueApplied: true,
                 motmCounter: 3,
+                defConCounter: 0,
+                saveConCounter: 0,
               }}
             />
           </div>

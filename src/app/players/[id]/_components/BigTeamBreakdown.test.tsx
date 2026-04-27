@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { axe } from 'jest-axe';
-import { BigTeamBreakdown } from './BigTeamBreakdown';
+import { FdrBreakdown } from './BigTeamBreakdown';
 import type { SnapshotPoint } from './types';
 
 function makeSnap(gameweek: number, delta: number, reason: string): SnapshotPoint {
@@ -12,73 +12,111 @@ function makeSnap(gameweek: number, delta: number, reason: string): SnapshotPoin
     reason,
     fatigueApplied: false,
     motmCounter: 0,
+    defConCounter: 0,
+    saveConCounter: 0,
   };
 }
 
 const MIXED: SnapshotPoint[] = [
-  makeSnap(1, 3, 'MOTM vs big team'),
-  makeSnap(2, -1, 'Blank vs big team'),
-  makeSnap(3, 1, 'Clean sheet vs non-big team'),
-  makeSnap(4, -2, 'Blank vs non-big team'),
-  makeSnap(5, 2, 'MOTM vs non-big team'),
+  makeSnap(1, 3, 'MOTM vs FDR 5 opponent'), // tough
+  makeSnap(2, -1, 'Blank vs FDR 4 opponent'), // tough
+  makeSnap(3, 1, 'Clean sheet vs FDR 3 opponent'), // neutral
+  makeSnap(4, -2, 'Blank vs FDR 3 opponent'), // neutral
+  makeSnap(5, 2, 'MOTM vs FDR 2 opponent'), // favorable
+  makeSnap(6, 1, 'Performance vs FDR 1 opponent'), // favorable
 ];
 
-describe('BigTeamBreakdown', () => {
-  it('renders two stat blocks', () => {
-    render(<BigTeamBreakdown snapshots={MIXED} />);
-    expect(screen.getByText('vs Big Teams')).toBeInTheDocument();
-    expect(screen.getByText('vs Others')).toBeInTheDocument();
+describe('FdrBreakdown', () => {
+  it('renders three tier blocks', () => {
+    render(<FdrBreakdown snapshots={MIXED} />);
+    expect(screen.getByText('Favorable')).toBeInTheDocument();
+    expect(screen.getByText('Neutral')).toBeInTheDocument();
+    expect(screen.getByText('Tough')).toBeInTheDocument();
   });
 
-  it('computes correct big team average', () => {
-    // big team: GW1 (+3), GW2 (-1) → avg = +1.0
-    render(<BigTeamBreakdown snapshots={MIXED} />);
+  it('renders FDR range labels', () => {
+    render(<FdrBreakdown snapshots={MIXED} />);
+    expect(screen.getByText('FDR 1–2')).toBeInTheDocument();
+    expect(screen.getByText('FDR 3')).toBeInTheDocument();
+    expect(screen.getByText('FDR 4–5')).toBeInTheDocument();
+  });
+
+  it('computes correct tough average — GW1 (+3), GW2 (−1) → +1.0', () => {
+    render(<FdrBreakdown snapshots={MIXED} />);
     expect(screen.getByText('+1.0')).toBeInTheDocument();
   });
 
-  it('computes correct non-big team average', () => {
-    // others: GW3 (+1), GW4 (-2), GW5 (+2) → avg = +0.3
-    render(<BigTeamBreakdown snapshots={MIXED} />);
-    expect(screen.getByText('+0.3')).toBeInTheDocument();
+  it('computes correct neutral average — GW3 (+1), GW4 (−2) → −0.5', () => {
+    render(<FdrBreakdown snapshots={MIXED} />);
+    expect(screen.getByText('−0.5')).toBeInTheDocument();
   });
 
-  it('shows correct match count for big team', () => {
-    render(<BigTeamBreakdown snapshots={MIXED} />);
-    expect(screen.getByText('2 matches')).toBeInTheDocument();
+  it('computes correct favorable average — GW5 (+2), GW6 (+1) → +1.5', () => {
+    render(<FdrBreakdown snapshots={MIXED} />);
+    expect(screen.getByText('+1.5')).toBeInTheDocument();
   });
 
-  it('shows correct match count for others', () => {
-    render(<BigTeamBreakdown snapshots={MIXED} />);
-    expect(screen.getByText('3 matches')).toBeInTheDocument();
+  it('shows correct match counts', () => {
+    render(<FdrBreakdown snapshots={MIXED} />);
+    const twos = screen.getAllByText('2 matches');
+    expect(twos).toHaveLength(3); // tough: 2, neutral: 2, favorable: 2
   });
 
-  it('shows dash and "No matches" for empty big team bucket', () => {
-    // Filter using the same logic as the component (not raw string contains)
-    const nonBigOnly = MIXED.filter((s) => /non-big team/i.test(s.reason));
-    render(<BigTeamBreakdown snapshots={nonBigOnly} />);
-    expect(screen.getByText('—')).toBeInTheDocument();
-    expect(screen.getByText('No matches')).toBeInTheDocument();
+  it('shows dash and "No matches" for an empty bucket', () => {
+    const toughOnly = MIXED.filter((s) => s.reason.includes('FDR 5') || s.reason.includes('FDR 4'));
+    render(<FdrBreakdown snapshots={toughOnly} />);
+    // Neutral and Favorable buckets are empty
+    const empties = screen.getAllByText('No matches');
+    expect(empties.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('excludes snapshots with no parsable FDR token', () => {
+    const withUnparsable = [...MIXED, makeSnap(99, 2, 'DGW: legacy format')];
+    render(<FdrBreakdown snapshots={withUnparsable} />);
+    // The unparsable snap is excluded — total counts still sum to MIXED.length (6)
+    const allMatchTexts = screen.getAllByText(/\d+ match/);
+    const totalMatches = allMatchTexts.reduce((sum, el) => {
+      const n = parseInt(el.textContent, 10);
+      return sum + (isNaN(n) ? 0 : n);
+    }, 0);
+    expect(totalMatches).toBe(6);
+  });
+
+  it('parses FDR from DGW compound reason — uses first match FDR', () => {
+    const dgwSnap = makeSnap(
+      10,
+      2,
+      'DGW: MOTM vs FDR 5 opponent (+2) + Blank vs FDR 3 opponent (-1)',
+    );
+    render(<FdrBreakdown snapshots={[dgwSnap]} />);
+    // FDR 5 → Tough bucket should have 1 match; neutral/favorable should show "No matches"
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+    const empties = screen.getAllByText('No matches');
+    expect(empties).toHaveLength(2);
   });
 
   it('uses negative color class for negative average', () => {
-    const negOnly = [makeSnap(1, -2, 'Blank vs big team'), makeSnap(2, -3, 'Blank vs big team')];
-    const { container } = render(<BigTeamBreakdown snapshots={negOnly} />);
+    const negOnly = [
+      makeSnap(1, -2, 'Blank vs FDR 5 opponent'),
+      makeSnap(2, -3, 'Blank vs FDR 4 opponent'),
+    ];
+    const { container } = render(<FdrBreakdown snapshots={negOnly} />);
     const negEl = container.querySelector('[data-sign="negative"]');
     expect(negEl).not.toBeNull();
   });
 
-  it('renders section with aria-label', () => {
-    render(<BigTeamBreakdown snapshots={MIXED} />);
-    expect(screen.getByRole('region', { name: /big team breakdown/i })).toBeInTheDocument();
-  });
-
   it('shows singular "match" for count = 1', () => {
-    render(<BigTeamBreakdown snapshots={[makeSnap(1, 2, 'MOTM vs big team')]} />);
+    render(<FdrBreakdown snapshots={[makeSnap(1, 2, 'MOTM vs FDR 5 opponent')]} />);
     expect(screen.getByText('1 match')).toBeInTheDocument();
   });
 
+  it('renders section with aria-label', () => {
+    render(<FdrBreakdown snapshots={MIXED} />);
+    expect(screen.getByRole('region', { name: /fdr performance breakdown/i })).toBeInTheDocument();
+  });
+
   it('has no axe violations', async () => {
-    const { container } = render(<BigTeamBreakdown snapshots={MIXED} />);
+    const { container } = render(<FdrBreakdown snapshots={MIXED} />);
     const results = await axe(container);
     expect(results).toHaveNoViolations();
   });

@@ -7,6 +7,8 @@ import type { MyTeamData, MyTeamApiError } from './types';
 interface ConnectTeamFormProps {
   /** Called with the validated team ID and the loaded data when submission succeeds. */
   readonly onSuccess: (teamId: number, data: MyTeamData) => void;
+  /** Called with the team ID when the route returns PRE_SEASON, instead of showing an error. */
+  readonly onPreSeason?: (teamId: number) => void;
 }
 
 type FormState =
@@ -28,10 +30,12 @@ function errorMessage(code: MyTeamApiError | 'VALIDATION'): string {
       return 'No gameweek data available yet. Run a sync first.';
     case 'SCHEMA_ERROR':
       return 'The FPL API returned an unexpected response. Try again shortly.';
+    case 'PRE_SEASON':
+      return "The season hasn't started yet. Your team will appear once GW1 kicks off.";
   }
 }
 
-export function ConnectTeamForm({ onSuccess }: ConnectTeamFormProps): JSX.Element {
+export function ConnectTeamForm({ onSuccess, onPreSeason }: ConnectTeamFormProps): JSX.Element {
   const [state, setState] = useState<FormState>({ kind: 'idle' });
   const [value, setValue] = useState('');
   const inputId = useId();
@@ -53,7 +57,11 @@ export function ConnectTeamForm({ onSuccess }: ConnectTeamFormProps): JSX.Elemen
         onSuccess(parseInt(trimmed, 10), data);
       } else {
         const body = (await res.json()) as { error: MyTeamApiError };
-        setState({ kind: 'error', code: body.error });
+        if (body.error === 'PRE_SEASON' && onPreSeason) {
+          onPreSeason(parseInt(trimmed, 10));
+        } else {
+          setState({ kind: 'error', code: body.error });
+        }
       }
     } catch {
       setState({ kind: 'error', code: 'NETWORK_ERROR' });

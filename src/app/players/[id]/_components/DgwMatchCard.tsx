@@ -7,6 +7,8 @@ import { formatDelta, getPresentation } from './MatchHistoryCard';
 export interface DgwMatchCardProps {
   readonly snapshot: SnapshotPoint;
   readonly parts: readonly DgwPart[];
+  readonly isSelected?: boolean;
+  readonly onClick?: () => void;
 }
 
 // ── Sub-card for a single DGW match component ─────────────────────────────────
@@ -37,7 +39,12 @@ function DgwSubCard({ part }: { readonly part: DgwPart }): JSX.Element {
  * Renders a double-gameweek snapshot as two adjacent mini-cards sharing a
  * GW header and a net-delta footer, connected visually by the wrapper border.
  */
-export function DgwMatchCard({ snapshot, parts }: DgwMatchCardProps): JSX.Element | null {
+export function DgwMatchCard({
+  snapshot,
+  parts,
+  isSelected = false,
+  onClick,
+}: DgwMatchCardProps): JSX.Element | null {
   const part1 = parts[0];
   const part2 = parts[1];
   if (part1 === undefined || part2 === undefined) return null;
@@ -52,14 +59,38 @@ export function DgwMatchCard({ snapshot, parts }: DgwMatchCardProps): JSX.Elemen
       className={cn(
         'border-border relative flex w-[168px] shrink-0 flex-col rounded-[10px] border',
         bgClass,
+        isSelected && 'ring-accent ring-1',
+        onClick && 'cursor-pointer',
       )}
       role="listitem"
+      aria-label={`GW${gameweek.toString()} double gameweek, net ${formatDelta(netDelta)}`}
+      aria-current={isSelected ? 'true' : undefined}
+      data-gameweek={gameweek}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
-      {/* Header: GW label + DGW badge */}
+      {/* Header: GW label + DGW badge — same split logic as MatchHistoryCard */}
       <div className="flex items-center justify-between px-2.5 pt-2.5">
-        <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
-          GW{gameweek.toString()}
-        </span>
+        {onClick ? (
+          <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
+            <span>GW</span>
+            <span>{gameweek.toString()}</span>
+          </span>
+        ) : (
+          <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
+            GW{gameweek.toString()}
+          </span>
+        )}
         <span className="bg-accent/12 text-accent rounded-sm px-1 py-px font-mono text-[8px] font-semibold tracking-[0.05em] uppercase">
           DGW
         </span>

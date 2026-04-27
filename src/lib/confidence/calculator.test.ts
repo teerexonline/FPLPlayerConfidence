@@ -913,6 +913,258 @@ describe('calculateConfidence', () => {
     });
   });
 
+  // ── DC Fatigue (EX-39–EX-44) ──────────────────────────────────────────
+
+  it('EX-39: DC Fatigue applies — 3× DefCon-as-primary from 0 (MID)', () => {
+    // GW1: DefCon → flat +1; conf=+1, dcCount=1
+    // GW2: DefCon → flat +1; conf=+2, dcCount=2
+    // GW3: DefCon; confidenceAfterDefCon=clamp(+2+1)=+3; hypothetical=+1>0 → applied
+    //      → conf=+1, delta=−1, dcCount=0, dcFatigueApplied=true
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1, defensiveContribution: 12 }),
+        aMatch({ gameweek: 2, defensiveContribution: 12 }),
+        aMatch({ gameweek: 3, defensiveContribution: 12 }),
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(1);
+    expect(result.history[0]).toMatchObject({ confidenceAfter: 1, defConCounterAfter: 1 });
+    expect(result.history[1]).toMatchObject({ confidenceAfter: 2, defConCounterAfter: 2 });
+    expect(result.history[2]).toMatchObject({
+      confidenceAfter: 1,
+      delta: -1,
+      reason: 'DefCon vs FDR 3 opponent + DC Fatigue −2',
+      dcFatigueApplied: true,
+      defConCounterAfter: 0,
+    });
+  });
+
+  it('EX-40: DC Fatigue waived — 3× DefCon-as-primary from −2 (MID)', () => {
+    // 2× blank FDR3 → conf=−2; then 3× DefCon:
+    // GW3: DefCon → +1; conf=−1, dcCount=1
+    // GW4: DefCon → +1; conf=0,  dcCount=2
+    // GW5: DefCon; confidenceAfterDefCon=clamp(0+1)=+1; hypothetical=−1≤0 → waived
+    //      → conf=+1, delta=+1, dcCount=0, dcFatigueApplied=false
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1 }), // blank → −1
+        aMatch({ gameweek: 2 }), // blank → −2
+        aMatch({ gameweek: 3, defensiveContribution: 12 }),
+        aMatch({ gameweek: 4, defensiveContribution: 12 }),
+        aMatch({ gameweek: 5, defensiveContribution: 12 }),
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(1);
+    expect(result.history[4]).toMatchObject({
+      confidenceAfter: 1,
+      delta: 1,
+      reason: 'DefCon vs FDR 3 opponent + DC Fatigue waived',
+      dcFatigueApplied: false,
+      defConCounterAfter: 0,
+    });
+  });
+
+  it('EX-41: DC Fatigue boundary — confidenceAfterDefCon=0, hypothetical=−2 → waived', () => {
+    // Build conf=−1, dcCount=2: 2× DefCon → conf=+2, dcCount=2; 3× blank → conf=−1
+    // Then 3rd DefCon: confidenceAfterDefCon=clamp(−1+1)=0; hypothetical=0+(−2)=−2≤0 → waived
+    //   → conf=0, delta=+1, dcFatigueApplied=false
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1, defensiveContribution: 12 }), // DefCon, dcCount=1, conf=+1
+        aMatch({ gameweek: 2, defensiveContribution: 12 }), // DefCon, dcCount=2, conf=+2
+        aMatch({ gameweek: 3 }), // blank, conf=+1
+        aMatch({ gameweek: 4 }), // blank, conf=0
+        aMatch({ gameweek: 5 }), // blank, conf=−1; dcCount still 2
+        aMatch({ gameweek: 6, defensiveContribution: 12 }), // boundary: waived at exactly 0
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.history[5]).toMatchObject({
+      confidenceAfter: 0,
+      delta: 1,
+      reason: 'DefCon vs FDR 3 opponent + DC Fatigue waived',
+      dcFatigueApplied: false,
+      defConCounterAfter: 0,
+    });
+  });
+
+  it('EX-42: Counter independence — DefCon fires when motmCount=2, only defConCounterAfter increments', () => {
+    // 2× MOTM FDR3 → conf=+4, motm=2; 3× blank → conf=+1; DefCon → conf=+2
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1, goals: 1 }), // MOTM, motm=1, conf=+2
+        aMatch({ gameweek: 2, goals: 1 }), // MOTM, motm=2, conf=+4
+        aMatch({ gameweek: 3 }), // blank, conf=+3
+        aMatch({ gameweek: 4 }), // blank, conf=+2
+        aMatch({ gameweek: 5 }), // blank, conf=+1
+        aMatch({ gameweek: 6, defensiveContribution: 12 }), // DefCon, dcCount=1
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.history[5]).toMatchObject({
+      confidenceAfter: 2,
+      delta: 1,
+      reason: 'DefCon vs FDR 3 opponent',
+      fatigueApplied: false,
+      dcFatigueApplied: false,
+      motmCounterAfter: 2, // unchanged — DefCon does not touch motmCount
+      defConCounterAfter: 1, // incremented
+    });
+  });
+
+  it('EX-43: DefCon silent (CS fires) → defConCounterAfter unchanged', () => {
+    // GW1: blank → conf=−1
+    // GW2: DefCon-only → conf=0, dcCount=1
+    // GW3: CS fires, DefCon silent → conf=+1, dcCount must still be 1
+    const input: CalculatorInput = {
+      position: 'DEF',
+      matches: [
+        aMatch({ gameweek: 1 }), // blank FDR3 → −1
+        aMatch({ gameweek: 2, defensiveContribution: 10 }), // DefCon-only, dcCount=1
+        aMatch({ gameweek: 3, cleanSheet: true, defensiveContribution: 10 }), // CS fires
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.history[2]).toMatchObject({
+      confidenceAfter: 1,
+      delta: 1,
+      reason: 'Clean sheet vs FDR 3 opponent',
+      dcFatigueApplied: false,
+      defConCounterAfter: 1, // unchanged — DefCon was silent
+    });
+  });
+
+  it('EX-44: Cross-counter isolation — MOTM fatigue fires, defConCounterAfter stays 2', () => {
+    // Build conf=+3, motm=2, dcCount=2:
+    //   2× MOTM → conf=+4, motm=2; 3× blank → conf=+1; 2× DefCon → conf=+2,+3, dcCount=1,2
+    // Then MOTM: motm=3 → fatigue fires; conf=+3, motm=0; dcCount must remain 2
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1, goals: 1 }), // MOTM, motm=1, conf=+2
+        aMatch({ gameweek: 2, goals: 1 }), // MOTM, motm=2, conf=+4
+        aMatch({ gameweek: 3 }), // blank, conf=+3
+        aMatch({ gameweek: 4 }), // blank, conf=+2
+        aMatch({ gameweek: 5 }), // blank, conf=+1
+        aMatch({ gameweek: 6, defensiveContribution: 12 }), // DefCon, dcCount=1, conf=+2
+        aMatch({ gameweek: 7, defensiveContribution: 12 }), // DefCon, dcCount=2, conf=+3
+        aMatch({ gameweek: 8, goals: 1 }), // MOTM → fatigue; conf=+3, motm=0
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.history[7]).toMatchObject({
+      confidenceAfter: 3,
+      delta: 0,
+      reason: 'MOTM vs FDR 3 opponent + Fatigue −2',
+      fatigueApplied: true,
+      dcFatigueApplied: false,
+      motmCounterAfter: 0, // reset by MOTM fatigue
+      defConCounterAfter: 2, // untouched by MOTM fatigue path
+    });
+  });
+
+  // ── SC Fatigue (EX-45–EX-47) ──────────────────────────────────────────
+
+  it('EX-45: SC Fatigue applies — 3× SaveCon-as-primary from 0 (GK)', () => {
+    // GW1: SaveCon → flat +1; conf=+1, scCount=1
+    // GW2: SaveCon → flat +1; conf=+2, scCount=2
+    // GW3: SaveCon; confidenceAfterSaveCon=+3; hypothetical=+1>0 → applied
+    //      → conf=+1, delta=−1, scCount=0, scFatigueApplied=true
+    const input: CalculatorInput = {
+      position: 'GK',
+      matches: [
+        aMatch({ gameweek: 1, saves: 5 }),
+        aMatch({ gameweek: 2, saves: 5 }),
+        aMatch({ gameweek: 3, saves: 5 }),
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(1);
+    expect(result.history[0]).toMatchObject({ confidenceAfter: 1, saveConCounterAfter: 1 });
+    expect(result.history[1]).toMatchObject({ confidenceAfter: 2, saveConCounterAfter: 2 });
+    expect(result.history[2]).toMatchObject({
+      confidenceAfter: 1,
+      delta: -1,
+      reason: 'SaveCon vs FDR 3 opponent + SC Fatigue −2',
+      scFatigueApplied: true,
+      saveConCounterAfter: 0,
+    });
+  });
+
+  it('EX-46: SC Fatigue waived — GK at −3, saveConCount=2, 3rd SaveCon waived', () => {
+    // Build conf=−3, scCount=2:
+    //   blank FDR1 → −2; SaveCon → −1, scCount=1;
+    //   blank FDR1 → −3; SaveCon → −2, scCount=2;
+    //   blank FDR3 → −3 (scCount stays 2)
+    // Then 3rd SaveCon: confidenceAfterSaveCon=clamp(−3+1)=−2; hypothetical=−4≤0 → waived
+    //   → conf=−2, delta=+1, scFatigueApplied=false, scCount=0
+    const input: CalculatorInput = {
+      position: 'GK',
+      matches: [
+        aMatch({ gameweek: 1, opponentFdr: 1 }), // blank FDR1 → −2
+        aMatch({ gameweek: 2, saves: 5 }), // SaveCon, scCount=1, conf=−1
+        aMatch({ gameweek: 3, opponentFdr: 1 }), // blank FDR1 → −2; conf=−3
+        aMatch({ gameweek: 4, saves: 5 }), // SaveCon, scCount=2, conf=−2
+        aMatch({ gameweek: 5 }), // blank FDR3 → −1; conf=−3
+        aMatch({ gameweek: 6, saves: 5 }), // 3rd SaveCon — waived
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.history[5]).toMatchObject({
+      confidenceAfter: -2,
+      delta: 1,
+      reason: 'SaveCon vs FDR 3 opponent + SC Fatigue waived',
+      scFatigueApplied: false,
+      saveConCounterAfter: 0,
+    });
+  });
+
+  it('EX-47a: GK SaveCon — defConCounterAfter stays 0, saveConCounterAfter increments to 1', () => {
+    const result = calculateConfidence({
+      position: 'GK',
+      matches: [aMatch({ saves: 5 })],
+    });
+
+    expect(result.history[0]).toMatchObject({
+      defConCounterAfter: 0,
+      saveConCounterAfter: 1,
+    });
+  });
+
+  it('EX-47b: DEF DefCon — saveConCounterAfter stays 0, defConCounterAfter increments to 1', () => {
+    const result = calculateConfidence({
+      position: 'DEF',
+      matches: [aMatch({ defensiveContribution: 10 })],
+    });
+
+    expect(result.history[0]).toMatchObject({
+      defConCounterAfter: 1,
+      saveConCounterAfter: 0,
+    });
+  });
+
   // ── Rounding via calculator path ───────────────────────────────────────
 
   it('rounding: MOTM MID vs FDR 4 — base +2 × 1.25 = +2.5 → rounds away from zero → +3', () => {
@@ -1072,9 +1324,8 @@ describe('calculateConfidence', () => {
       );
     });
 
-    it('PROP-07: fatigue never pushes confidence to ≤ 0 (waiver guarantee)', () => {
+    it('PROP-07: MOTM Fatigue never pushes confidence to ≤ 0 (waiver guarantee)', () => {
       // When fatigueApplied === true, confidenceAfter must be > 0.
-      // Equivalently: the penalty is only applied when it keeps the player strictly above neutral.
       fc.assert(
         fc.property(arbCalculatorInput(), (input) => {
           const result = calculateConfidence(input);
@@ -1082,6 +1333,57 @@ describe('calculateConfidence', () => {
             if (entry.fatigueApplied) {
               expect(entry.confidenceAfter).toBeGreaterThan(0);
             }
+          }
+        }),
+      );
+    });
+
+    it('PROP-08: DC Fatigue never pushes confidence to ≤ 0', () => {
+      fc.assert(
+        fc.property(arbCalculatorInput(), (input) => {
+          const result = calculateConfidence(input);
+          for (const entry of result.history) {
+            if (entry.dcFatigueApplied) {
+              expect(entry.confidenceAfter).toBeGreaterThan(0);
+            }
+          }
+        }),
+      );
+    });
+
+    it('PROP-09: SC Fatigue never pushes confidence to ≤ 0', () => {
+      fc.assert(
+        fc.property(arbCalculatorInput(), (input) => {
+          const result = calculateConfidence(input);
+          for (const entry of result.history) {
+            if (entry.scFatigueApplied) {
+              expect(entry.confidenceAfter).toBeGreaterThan(0);
+            }
+          }
+        }),
+      );
+    });
+
+    it('PROP-10: counter mutual exclusivity — at most one counter increments per match', () => {
+      fc.assert(
+        fc.property(arbCalculatorInput(), (input) => {
+          const result = calculateConfidence(input);
+          let prevMotm = 0;
+          let prevDc = 0;
+          let prevSc = 0;
+          for (const entry of result.history) {
+            const motmIncremented = entry.motmCounterAfter > prevMotm;
+            const dcIncremented = entry.defConCounterAfter > prevDc;
+            const scIncremented = entry.saveConCounterAfter > prevSc;
+            // At most one counter can increment in a single match.
+            const increments = [motmIncremented, dcIncremented, scIncremented].filter(
+              Boolean,
+            ).length;
+            expect(increments).toBeLessThanOrEqual(1);
+            // Snapshot counters for next iteration (use the after values, not the reset values).
+            prevMotm = entry.motmCounterAfter;
+            prevDc = entry.defConCounterAfter;
+            prevSc = entry.saveConCounterAfter;
           }
         }),
       );

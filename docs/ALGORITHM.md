@@ -39,9 +39,13 @@ export interface MatchDelta {
   readonly gameweek: number;
   readonly delta: number; // post-clamp net change
   readonly reason: string;
-  readonly fatigueApplied: boolean;
+  readonly fatigueApplied: boolean; // true iff MOTM Fatigue penalty was applied
+  readonly dcFatigueApplied: boolean; // true iff DC Fatigue penalty was applied
+  readonly scFatigueApplied: boolean; // true iff SC Fatigue penalty was applied
   readonly confidenceAfter: number; // clamped, -4..+5
   readonly motmCounterAfter: number;
+  readonly defConCounterAfter: number;
+  readonly saveConCounterAfter: number;
 }
 
 export interface CalculatorOutput {
@@ -72,6 +76,8 @@ If preconditions are violated, behavior is undefined. The caller (the sync pipel
 | **FDR**              | Fixture Difficulty Rating — a 1–5 integer per match, sourced from FPL's fixtures endpoint. FDR 1 = easiest fixture, FDR 5 = hardest. Determines the multiplier applied to base event values.                                                                                                                                                                                                                                                                                   |
 | **Clean sheet**      | `cleanSheet === true` (caller enforces minutes ≥ 60 + conceded 0)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **SaveCon**          | `saves >= 4` in a match (GK only). Acts as a Blank substitute when no other positive event (goal, assist, clean sheet) fired. The +1 is flat regardless of FDR — 4 saves exceeds FPL's own save-point threshold (3 saves = 1 FPL point) and signals above-average shot-stopping workload, not a difficulty-adjusted output. SaveCon mirrors DefCon's role for outfielders: a structural safety net that prevents an unjust Blank penalty when the keeper was genuinely active. |
+| **DC Fatigue**       | Applied when `defConFatigueCount` reaches 3 — i.e., DefCon has fired as primary for three tracked matches. Uses the same intermediate-clamp rule as MOTM Fatigue: penalty is −2, applied to the clamped post-DefCon confidence; waived if the hypothetical result would be ≤ 0. Counter resets to 0 regardless of apply/waive. Not applicable to GK. Independent of `motmCount` and `saveConFatigueCount`.                                                                     |
+| **SC Fatigue**       | Applied when `saveConFatigueCount` reaches 3 — i.e., SaveCon has fired as primary for three tracked matches. Same waiver rule and −2 penalty as MOTM Fatigue and DC Fatigue. Counter resets to 0 regardless of apply/waive. GK only. Independent of `motmCount` and `defConFatigueCount`.                                                                                                                                                                                      |
 
 > **Big-team badge:** Although the binary big-team concept no longer drives the calculation, the UI renders a "BIG" badge on match history cards when `opponentFdr ≥ 4`. This is a purely presentational signal — it does not affect any numeric output.
 
@@ -123,6 +129,18 @@ Reference values: `+0.5 → +1`, `−0.5 → −1`, `+1.5 → +2`, `−1.5 → �
 
 For the GK/DEF stacking path, sum all floating-point components first, then call `roundAwayFromZero` **once** on the total. Do not round intermediate per-component values.
 
+### 4.4 Fatigue modifiers
+
+Three independent fatigue mechanisms can apply a −2 penalty on top of the event score. All three share the same threshold, penalty, and waiver rule.
+
+| Mechanism    | Counter               | Trigger           | Penalty | Waiver condition                                          |
+| ------------ | --------------------- | ----------------- | ------- | --------------------------------------------------------- |
+| MOTM Fatigue | `motmCount`           | Counter reaches 3 | −2      | Hypothetical post-penalty confidence ≤ 0 → penalty waived |
+| DC Fatigue   | `defConFatigueCount`  | Counter reaches 3 | −2      | Hypothetical post-penalty confidence ≤ 0 → penalty waived |
+| SC Fatigue   | `saveConFatigueCount` | Counter reaches 3 | −2      | Hypothetical post-penalty confidence ≤ 0 → penalty waived |
+
+The penalty is applied to the clamped post-event confidence (intermediate-clamp rule). Counter resets to 0 regardless of apply/waive. Counters never interact (see §6.4).
+
 ---
 
 ## 5. Per-match resolution
@@ -166,7 +184,11 @@ The big-team flag was binary and required a configurable team list that was frag
 
 ---
 
-## 6. Fatigue modifier
+## 6. Fatigue modifiers
+
+Three independent fatigue mechanisms run in parallel. All three share the same threshold (3), penalty (−2), intermediate-clamp rule, waiver logic, and counter-reset behaviour. The counters never interact — see §6.4.
+
+### 6.1 MOTM Fatigue
 
 - Maintain a counter `motmCount` starting at 0.
 - Increment by 1 every time a MOTM performance is recorded. This includes GK/DEF assists (which count as MOTM) and GK/DEF goals.
@@ -177,10 +199,8 @@ The big-team flag was binary and required a configurable team list that was frag
   4. If `hypotheticalPostFatigue ≤ 0`: **waive** the penalty — `confidence = confidenceAfterMotm`, append "Fatigue waived" to the reason string, `fatigueApplied = false`.
   5. Reset `motmCount = 0` **regardless** of whether the penalty was applied or waived.
 - For all other matches (counter < 3, or not a MOTM match), the single end-of-match clamp applies normally: `confidence = clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX)`.
-- DefCon does not increment the MOTM counter and is not subject to fatigue. Fatigue is reserved for exceptional output (goals or 2+ assists), which DefCon is structurally distinct from.
-- SaveCon does not increment the MOTM counter and is not subject to fatigue. Like DefCon, SaveCon is a consistency signal (hitting an absolute threshold of defensive workload), not an exceptional positive performance.
 
-### 6.1 Rationale — the waiver rule
+#### 6.1.1 Rationale — the waiver rule
 
 The waiver protects recovering players. Fatigue's design intent is to model regression-to-the-mean after a hot streak, but a player climbing out of a slump shouldn't be punished by the same mechanic. Players at or below the neutral baseline are by definition not on an unsustainable peak.
 
@@ -189,6 +209,46 @@ The waiver protects recovering players. Fatigue's design intent is to model regr
 **Why `> 0` (strict) rather than `≥ 0`:** If applying fatigue would land the player at exactly 0, that's a neutral outcome — the player would be at the midpoint. A player who MOTM'd their way from negative back to exactly neutral hasn't built a "hot streak" in any meaningful sense. The waiver keeps them at whatever positive confidence the MOTM earned, rather than dropping them back to neutral.
 
 **Consequence for the clamp interaction (see EX-14):** Under the old rule, a player at the +5 ceiling who triggered fatigue on their third MOTM would stay at +5 — the −2 penalty was absorbed by the ceiling along with the +3 MOTM gain (net +1, clamped to +5, delta = 0). Under the new rule, the clamp is applied to the MOTM gain first (+5 ceiling holds), then the −2 penalty is applied to the clamped value (+5 − 2 = +3 > 0 → applied). The player lands at +3. This is the intended behaviour: fatigue should have a real effect even at the ceiling.
+
+**The same waiver rationale applies identically to DC Fatigue and SC Fatigue** — both mechanisms protect recovering players by the same logic.
+
+### 6.2 DC Fatigue
+
+- Maintain a counter `defConFatigueCount` starting at 0.
+- Increment by 1 every time DefCon fires **as primary** — i.e., the match was a true blank candidate (0 goals, 0 assists, no clean sheet for DEF/MID/FWD) and DefCon alone prevented the blank. The counter is **not** incremented when DefCon is silent (any positive event — goal, assist, CS — fired in the same match, causing DefCon to be absorbed).
+- When `defConFatigueCount` reaches **3**, evaluate the fatigue penalty using the same intermediate-clamp rule:
+  1. Compute `confidenceAfterDefCon = clamp(before + 1, CONFIDENCE_MIN, CONFIDENCE_MAX)` — the flat +1 from DefCon, fully clamped.
+  2. Compute `hypotheticalPostFatigue = confidenceAfterDefCon + FATIGUE_PENALTY`.
+  3. If `hypotheticalPostFatigue > 0`: **apply** — `confidence = hypotheticalPostFatigue`, append "DC Fatigue −2", `dcFatigueApplied = true`.
+  4. If `hypotheticalPostFatigue ≤ 0`: **waive** — `confidence = confidenceAfterDefCon`, append "DC Fatigue waived", `dcFatigueApplied = false`.
+  5. Reset `defConFatigueCount = 0` **regardless**.
+- Not applicable to GK. GK never fires DefCon, so `defConFatigueCount` is always 0 for GK positions.
+- Independent of `motmCount` and `saveConFatigueCount`.
+
+### 6.3 SC Fatigue
+
+- Maintain a counter `saveConFatigueCount` starting at 0.
+- Increment by 1 every time SaveCon fires **as primary** — i.e., the GK had 0 goals, 0 assists, no clean sheet, and `saves >= 4`. The counter is **not** incremented when SaveCon is silent (any positive event fired first).
+- When `saveConFatigueCount` reaches **3**, evaluate the fatigue penalty using the same intermediate-clamp rule:
+  1. Compute `confidenceAfterSaveCon = clamp(before + 1, CONFIDENCE_MIN, CONFIDENCE_MAX)`.
+  2. Compute `hypotheticalPostFatigue = confidenceAfterSaveCon + FATIGUE_PENALTY`.
+  3. If `hypotheticalPostFatigue > 0`: **apply** — `confidence = hypotheticalPostFatigue`, append "SC Fatigue −2", `scFatigueApplied = true`.
+  4. If `hypotheticalPostFatigue ≤ 0`: **waive** — `confidence = confidenceAfterSaveCon`, append "SC Fatigue waived", `scFatigueApplied = false`.
+  5. Reset `saveConFatigueCount = 0` **regardless**.
+- GK only. Outfielders never fire SaveCon; `saveConFatigueCount` is always 0 for non-GK positions.
+- Independent of `motmCount` and `defConFatigueCount`.
+
+### 6.4 Counter independence
+
+The three counters track different phenomena and never cross-influence:
+
+| Counter               | Incremented when                                        | Never incremented by |
+| --------------------- | ------------------------------------------------------- | -------------------- |
+| `motmCount`           | MOTM event fires (goal, 2+ assists, GK/DEF assist/goal) | DefCon, SaveCon      |
+| `defConFatigueCount`  | DefCon fires as primary (DEF/MID/FWD only)              | MOTM events, SaveCon |
+| `saveConFatigueCount` | SaveCon fires as primary (GK only)                      | MOTM events, DefCon  |
+
+A single match can only ever increment one counter. If MOTM fires, DefCon and SaveCon are both silent by definition (§5). If DefCon fires as primary, MOTM did not fire. If SaveCon fires as primary, MOTM did not fire. The `else if` chain in the pseudocode (§10) encodes this invariant structurally.
 
 ---
 
@@ -639,6 +699,157 @@ expected: confidenceAfter=+2, delta=0, reason="MOTM vs FDR 3 opponent + Fatigue 
           fatigueApplied=true, motmCounterAfter=0
 ```
 
+### EX-39 — DC Fatigue applies: 3× DefCon-as-primary from 0 (MID)
+
+```
+position: MID
+matches:
+  GW1: goals=0, assists=0, defensiveContribution=12, opponentFdr=3 → DefCon-only → flat +1
+       conf=+1, defConCounterAfter=1
+  GW2: goals=0, assists=0, defensiveContribution=12, opponentFdr=3 → DefCon-only → flat +1
+       conf=+2, defConCounterAfter=2
+  GW3: goals=0, assists=0, defensiveContribution=12, opponentFdr=3 → DefCon-only
+       confidenceAfterDefCon = clamp(+2 + 1) = +3
+       counter = 3 → DC Fatigue evaluates
+       hypotheticalPostFatigue = +3 + (−2) = +1   → +1 > 0, penalty applied
+       conf=+1, defConCounterAfter=0, dcFatigueApplied=true
+GW3 expected: delta=−1, reason="DefCon vs FDR 3 opponent + DC Fatigue −2",
+              dcFatigueApplied=true, defConCounterAfter=0
+finalConfidence: +1
+```
+
+### EX-40 — DC Fatigue waived: 3× DefCon-as-primary from −2 (MID)
+
+Starting at −2, DefCon accumulates but the penalty is waived because the hypothetical result is negative.
+
+```
+position: MID
+matches:
+  GW1: DefCon-only → flat +1; conf=−1, defConCounterAfter=1
+  GW2: DefCon-only → flat +1; conf=0,  defConCounterAfter=2
+  GW3: DefCon-only
+       confidenceAfterDefCon = clamp(0 + 1) = +1
+       counter = 3 → DC Fatigue evaluates
+       hypotheticalPostFatigue = +1 + (−2) = −1   → −1 ≤ 0, waived
+       conf=+1, defConCounterAfter=0, dcFatigueApplied=false
+GW3 expected: delta=+1, reason="DefCon vs FDR 3 opponent + DC Fatigue waived",
+              dcFatigueApplied=false, defConCounterAfter=0
+finalConfidence: +1
+```
+
+### EX-41 — DC Fatigue boundary: confidenceAfterDefCon = 0 (waived)
+
+Analogous to EX-36 (MOTM boundary). The hypothetical result is −2, which is ≤ 0, so the penalty is waived even though the counter hit 3.
+
+```
+position: MID
+preceding state: confidence=−1, defConFatigueCount=2
+match: goals=0, assists=0, defensiveContribution=12, opponentFdr=3
+       confidenceAfterDefCon = clamp(−1 + 1) = 0
+       counter = 3 → DC Fatigue evaluates
+       hypotheticalPostFatigue = 0 + (−2) = −2   → −2 ≤ 0, waived
+expected: confidenceAfter=0, delta=+1, reason="DefCon vs FDR 3 opponent + DC Fatigue waived",
+          dcFatigueApplied=false, defConCounterAfter=0
+```
+
+### EX-42 — Counter independence: motmCount=2, DefCon fires → defConCounterAfter=1, motmCount unchanged
+
+```
+position: MID
+preceding state: confidence=+1, motmCount=2, defConFatigueCount=0
+match: goals=0, assists=0, defensiveContribution=12, opponentFdr=3
+       DefCon fires as primary → flat +1; defConFatigueCount increments to 1; motmCount stays 2
+expected: confidenceAfter=+2, delta=+1, reason="DefCon vs FDR 3 opponent",
+          fatigueApplied=false, dcFatigueApplied=false,
+          motmCounterAfter=2, defConCounterAfter=1
+```
+
+### EX-43 — DefCon silent → defConFatigueCount unchanged
+
+When a positive event fires (CS), DefCon is silent. The DC Fatigue counter must not increment.
+
+```
+position: DEF
+preceding state: confidence=0, defConFatigueCount=1
+match: goals=0, assists=0, cleanSheet=true, defensiveContribution=10, opponentFdr=3
+       CS fires → base +1 × 1.0 = +1; DefCon is silent
+expected: confidenceAfter=+1, delta=+1, reason="Clean sheet vs FDR 3 opponent",
+          dcFatigueApplied=false, defConCounterAfter=1  (unchanged)
+```
+
+### EX-44 — Cross-counter isolation: MOTM fires, defConFatigueCount stays 2
+
+When `motmCount` reaches 3 and MOTM Fatigue triggers, the `defConFatigueCount` is not touched.
+
+```
+position: MID
+preceding state: confidence=+3, motmCount=2, defConFatigueCount=2
+match: goals=1, assists=0, opponentFdr=3
+       MOTM fires → motmCount increments to 3
+       confidenceAfterMotm = clamp(+3 + 2) = +5
+       MOTM Fatigue evaluates: hypothetical = +5 − 2 = +3 > 0 → applied
+       conf=+3; motmCount resets to 0; defConFatigueCount stays 2
+expected: confidenceAfter=+3, delta=0, reason="MOTM vs FDR 3 opponent + Fatigue −2",
+          fatigueApplied=true, dcFatigueApplied=false,
+          motmCounterAfter=0, defConCounterAfter=2  (unchanged)
+```
+
+### EX-45 — SC Fatigue applies: 3× SaveCon-as-primary from 0 (GK)
+
+Mirror of EX-39, for GK with SaveCon.
+
+```
+position: GK
+matches:
+  GW1: saves=5, goals=0, assists=0, cleanSheet=false, opponentFdr=3 → SaveCon → flat +1
+       conf=+1, saveConCounterAfter=1
+  GW2: saves=5, goals=0, assists=0, cleanSheet=false, opponentFdr=3 → SaveCon → flat +1
+       conf=+2, saveConCounterAfter=2
+  GW3: saves=5, goals=0, assists=0, cleanSheet=false, opponentFdr=3 → SaveCon
+       confidenceAfterSaveCon = clamp(+2 + 1) = +3
+       counter = 3 → SC Fatigue evaluates
+       hypotheticalPostFatigue = +3 + (−2) = +1   → +1 > 0, penalty applied
+       conf=+1, saveConCounterAfter=0, scFatigueApplied=true
+GW3 expected: delta=−1, reason="SaveCon vs FDR 3 opponent + SC Fatigue −2",
+              scFatigueApplied=true, saveConCounterAfter=0
+finalConfidence: +1
+```
+
+### EX-46 — SC Fatigue waived: GK at −3, confidenceAfterSaveCon = −2
+
+```
+position: GK
+preceding state: confidence=−3, saveConFatigueCount=2
+match: saves=5, goals=0, assists=0, cleanSheet=false, opponentFdr=3
+       confidenceAfterSaveCon = clamp(−3 + 1) = −2
+       counter = 3 → SC Fatigue evaluates
+       hypotheticalPostFatigue = −2 + (−2) = −4   → −4 ≤ 0, waived
+expected: confidenceAfter=−2, delta=+1, reason="SaveCon vs FDR 3 opponent + SC Fatigue waived",
+          scFatigueApplied=false, saveConCounterAfter=0
+```
+
+### EX-47 — Mutual exclusivity: GK never touches defConFatigueCount; DEF never touches saveConFatigueCount
+
+**Part a — GK SaveCon does not increment defConFatigueCount:**
+
+```
+position: GK
+preceding state: defConFatigueCount=0, saveConFatigueCount=0
+match: saves=5, goals=0, assists=0, cleanSheet=false, opponentFdr=3
+       SaveCon fires → saveConFatigueCount=1; defConFatigueCount stays 0
+expected: defConCounterAfter=0, saveConCounterAfter=1
+```
+
+**Part b — DEF DefCon does not increment saveConFatigueCount:**
+
+```
+position: DEF
+preceding state: defConFatigueCount=0, saveConFatigueCount=0
+match: saves=0, goals=0, assists=0, cleanSheet=false, defensiveContribution=10, opponentFdr=3
+       DefCon fires → defConFatigueCount=1; saveConFatigueCount stays 0
+expected: defConCounterAfter=1, saveConCounterAfter=0
+```
+
 ---
 
 ## 9. Required property tests
@@ -665,11 +876,33 @@ For any DEF/MID/FWD match where only DefCon fires (goals = 0, assists = 0, clean
 
 For any GK match where only SaveCon fires (saves ≥ 4, goals = 0, assists = 0, cleanSheet = false), `motmCounterAfter` equals `motmCounterBefore`. SaveCon is structurally excluded from the MOTM fatigue loop, identical to DefCon.
 
-### PROP-07 — Fatigue never pushes confidence to ≤ 0
+### PROP-07 — MOTM Fatigue never pushes confidence to ≤ 0
 
 For any `MatchDelta` in the calculator output: if `fatigueApplied === true`, then `confidenceAfter > 0`. The penalty is only applied when doing so keeps the player strictly above the neutral floor; the waiver mechanism guarantees this invariant by construction.
 
 Property test form: for any valid `CalculatorInput`, every `history[i]` satisfies `history[i].fatigueApplied === false || history[i].confidenceAfter > 0`.
+
+### PROP-08 — DC Fatigue never pushes confidence to ≤ 0
+
+Identical invariant for the DC Fatigue path: if `dcFatigueApplied === true`, then `confidenceAfter > 0`.
+
+Property test form: for any valid `CalculatorInput`, every `history[i]` satisfies `history[i].dcFatigueApplied === false || history[i].confidenceAfter > 0`.
+
+### PROP-09 — SC Fatigue never pushes confidence to ≤ 0
+
+Identical invariant for the SC Fatigue path: if `scFatigueApplied === true`, then `confidenceAfter > 0`.
+
+Property test form: for any valid `CalculatorInput`, every `history[i]` satisfies `history[i].scFatigueApplied === false || history[i].confidenceAfter > 0`.
+
+### PROP-10 — Counter mutual exclusivity
+
+For any `MatchDelta`, at most one counter can have incremented relative to the previous match's counters. Specifically:
+
+- If `motmCounterAfter > prevMotmCounterAfter` (counter incremented), then `defConCounterAfter === prevDefConCounterAfter` and `saveConCounterAfter === prevSaveConCounterAfter`.
+- If `defConCounterAfter > prevDefConCounterAfter` (counter incremented, not reset), then `motmCounterAfter === prevMotmCounterAfter` and `saveConCounterAfter === prevSaveConCounterAfter`.
+- If `saveConCounterAfter > prevSaveConCounterAfter` (counter incremented, not reset), then `motmCounterAfter === prevMotmCounterAfter` and `defConCounterAfter === prevDefConCounterAfter`.
+
+Note: counter resets (to 0) are excluded from this check since a reset and an increment on a different counter can occur in the same match when fatigue fires.
 
 ### PROP-05 — FDR multiplier never produces out-of-range values
 
@@ -736,6 +969,8 @@ interface MatchAdjustment {
   readonly raw: number;
   readonly reasons: readonly string[];
   readonly isMotm: boolean;
+  readonly isDefCon: boolean; // DefCon fired as primary (no goal/assist/CS in same match)
+  readonly isSaveCon: boolean; // SaveCon fired as primary (GK only, same conditions)
 }
 
 function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
@@ -748,6 +983,8 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
       raw: roundAwayFromZero(2 * posMul),
       reasons: [`MOTM vs FDR ${fdr.toString()} opponent`],
       isMotm: true,
+      isDefCon: false,
+      isSaveCon: false,
     };
   }
   if (match.assists === 1) {
@@ -755,6 +992,8 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
       raw: roundAwayFromZero(1 * posMul),
       reasons: [`Performance vs FDR ${fdr.toString()} opponent`],
       isMotm: false,
+      isDefCon: false,
+      isSaveCon: false,
     };
   }
   if (defconHit) {
@@ -763,12 +1002,16 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
       raw: 1,
       reasons: [`DefCon vs FDR ${fdr.toString()} opponent`],
       isMotm: false,
+      isDefCon: true,
+      isSaveCon: false,
     };
   }
   return {
     raw: roundAwayFromZero(-1 * blkMul),
     reasons: [`Blank vs FDR ${fdr.toString()} opponent`],
     isMotm: false,
+    isDefCon: false,
+    isSaveCon: false,
   };
 }
 
@@ -802,43 +1045,53 @@ function resolveGkDef(
 
   // SaveCon/DefCon fire only when no positive event has already fired (Blank substitutes).
   // Exactly one of these three branches executes.
+  let isDefCon = false;
+  let isSaveCon = false;
   if (!isMotm && !match.cleanSheet) {
     if (defContrib) {
       rawFloat += 1; // flat, no FDR
       reasons.push(`DefCon vs FDR ${fdr.toString()} opponent`);
+      isDefCon = true;
     } else if (position === 'GK' && match.saves >= SAVECON_THRESHOLD) {
       rawFloat += 1; // flat, no FDR
       reasons.push(`SaveCon vs FDR ${fdr.toString()} opponent`);
+      isSaveCon = true;
     } else {
       rawFloat += -1 * blkMul;
       reasons.push(`Blank vs FDR ${fdr.toString()} opponent`);
     }
   }
 
-  return { raw: roundAwayFromZero(rawFloat), reasons, isMotm };
+  return { raw: roundAwayFromZero(rawFloat), reasons, isMotm, isDefCon, isSaveCon };
 }
 
 export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
   let confidence = 0;
   let motmCount = 0;
+  let defConFatigueCount = 0;
+  let saveConFatigueCount = 0;
   const history: MatchDelta[] = [];
 
   for (const match of input.matches) {
     const before = confidence;
     const defconHit = isDefConThresholdMet(input.position, match.defensiveContribution);
 
-    const { raw, reasons, isMotm } =
+    const { raw, reasons, isMotm, isDefCon, isSaveCon } =
       input.position === 'GK' || input.position === 'DEF'
         ? resolveGkDef(match, input.position, defconHit)
         : resolveMidFwd(match, defconHit);
 
     const reasonList = [...reasons];
     let fatigueApplied = false;
+    let dcFatigueApplied = false;
+    let scFatigueApplied = false;
 
-    // Clamp after MOTM gain first; fatigue (if triggered) is applied to the
+    // Clamp after the event gain first; fatigue (if triggered) is applied to the
     // clamped value, not bundled into the pre-clamp total.
     confidence = clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX);
 
+    // Only one of these three branches executes per match — isMotm, isDefCon, isSaveCon
+    // are mutually exclusive (see §6.4).
     if (isMotm) {
       motmCount += 1;
       if (motmCount >= FATIGUE_THRESHOLD) {
@@ -852,6 +1105,32 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
         }
         motmCount = 0; // resets regardless of whether penalty applied or waived
       }
+    } else if (isDefCon) {
+      defConFatigueCount += 1;
+      if (defConFatigueCount >= FATIGUE_THRESHOLD) {
+        const hypotheticalPostFatigue = confidence + FATIGUE_PENALTY;
+        if (hypotheticalPostFatigue > 0) {
+          confidence = hypotheticalPostFatigue;
+          reasonList.push('DC Fatigue −2');
+          dcFatigueApplied = true;
+        } else {
+          reasonList.push('DC Fatigue waived');
+        }
+        defConFatigueCount = 0;
+      }
+    } else if (isSaveCon) {
+      saveConFatigueCount += 1;
+      if (saveConFatigueCount >= FATIGUE_THRESHOLD) {
+        const hypotheticalPostFatigue = confidence + FATIGUE_PENALTY;
+        if (hypotheticalPostFatigue > 0) {
+          confidence = hypotheticalPostFatigue;
+          reasonList.push('SC Fatigue −2');
+          scFatigueApplied = true;
+        } else {
+          reasonList.push('SC Fatigue waived');
+        }
+        saveConFatigueCount = 0;
+      }
     }
 
     history.push({
@@ -859,8 +1138,12 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
       delta: confidence - before,
       reason: reasonList.join(' + '),
       fatigueApplied,
+      dcFatigueApplied,
+      scFatigueApplied,
       confidenceAfter: confidence,
       motmCounterAfter: motmCount,
+      defConCounterAfter: defConFatigueCount,
+      saveConCounterAfter: saveConFatigueCount,
     });
   }
 

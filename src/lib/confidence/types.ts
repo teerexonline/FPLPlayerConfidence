@@ -21,9 +21,13 @@ export interface MatchDelta {
   readonly gameweek: number;
   readonly delta: number; // post-clamp net change
   readonly reason: string;
-  readonly fatigueApplied: boolean;
+  readonly fatigueApplied: boolean; // true iff MOTM Fatigue penalty was applied
+  readonly dcFatigueApplied: boolean; // true iff DC Fatigue penalty was applied
+  readonly scFatigueApplied: boolean; // true iff SC Fatigue penalty was applied
   readonly confidenceAfter: number; // clamped, -4..+5
   readonly motmCounterAfter: number;
+  readonly defConCounterAfter: number;
+  readonly saveConCounterAfter: number;
 }
 
 export interface CalculatorOutput {

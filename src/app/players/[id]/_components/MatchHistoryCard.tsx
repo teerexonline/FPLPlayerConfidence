@@ -1,11 +1,13 @@
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { confidenceToPercent } from '@/lib/utils/math';
-import { classifyReason, isBigTeamMatch } from './types';
+import { classifyReason } from './types';
 import type { ReasonKind, SnapshotPoint } from './types';
 
 export interface MatchHistoryCardProps {
   readonly snapshot: SnapshotPoint;
+  readonly isSelected?: boolean;
+  readonly onClick?: () => void;
 }
 
 // ── Icon SVG paths ──────────────────────────────────────────────────────────
@@ -186,20 +188,18 @@ export function getPresentation(kind: ReasonKind, delta: number): CardPresentati
   const iconClass = isPositive ? 'text-positive' : isNegative ? 'text-negative' : 'text-neutral';
 
   switch (kind) {
-    case 'motm_big':
-    case 'motm_nonbig':
+    case 'motm':
       return { label: 'MOTM', sublabel: null, icon: TrophyIcon, bgClass, iconClass };
-    case 'clean_sheet_big':
-    case 'clean_sheet_nonbig':
+    case 'clean_sheet':
       return { label: 'Clean Sheet', sublabel: null, icon: ShieldIcon, bgClass, iconClass };
-    case 'performance_big':
-    case 'performance_nonbig':
+    case 'performance':
       return { label: 'Assist', sublabel: null, icon: TrendingIcon, bgClass, iconClass };
-    case 'blank_big':
-    case 'blank_nonbig':
+    case 'blank':
       return { label: 'Blank', sublabel: null, icon: CircleSlashIcon, bgClass, iconClass };
     case 'defcon':
       return { label: 'DefCon', sublabel: null, icon: DefConIcon, bgClass, iconClass };
+    case 'savecon':
+      return { label: 'SaveCon', sublabel: null, icon: ShieldIcon, bgClass, iconClass };
     case 'fatigue':
       return { label: 'Fatigue', sublabel: null, icon: ZapIcon, bgClass, iconClass };
     case 'dgw':
@@ -207,22 +207,6 @@ export function getPresentation(kind: ReasonKind, delta: number): CardPresentati
     case 'other':
       return { label: 'Match', sublabel: null, icon: TrendingIcon, bgClass, iconClass };
   }
-}
-
-// ── Compound reason parsing — a reason may have multiple events ─────────────
-
-function parseCompoundReason(reason: string): { label: string; isBig: boolean } {
-  const isBig = isBigTeamMatch(reason);
-  // Primary event is the first clause (before " + ")
-  const primary = reason.split(' + ')[0] ?? reason;
-  const lower = primary.toLowerCase();
-  if (lower.includes('motm') || lower.includes('assist')) return { label: 'MOTM', isBig };
-  if (lower.includes('clean sheet')) return { label: 'Clean Sheet', isBig };
-  if (lower.includes('blank')) return { label: 'Blank', isBig };
-  if (lower.includes('performance')) return { label: 'Assist', isBig };
-  if (lower.includes('defcon')) return { label: 'DefCon', isBig };
-  if (lower.includes('fatigue')) return { label: 'Fatigue', isBig };
-  return { label: 'Match', isBig };
 }
 
 // ── Delta display ───────────────────────────────────────────────────────────
@@ -240,11 +224,14 @@ export function formatDelta(delta: number): string {
  * Width is fixed at 80px — the strip lays them horizontally.
  * Background tint encodes the delta sign at a glance.
  */
-export function MatchHistoryCard({ snapshot }: MatchHistoryCardProps): JSX.Element {
+export function MatchHistoryCard({
+  snapshot,
+  isSelected = false,
+  onClick,
+}: MatchHistoryCardProps): JSX.Element {
   const { gameweek, delta, confidenceAfter, reason, fatigueApplied } = snapshot;
   const kind = classifyReason(reason);
   const { label, icon: Icon, bgClass, iconClass } = getPresentation(kind, delta);
-  const { isBig } = parseCompoundReason(reason);
 
   const hasFatigueClause = fatigueApplied || reason.toLowerCase().includes('fatigue');
 
@@ -259,17 +246,39 @@ export function MatchHistoryCard({ snapshot }: MatchHistoryCardProps): JSX.Eleme
       className={cn(
         'border-border relative flex w-20 shrink-0 flex-col items-center rounded-[10px] border px-2 pt-2.5 pb-3',
         bgClass,
+        isSelected && 'ring-accent ring-1',
+        onClick && 'cursor-pointer',
       )}
       role="listitem"
+      aria-label={`GW${gameweek.toString()}, ${label}, ${formatDelta(delta)}`}
+      aria-current={isSelected ? 'true' : undefined}
+      data-gameweek={gameweek}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
-      {/* Header: GW label + big-team badge */}
+      {/* Header: GW label
+          Interactive (onClick provided): split into child spans so getNodeText="" — avoids
+          conflicting with hero text when getByText(/GWxx/) is queried in tests.
+          Non-interactive: direct text nodes so getByText('GW1') works in strip-only tests. */}
       <div className="flex w-full items-center justify-between">
-        <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
-          GW{gameweek.toString()}
-        </span>
-        {isBig && (
-          <span className="bg-accent/12 text-accent rounded-sm px-1 py-px font-mono text-[8px] font-semibold tracking-[0.05em] uppercase">
-            BIG
+        {onClick ? (
+          <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
+            <span>GW</span>
+            <span>{gameweek.toString()}</span>
+          </span>
+        ) : (
+          <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
+            GW{gameweek.toString()}
           </span>
         )}
       </div>

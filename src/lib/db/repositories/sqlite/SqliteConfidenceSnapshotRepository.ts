@@ -11,6 +11,8 @@ interface SnapshotRow {
   reason: string;
   fatigue_applied: number; // stored as 0 | 1
   motm_counter: number;
+  defcon_counter: number;
+  savecon_counter: number;
 }
 
 interface DeltaRow {
@@ -27,15 +29,17 @@ function rowToSnapshot(row: SnapshotRow): DbConfidenceSnapshot {
     reason: row.reason,
     fatigue_applied: row.fatigue_applied !== 0,
     motm_counter: row.motm_counter,
+    defcon_counter: row.defcon_counter,
+    savecon_counter: row.savecon_counter,
   };
 }
 
 const SELECT_COLS =
-  'player_id, gameweek, confidence_after, delta, reason, fatigue_applied, motm_counter';
+  'player_id, gameweek, confidence_after, delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter';
 
 export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
   private readonly stmtUpsert: Database.Statement<
-    [number, number, number, number, string, number, number]
+    [number, number, number, number, string, number, number, number, number]
   >;
   private readonly stmtListByPlayer: Database.Statement<[number], SnapshotRow>;
   private readonly stmtCurrentByPlayer: Database.Statement<[number], SnapshotRow>;
@@ -50,8 +54,8 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
   constructor(private readonly db: Database.Database) {
     this.stmtUpsert = db.prepare(
       `INSERT OR REPLACE INTO confidence_snapshots
-       (player_id, gameweek, confidence_after, delta, reason, fatigue_applied, motm_counter)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (player_id, gameweek, confidence_after, delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     this.stmtListByPlayer = db.prepare<[number], SnapshotRow>(
       `SELECT ${SELECT_COLS} FROM confidence_snapshots
@@ -98,6 +102,8 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
       snapshot.reason,
       snapshot.fatigue_applied ? 1 : 0,
       snapshot.motm_counter,
+      snapshot.defcon_counter,
+      snapshot.savecon_counter,
     );
   }
 
@@ -112,6 +118,8 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
           s.reason,
           s.fatigue_applied ? 1 : 0,
           s.motm_counter,
+          s.defcon_counter,
+          s.savecon_counter,
         );
       }
     });

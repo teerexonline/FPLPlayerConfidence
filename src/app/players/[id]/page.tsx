@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { getRepositories } from '@/lib/db/server';
 import { playerId } from '@/lib/db';
 import { PlayerHeader } from './_components/PlayerHeader';
-import { ConfidenceHero } from './_components/ConfidenceHero';
-import { MatchHistoryStrip } from './_components/MatchHistoryStrip';
-import { BigTeamBreakdown } from './_components/BigTeamBreakdown';
+import { PlayerDetailInteractive } from './_components/PlayerDetailInteractive';
+import { FdrBreakdown } from './_components/BigTeamBreakdown';
 import { ConfidenceChart } from '@/components/confidence/ConfidenceChart';
 import type { PlayerDetailData, SnapshotPoint } from './_components/types';
 
@@ -32,6 +31,8 @@ function loadPlayer(rawId: string): PlayerDetailData {
     reason: s.reason,
     fatigueApplied: s.fatigue_applied,
     motmCounter: s.motm_counter,
+    defConCounter: s.defcon_counter,
+    saveConCounter: s.savecon_counter,
   }));
 
   const latest = snapshots[snapshots.length - 1];
@@ -92,25 +93,19 @@ export default async function PlayerDetailPage({
         {/* Header — jersey + name + meta */}
         <PlayerHeader player={player} />
 
-        {/* Confidence hero — number + slider + reason */}
+        {/* Interactive hero + match history strip — synced via selectedGw state */}
         <div className="mt-12">
-          <ConfidenceHero
-            confidence={player.confidence}
-            latestDelta={player.latestDelta}
-            latestReason={player.latestReason}
+          <PlayerDetailInteractive
+            snapshots={player.snapshots}
             latestGameweek={player.latestGameweek}
-            hasSnapshots={player.snapshots.length > 0}
           />
         </div>
-
-        {/* Match history — horizontal scroll strip */}
-        <MatchHistoryStrip snapshots={player.snapshots} />
 
         {/* Confidence chart — season trajectory */}
         <ConfidenceChart snapshots={player.snapshots} currentConfidence={player.confidence} />
 
-        {/* Big-team breakdown — two stat blocks */}
-        <BigTeamBreakdown snapshots={player.snapshots} />
+        {/* FDR breakdown — three difficulty buckets */}
+        <FdrBreakdown snapshots={player.snapshots} />
       </div>
     </div>
   );
