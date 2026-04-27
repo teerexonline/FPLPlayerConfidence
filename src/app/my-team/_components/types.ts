@@ -44,6 +44,10 @@ export interface MyTeamData {
   readonly isGw1FreeHit: boolean;
   /** True when currentGw returned 404 (deadline not yet passed) and we fell back to currentGw-1. */
   readonly preDeadlineFallback: boolean;
+  /** The live current gameweek — used to determine the scrubber timeline range. */
+  readonly currentGameweek: number;
+  /** Gameweeks with cached squad picks for this team, sorted ascending. */
+  readonly availableGameweeks: readonly number[];
 }
 
 /** Shape of error responses from GET /api/my-team. */

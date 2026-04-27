@@ -125,6 +125,9 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
     }
     return map;
   }
+  snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
+    return [...this.store.values()].filter((s) => s.gameweek === gameweek);
+  }
   deleteByPlayer(pid: PlayerId): void {
     for (const [key, s] of this.store.entries()) {
       if (s.player_id === pid) this.store.delete(key);
@@ -154,6 +157,9 @@ class FakeManagerSquadRepository implements ManagerSquadRepository {
   }
   latestGameweekForTeam(_teamId: number): number | null {
     return null;
+  }
+  listGameweeksForTeam(_teamId: number): readonly number[] {
+    return [];
   }
 }
 

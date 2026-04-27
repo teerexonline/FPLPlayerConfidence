@@ -3,6 +3,7 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { ConnectTeamForm } from './ConnectTeamForm';
+import { GwTimeline } from './GwTimeline';
 import { ManagerHeader } from './ManagerHeader';
 import { MyTeamHero } from './MyTeamHero';
 import { PositionalBreakdown } from './PositionalBreakdown';
@@ -15,7 +16,7 @@ const LS_KEY = 'fpl-team-id';
 
 type FetchState =
   | { kind: 'idle' }
-  | { kind: 'loaded'; data: MyTeamData }
+  | { kind: 'loaded'; data: MyTeamData; selectedGw: number; availableGwSet: ReadonlySet<number> }
   | { kind: 'error'; message: string }
   | { kind: 'pre_season' };
 
@@ -28,9 +29,15 @@ function getStoredTeamId(): number | null {
 
 function LoadedView({
   data,
+  selectedGw,
+  availableGwSet,
+  onSelectGw,
   onChangeTeam,
 }: {
   data: MyTeamData;
+  selectedGw: number;
+  availableGwSet: ReadonlySet<number>;
+  onSelectGw: (gw: number) => void;
   onChangeTeam: () => void;
 }): JSX.Element {
   const starters = data.starters;
@@ -53,6 +60,13 @@ function LoadedView({
           freeHitGameweek={data.freeHitGameweek}
           isGw1FreeHit={data.isGw1FreeHit}
           preDeadlineFallback={data.preDeadlineFallback}
+        />
+
+        <GwTimeline
+          currentGameweek={data.currentGameweek}
+          availableGameweeks={availableGwSet}
+          selectedGw={selectedGw}
+          onSelectGw={onSelectGw}
         />
 
         <MyTeamHero
@@ -111,21 +125,28 @@ export function MyTeamPageClient(): JSX.Element {
 
   const [fetchState, setFetchState] = useState<FetchState>({ kind: 'idle' });
 
-  // Effect only fires when storedTeamId changes; all setState calls are in async callbacks.
-  useEffect(() => {
-    if (storedTeamId === null) return;
-
+  // Fetches squad data for a given URL and updates state.
+  // `preserveAvailableGws` carries forward the existing available-GW set so
+  // that the scrubber timeline doesn't flicker when the user switches GWs.
+  function doFetch(url: string, existingState?: Extract<FetchState, { kind: 'loaded' }>): void {
     const controller = new AbortController();
 
-    void fetch(`/api/my-team?teamId=${storedTeamId.toString()}`, { signal: controller.signal })
+    void fetch(url, { signal: controller.signal })
       .then(async (res) => {
         if (res.ok) {
           const data = (await res.json()) as MyTeamData;
-          setFetchState({ kind: 'loaded', data });
+          // Merge available GWs: union of existing set + new response.
+          const merged = new Set(existingState?.availableGwSet ?? []);
+          for (const gw of data.availableGameweeks) merged.add(gw);
+          setFetchState({
+            kind: 'loaded',
+            data,
+            selectedGw: data.gameweek,
+            availableGwSet: merged,
+          });
         } else {
           const body = (await res.json()) as { error: MyTeamApiError };
           if (body.error === 'PRE_SEASON') {
-            // Team ID is valid; season hasn't started yet. Keep it in localStorage.
             setFetchState({ kind: 'pre_season' });
           } else {
             localStorage.removeItem(LS_KEY);
@@ -140,15 +161,28 @@ export function MyTeamPageClient(): JSX.Element {
           message: 'Could not load your team. Check your connection and try again.',
         });
       });
+  }
 
-    return () => {
-      controller.abort();
-    };
+  // Effect only fires when storedTeamId changes; all setState calls are in async callbacks.
+  useEffect(() => {
+    if (storedTeamId === null) return;
+    doFetch(`/api/my-team?teamId=${storedTeamId.toString()}`);
   }, [storedTeamId]);
+
+  function handleSelectGw(gw: number): void {
+    if (storedTeamId === null || fetchState.kind !== 'loaded') return;
+    const existing = fetchState;
+    doFetch(`/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${gw.toString()}`, existing);
+  }
 
   function handleFormSuccess(teamId: number, data: MyTeamData): void {
     localStorage.setItem(LS_KEY, teamId.toString());
-    setFetchState({ kind: 'loaded', data });
+    setFetchState({
+      kind: 'loaded',
+      data,
+      selectedGw: data.gameweek,
+      availableGwSet: new Set(data.availableGameweeks),
+    });
   }
 
   function handlePreSeason(teamId: number): void {
@@ -162,7 +196,15 @@ export function MyTeamPageClient(): JSX.Element {
   }
 
   if (fetchState.kind === 'loaded') {
-    return <LoadedView data={fetchState.data} onChangeTeam={handleChangeTeam} />;
+    return (
+      <LoadedView
+        data={fetchState.data}
+        selectedGw={fetchState.selectedGw}
+        availableGwSet={fetchState.availableGwSet}
+        onSelectGw={handleSelectGw}
+        onChangeTeam={handleChangeTeam}
+      />
+    );
   }
 
   if (fetchState.kind === 'pre_season') {

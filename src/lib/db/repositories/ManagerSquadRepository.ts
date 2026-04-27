@@ -20,4 +20,11 @@ export interface ManagerSquadRepository {
    * page to resolve which GW to load without a cross-repository call.
    */
   latestGameweekForTeam(teamId: number): number | null;
+
+  /**
+   * Returns all gameweek numbers for which picks have been cached for this team,
+   * sorted ascending. Used by the GW scrubber timeline to distinguish clickable
+   * (available) pills from greyed-out (no data) ones.
+   */
+  listGameweeksForTeam(teamId: number): readonly number[];
 }

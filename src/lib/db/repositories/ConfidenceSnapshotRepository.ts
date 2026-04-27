@@ -32,6 +32,13 @@ export interface ConfidenceSnapshotRepository {
   listLast5ForAllPlayers(): readonly { playerId: PlayerId; deltas: readonly number[] }[];
 
   /**
+   * Returns all snapshots for a specific gameweek across all players.
+   * Used by the historical GW scrubber to fetch confidence values at a point
+   * in time without N separate `currentByPlayer` calls.
+   */
+  snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[];
+
+  /**
    * Returns a map of playerId → count of snapshots in gameweeks ≥ minGw.
    * Used to compute `recentAppearances` for the staleness indicator.
    * Players with no snapshots in that window are absent from the map (count = 0).

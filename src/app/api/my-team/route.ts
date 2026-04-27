@@ -19,17 +19,22 @@ function errorResponse(code: MyTeamApiError, status: number): NextResponse {
 }
 
 /**
- * GET /api/my-team?teamId={n}
+ * GET /api/my-team?teamId={n}[&gameweek={m}]
  *
- * Loads a manager's squad for the current gameweek. Fetch strategy:
+ * Loads a manager's squad. Default (no gameweek param): resolves the current GW
+ * with deadline-fallback and Free Hit detection. With gameweek={m}: serves that
+ * specific historical GW from cache (no fallback logic applied).
+ *
+ * Fetch strategy (default mode):
  *  1. Try currentGw — a 200 means the deadline has passed; use those picks.
  *  2. A 404 means deadline not yet passed; fall back to currentGw-1 (preDeadlineFallback=true).
  *  3. Both GWs 404, or currentGw < 1 → PRE_SEASON (503).
  *  4. Free Hit detection: if the resolved GW has FH chip, step back one more GW.
  *  5. Upsert squad to manager_squads cache.
- *  6. Join picks against confidence_snapshots.
+ *  6. Join picks against confidence_snapshots for that GW.
  *  7. Run calculateTeamConfidence.
- *  8. Return MyTeamData JSON with preDeadlineFallback and FH metadata.
+ *  8. Return MyTeamData JSON with preDeadlineFallback, FH metadata, currentGameweek,
+ *     and availableGameweeks.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   // Route handler query parsing — URL.searchParams is synchronous here.
@@ -37,14 +42,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // not to route handler request objects.)
   const query = new URL(request.url).searchParams;
   const teamIdRaw = query.get('teamId');
+  const gameweekRaw = query.get('gameweek');
 
   if (!teamIdRaw || !/^\d+$/.test(teamIdRaw)) {
     logger.warn('GET /api/my-team: invalid teamId param', { teamIdRaw });
     return errorResponse('INVALID_TEAM_ID', 400);
   }
 
+  // Optional GW override — when present, skip deadline/FH resolution.
+  const gwOverride =
+    gameweekRaw !== null && /^\d+$/.test(gameweekRaw) ? parseInt(gameweekRaw, 10) : null;
+
   const teamId = parseInt(teamIdRaw, 10);
-  logger.info('GET /api/my-team: fetching squad', { teamId });
+  logger.info('GET /api/my-team: fetching squad', { teamId, gwOverride });
   const repos = getRepositories();
 
   // Resolve target GW. We use currentGW − 1 (Option A per API.md §8 note).
@@ -67,30 +77,82 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Start entry info fetch immediately so it overlaps with the first picks fetch.
   const infoPromise = fetchEntryInfo(teamId);
 
-  // Resolve picks with deadline-fallback and Free Hit detection encapsulated.
-  const squadResult = await resolveSquadPicks((gw) => fetchEntryPicks(teamId, gw), currentGw);
+  // ── Historical GW override path ────────────────────────────────────────────
+  // When the user selects a specific past GW from the scrubber, skip the
+  // deadline-fallback and Free Hit resolution — serve cached picks directly.
+  let finalPicks: readonly import('@/lib/fpl/types').EntryPick[];
+  let targetGw: number;
+  let preDeadlineFallback: boolean;
+  let freeHitBypassed: boolean;
+  let freeHitGameweek: number | null;
+  let isGw1FreeHit: boolean;
 
-  if (!squadResult.ok) {
-    const { error } = squadResult;
-    if (error.type === 'pre_season') {
-      logger.info('GET /api/my-team: pre-season, no picks available', { teamId, currentGw });
-      return errorResponse('PRE_SEASON', 503);
+  if (gwOverride !== null) {
+    const cached = repos.managerSquads.listByTeamAndGameweek(teamId, gwOverride);
+    if (cached.length > 0) {
+      finalPicks = cached.map((p) => ({
+        element: p.player_id,
+        position: p.squad_position,
+        is_captain: p.is_captain,
+        is_vice_captain: p.is_vice_captain,
+      }));
+    } else {
+      // Cache miss — fetch from FPL API and persist.
+      const fetchResult = await fetchEntryPicks(teamId, gwOverride);
+      if (!fetchResult.ok) {
+        logger.warn('GET /api/my-team: historical GW fetch failed', {
+          teamId,
+          gwOverride,
+          error: fetchResult.error.type,
+        });
+        if (fetchResult.error.type === 'not_found') return errorResponse('NOT_FOUND', 404);
+        if (fetchResult.error.type === 'network_error') return errorResponse('NETWORK_ERROR', 502);
+        return errorResponse('SCHEMA_ERROR', 502);
+      }
+      finalPicks = fetchResult.value.picks;
+      repos.managerSquads.upsertMany(
+        finalPicks.map((p) => ({
+          team_id: teamId,
+          gameweek: gwOverride,
+          player_id: p.element,
+          squad_position: p.position,
+          is_captain: p.is_captain,
+          is_vice_captain: p.is_vice_captain,
+          fetched_at: Date.now(),
+        })),
+      );
     }
-    // error.type === 'fetch_error'
-    logger.warn('GET /api/my-team: picks fetch failed', { teamId, error: error.inner.type });
-    if (error.inner.type === 'not_found') return errorResponse('NOT_FOUND', 404);
-    if (error.inner.type === 'network_error') return errorResponse('NETWORK_ERROR', 502);
-    return errorResponse('SCHEMA_ERROR', 502);
-  }
+    targetGw = gwOverride;
+    preDeadlineFallback = false;
+    freeHitBypassed = false;
+    freeHitGameweek = null;
+    isGw1FreeHit = false;
+  } else {
+    // ── Default path: deadline-fallback + Free Hit detection ────────────────
+    const squadResult = await resolveSquadPicks((gw) => fetchEntryPicks(teamId, gw), currentGw);
 
-  const {
-    picks: finalPicks,
-    gameweek: targetGw,
-    preDeadlineFallback,
-    freeHitBypassed,
-    freeHitGameweek,
-    isGw1FreeHit,
-  } = squadResult.value;
+    if (!squadResult.ok) {
+      const { error } = squadResult;
+      if (error.type === 'pre_season') {
+        logger.info('GET /api/my-team: pre-season, no picks available', { teamId, currentGw });
+        return errorResponse('PRE_SEASON', 503);
+      }
+      // error.type === 'fetch_error'
+      logger.warn('GET /api/my-team: picks fetch failed', { teamId, error: error.inner.type });
+      if (error.inner.type === 'not_found') return errorResponse('NOT_FOUND', 404);
+      if (error.inner.type === 'network_error') return errorResponse('NETWORK_ERROR', 502);
+      return errorResponse('SCHEMA_ERROR', 502);
+    }
+
+    ({
+      picks: finalPicks,
+      gameweek: targetGw,
+      preDeadlineFallback,
+      freeHitBypassed,
+      freeHitGameweek,
+      isGw1FreeHit,
+    } = squadResult.value);
+  }
 
   const infoResult = await infoPromise;
 
@@ -113,18 +175,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const info = infoResult.value;
   const now = Date.now();
 
-  // Upsert the squad to the manager_squads cache table.
-  repos.managerSquads.upsertMany(
-    finalPicks.map((p) => ({
-      team_id: teamId,
-      gameweek: targetGw,
-      player_id: p.element,
-      squad_position: p.position,
-      is_captain: p.is_captain,
-      is_vice_captain: p.is_vice_captain,
-      fetched_at: now,
-    })),
-  );
+  // Upsert the squad to the manager_squads cache table (default path only;
+  // the historical path upserts inside its cache-miss branch above).
+  if (gwOverride === null) {
+    repos.managerSquads.upsertMany(
+      finalPicks.map((p) => ({
+        team_id: teamId,
+        gameweek: targetGw,
+        player_id: p.element,
+        squad_position: p.position,
+        is_captain: p.is_captain,
+        is_vice_captain: p.is_vice_captain,
+        fetched_at: now,
+      })),
+    );
+  }
 
   // Build lookups.
   const allPlayers = repos.players.listAll();
@@ -132,15 +197,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
-  // Resolve confidence for each pick from the most recent snapshot.
-  const playerIds = finalPicks.map((p) => p.element);
+  // Resolve confidence at the target GW.
+  // Historical mode: look up snapshots exactly at targetGw (one batch query).
+  // Default mode: use the most recent snapshot per player (same as before).
   const confidenceMap = new Map<number, number>();
-  for (const pid of playerIds) {
-    const snap = repos.confidenceSnapshots.currentByPlayer(
-      pid as Parameters<typeof repos.confidenceSnapshots.currentByPlayer>[0],
-    );
-    confidenceMap.set(pid, snap?.confidence_after ?? 0);
+  if (gwOverride !== null) {
+    const historicalSnaps = repos.confidenceSnapshots.snapshotsAtGameweek(targetGw);
+    for (const snap of historicalSnaps) {
+      confidenceMap.set(snap.player_id, snap.confidence_after);
+    }
+    // Players with no snapshot at this GW keep 0 (Map default).
+  } else {
+    for (const p of finalPicks) {
+      const snap = repos.confidenceSnapshots.currentByPlayer(
+        p.element as Parameters<typeof repos.confidenceSnapshots.currentByPlayer>[0],
+      );
+      confidenceMap.set(p.element, snap?.confidence_after ?? 0);
+    }
   }
+
+  const playerIds = finalPicks.map((p) => p.element);
 
   // Build playerData for team calculator (starters only need positions).
   const playerDataMap = new Map<number, { confidence: number; position: Position }>();
@@ -202,6 +278,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const syncedAtRaw = repos.syncMeta.get('last_sync');
   const syncedAt = syncedAtRaw ? parseInt(syncedAtRaw, 10) : now;
 
+  // Collect available GWs for the scrubber timeline (after any upserts so the
+  // current fetch is included in the list).
+  const availableGameweeks = repos.managerSquads.listGameweeksForTeam(teamId);
+
   const data: MyTeamData = {
     managerName: `${info.player_first_name} ${info.player_last_name}`,
     teamName: info.name,
@@ -219,6 +299,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     freeHitBypassed,
     freeHitGameweek,
     isGw1FreeHit,
+    currentGameweek: currentGw,
+    availableGameweeks,
   };
 
   return NextResponse.json(data);

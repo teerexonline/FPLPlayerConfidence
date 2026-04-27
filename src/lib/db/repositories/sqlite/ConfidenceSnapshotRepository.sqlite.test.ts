@@ -176,4 +176,35 @@ describe('SqliteConfidenceSnapshotRepository', () => {
     };
     expect(act).not.toThrow();
   });
+
+  describe('snapshotsAtGameweek', () => {
+    it('returns all player snapshots at the specified gameweek', () => {
+      repo.upsertMany([
+        aSnapshot({ player_id: 10, gameweek: 5, confidence_after: 3 }),
+        aSnapshot({ player_id: 20, gameweek: 5, confidence_after: -1 }),
+        aSnapshot({ player_id: 30, gameweek: 5, confidence_after: 2 }),
+        aSnapshot({ player_id: 10, gameweek: 6, confidence_after: 4 }), // different GW
+      ]);
+
+      const result = repo.snapshotsAtGameweek(5);
+      expect(result).toHaveLength(3);
+      expect(result.map((s) => s.player_id).sort()).toEqual([10, 20, 30]);
+    });
+
+    it('returns empty array when no snapshots exist at the given gameweek', () => {
+      expect(repo.snapshotsAtGameweek(99)).toHaveLength(0);
+    });
+
+    it('returns correct confidence_after values for each player', () => {
+      repo.upsertMany([
+        aSnapshot({ player_id: 1, gameweek: 10, confidence_after: 2 }),
+        aSnapshot({ player_id: 2, gameweek: 10, confidence_after: -3 }),
+      ]);
+
+      const result = repo.snapshotsAtGameweek(10);
+      const map = new Map(result.map((s) => [s.player_id, s.confidence_after]));
+      expect(map.get(1)).toBe(2);
+      expect(map.get(2)).toBe(-3);
+    });
+  });
 });

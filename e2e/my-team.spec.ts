@@ -60,6 +60,8 @@ const MOCK_DATA: MyTeamData = {
   freeHitGameweek: null,
   isGw1FreeHit: false,
   preDeadlineFallback: false,
+  currentGameweek: 34,
+  availableGameweeks: [34],
 };
 
 const MOCK_BODY = JSON.stringify(MOCK_DATA);

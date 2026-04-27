@@ -87,4 +87,32 @@ describe('SqliteManagerSquadRepository', () => {
   it('latestGameweekForTeam returns null when no squad has been synced for the team', () => {
     expect(repo.latestGameweekForTeam(9999)).toBeNull();
   });
+
+  describe('listGameweeksForTeam', () => {
+    it('returns all gameweeks with cached picks for a team, sorted ascending', () => {
+      repo.upsertMany([aPick({ team_id: 1, gameweek: 5 })]);
+      repo.upsertMany([aPick({ team_id: 1, gameweek: 2, squad_position: 2, player_id: 200 })]);
+      repo.upsertMany([aPick({ team_id: 1, gameweek: 11, squad_position: 3, player_id: 300 })]);
+
+      expect(repo.listGameweeksForTeam(1)).toEqual([2, 5, 11]);
+    });
+
+    it('deduplicates gameweeks even when multiple squad_positions exist for same GW', () => {
+      repo.upsertMany(SQUAD.map((p) => ({ ...p, gameweek: 3 })));
+      // SQUAD has 15 picks all for GW3 — should return [3], not [3×15]
+      expect(repo.listGameweeksForTeam(1)).toEqual([3]);
+    });
+
+    it('returns empty array when no data for team', () => {
+      expect(repo.listGameweeksForTeam(9999)).toEqual([]);
+    });
+
+    it('isolates by team_id — only returns GWs for the requested team', () => {
+      repo.upsertMany([aPick({ team_id: 1, gameweek: 1 })]);
+      repo.upsertMany([aPick({ team_id: 2, gameweek: 3, squad_position: 1, player_id: 999 })]);
+
+      expect(repo.listGameweeksForTeam(1)).toEqual([1]);
+      expect(repo.listGameweeksForTeam(2)).toEqual([3]);
+    });
+  });
 });

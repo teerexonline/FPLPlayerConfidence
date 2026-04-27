@@ -46,6 +46,7 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
   private readonly stmtCurrentForAll: Database.Statement<[], SnapshotRow>;
   private readonly stmtLast5ForAll: Database.Statement<[], DeltaRow>;
   private readonly stmtDeleteByPlayer: Database.Statement<[number]>;
+  private readonly stmtSnapshotsAtGameweek: Database.Statement<[number], SnapshotRow>;
   private readonly stmtRecentAppearances: Database.Statement<
     [number],
     { player_id: number; count: number }
@@ -84,6 +85,9 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
     );
     this.stmtDeleteByPlayer = db.prepare<[number]>(
       'DELETE FROM confidence_snapshots WHERE player_id = ?',
+    );
+    this.stmtSnapshotsAtGameweek = db.prepare<[number], SnapshotRow>(
+      `SELECT ${SELECT_COLS} FROM confidence_snapshots WHERE gameweek = ?`,
     );
     this.stmtRecentAppearances = db.prepare<[number], { player_id: number; count: number }>(
       `SELECT player_id, COUNT(*) AS count
@@ -166,6 +170,10 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
       map.set(row.player_id, row.count);
     }
     return map;
+  }
+
+  snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
+    return this.stmtSnapshotsAtGameweek.all(gameweek).map(rowToSnapshot);
   }
 
   deleteByPlayer(pid: PlayerId): void {

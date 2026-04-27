@@ -43,6 +43,8 @@ const MOCK_DATA: MyTeamData = {
   freeHitGameweek: null,
   isGw1FreeHit: false,
   preDeadlineFallback: false,
+  currentGameweek: 33,
+  availableGameweeks: [33],
 };
 
 describe('TeamConfidenceHero', () => {

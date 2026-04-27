@@ -58,9 +58,15 @@ export function MyTeamHero({
   const mounted = useRef(false);
 
   useEffect(() => {
-    if (mounted.current) return;
+    if (mounted.current) {
+      // GW scrubber changed the displayed gameweek — snap without animation.
+      motionValue.set(percent);
+      return;
+    }
     mounted.current = true;
-    if (!prefersReducedMotion) {
+    if (prefersReducedMotion) {
+      motionValue.set(percent);
+    } else {
       void animate(motionValue, percent, { duration: 0.7, ease: 'easeOut' });
     }
   }, [percent, prefersReducedMotion, motionValue]);

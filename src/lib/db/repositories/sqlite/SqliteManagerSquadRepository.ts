@@ -16,6 +16,10 @@ interface MaxGameweekRow {
   max_gw: number | null;
 }
 
+interface GameweekRow {
+  gameweek: number;
+}
+
 function rowToPick(row: ManagerSquadRow): DbManagerSquadPick {
   return {
     team_id: row.team_id,
@@ -37,6 +41,7 @@ export class SqliteManagerSquadRepository implements ManagerSquadRepository {
   >;
   private readonly stmtListByTeamAndGw: Database.Statement<[number, number], ManagerSquadRow>;
   private readonly stmtLatestGameweek: Database.Statement<[number], MaxGameweekRow>;
+  private readonly stmtListGameweeks: Database.Statement<[number], GameweekRow>;
 
   constructor(private readonly db: Database.Database) {
     this.stmtUpsert = db.prepare(
@@ -51,6 +56,9 @@ export class SqliteManagerSquadRepository implements ManagerSquadRepository {
     );
     this.stmtLatestGameweek = db.prepare<[number], MaxGameweekRow>(
       'SELECT MAX(gameweek) AS max_gw FROM manager_squads WHERE team_id = ?',
+    );
+    this.stmtListGameweeks = db.prepare<[number], GameweekRow>(
+      'SELECT DISTINCT gameweek FROM manager_squads WHERE team_id = ? ORDER BY gameweek ASC',
     );
   }
 
@@ -78,5 +86,9 @@ export class SqliteManagerSquadRepository implements ManagerSquadRepository {
   latestGameweekForTeam(teamId: number): number | null {
     const row = this.stmtLatestGameweek.get(teamId);
     return row?.max_gw ?? null;
+  }
+
+  listGameweeksForTeam(teamId: number): readonly number[] {
+    return this.stmtListGameweeks.all(teamId).map((r) => r.gameweek);
   }
 }
