@@ -1,6 +1,7 @@
 'use client';
 
 import type { JSX } from 'react';
+import { CalibrationCaveat } from '@/components/confidence/CalibrationCaveat';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
@@ -49,6 +50,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
         </span>
         <div className="flex shrink-0 items-center gap-1.5">
           <ConfidenceNumber value={metricValue} mode={mode} size="md" animated={false} />
+          {mode === 'g' && position === 'FWD' && <CalibrationCaveat />}
           <StaleDataIndicator recentAppearances={recentAppearances} />
           <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
         </div>

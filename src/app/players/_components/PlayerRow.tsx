@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { JSX } from 'react';
+import { CalibrationCaveat } from '@/components/confidence/CalibrationCaveat';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
@@ -104,6 +105,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       {/* Active metric + status/stale indicators */}
       <div role="cell" className="flex items-center gap-1.5">
         <ConfidenceNumber value={metricValue} mode={mode} size="sm" animated={false} />
+        {mode === 'g' && position === 'FWD' && <CalibrationCaveat />}
         <StaleDataIndicator recentAppearances={recentAppearances} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
       </div>

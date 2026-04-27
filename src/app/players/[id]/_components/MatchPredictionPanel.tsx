@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { CalibrationCaveat } from '@/components/confidence/CalibrationCaveat';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import type { PlayerDetailData } from './types';
 
@@ -58,13 +59,10 @@ export function MatchPredictionPanel({
             <div className="flex items-start gap-6">
               <div className="flex flex-col items-center gap-1">
                 <ConfidenceNumber value={pGoal} mode="g" size="md" animated={false} />
-                <span className="text-muted font-sans text-[11px]">P(Goal)</span>
-                {/* Phase 6 will insert CalibrationCaveat here for FWD */}
-                {position === 'FWD' && (
-                  <span className="text-muted/60 font-sans text-[10px]" aria-hidden="true">
-                    ⚠
-                  </span>
-                )}
+                <div className="flex items-center gap-1">
+                  <span className="text-muted font-sans text-[11px]">P(Goal)</span>
+                  {position === 'FWD' && <CalibrationCaveat />}
+                </div>
               </div>
 
               <div className="flex flex-col items-center gap-1">

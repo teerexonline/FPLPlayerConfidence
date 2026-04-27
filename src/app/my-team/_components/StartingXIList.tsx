@@ -2,6 +2,7 @@
 
 import type { JSX } from 'react';
 import Link from 'next/link';
+import { CalibrationCaveat } from '@/components/confidence/CalibrationCaveat';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { useMetricMode } from '@/components/metric/useMetricMode';
@@ -94,8 +95,9 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
         />
 
         {/* Active metric */}
-        <div className="w-8 shrink-0 text-right">
+        <div className="flex shrink-0 items-center gap-1">
           <ConfidenceNumber value={metricValue} mode={mode} size="sm" animated={false} />
+          {mode === 'g' && player.position === 'FWD' && <CalibrationCaveat />}
         </div>
       </Link>
     </li>
