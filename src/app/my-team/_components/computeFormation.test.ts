@@ -13,6 +13,8 @@ function makeStarters(positions: ('GK' | 'DEF' | 'MID' | 'FWD')[]): SquadPlayerR
     isCaptain: false,
     isViceCaptain: false,
     confidence: 0,
+    pGoal: 0,
+    pAssist: 0,
     status: 'a',
     chanceOfPlaying: null,
     news: '',

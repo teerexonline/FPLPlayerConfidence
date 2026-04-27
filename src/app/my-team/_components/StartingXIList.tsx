@@ -1,7 +1,10 @@
+'use client';
+
 import type { JSX } from 'react';
 import Link from 'next/link';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { useMetricMode } from '@/components/metric/useMetricMode';
 import { computeFormation } from './computeFormation';
 import type { SquadPlayerRow } from './types';
 
@@ -42,6 +45,9 @@ function CaptainBadge({
 }
 
 function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
+  const { mode } = useMetricMode();
+  const metricValue =
+    mode === 'g' ? player.pGoal : mode === 'a' ? player.pAssist : player.confidence;
   return (
     <li role="listitem">
       <Link
@@ -87,9 +93,9 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
           news={player.news}
         />
 
-        {/* Confidence */}
+        {/* Active metric */}
         <div className="w-8 shrink-0 text-right">
-          <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
+          <ConfidenceNumber value={metricValue} mode={mode} size="sm" animated={false} />
         </div>
       </Link>
     </li>

@@ -6,6 +6,8 @@ import { resolveSquadPicks } from '@/lib/fpl/resolveSquadPicks';
 import { getRepositories } from '@/lib/db/server';
 import { SYSTEM_USER_ID } from '@/lib/db/constants';
 import { calculateTeamConfidence, confidenceToPercent } from '@/lib/team-confidence';
+import { buildLeagueData, predict } from '@/lib/probability';
+import type { PlayerInput } from '@/lib/probability';
 import { createLogger } from '@/lib/logger';
 import type { SquadPlayerRow, MyTeamData, MyTeamApiError } from '@/app/my-team/_components/types';
 import type { Position } from '@/lib/db/types';
@@ -200,6 +202,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
+  // Pre-compute goal/assist probabilities for all squad players with ICT data.
+  const playerInputs: PlayerInput[] = allPlayers
+    .filter((p) => p.minutes > 0)
+    .map((p) => ({
+      id: p.id,
+      position: p.position,
+      minutes: p.minutes,
+      influence: p.influence,
+      creativity: p.creativity,
+      threat: p.threat,
+    }));
+  const playerInputById = new Map(playerInputs.map((pi) => [pi.id, pi]));
+  const leagueData = playerInputs.length > 0 ? buildLeagueData(playerInputs) : null;
+  const predictionMap = new Map<number, { pGoal: number; pAssist: number }>();
+  if (leagueData) {
+    for (const p of allPlayers) {
+      if (p.minutes === 0) continue;
+      const pi = playerInputById.get(p.id);
+      if (!pi) continue;
+      const result = predict(
+        p.id,
+        pi,
+        {
+          playerTeamFdr: p.next_fixture_fdr,
+          opponentTeamFdr: 3,
+          expectedMinutes: 90,
+        },
+        leagueData,
+      );
+      predictionMap.set(p.id, { pGoal: result.pGoal, pAssist: result.pAssist });
+    }
+  }
+
   // Resolve confidence at the target GW.
   // Historical mode: look up snapshots exactly at targetGw (one batch query).
   // Default mode: use the most recent snapshot per player (same as before).
@@ -269,6 +304,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       isCaptain: p.is_captain,
       isViceCaptain: p.is_vice_captain,
       confidence: confidenceMap.get(p.element) ?? 0,
+      pGoal: predictionMap.get(p.element)?.pGoal ?? 0,
+      pAssist: predictionMap.get(p.element)?.pAssist ?? 0,
       status: player?.status ?? 'a',
       chanceOfPlaying: player?.chance_of_playing_next_round ?? null,
       news: player?.news ?? '',

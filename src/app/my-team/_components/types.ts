@@ -12,6 +12,10 @@ export interface SquadPlayerRow {
   readonly isViceCaptain: boolean;
   /** Current confidence integer in [-5, +5]. 0 if no snapshot found. */
   readonly confidence: number;
+  /** Predicted goal probability [0, 1]. 0 when ICT data unavailable. */
+  readonly pGoal: number;
+  /** Predicted assist probability [0, 1]. 0 when ICT data unavailable. */
+  readonly pAssist: number;
   readonly status: string;
   readonly chanceOfPlaying: number | null;
   readonly news: string;

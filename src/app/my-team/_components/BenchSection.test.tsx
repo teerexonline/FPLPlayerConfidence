@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { BenchSection } from './BenchSection';
+
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  usePathname: vi.fn(() => '/my-team'),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}));
 import type { SquadPlayerRow } from './types';
 
 function makeBenchPlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRow {
@@ -15,6 +21,8 @@ function makeBenchPlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRo
     isCaptain: false,
     isViceCaptain: false,
     confidence: 0,
+    pGoal: 0,
+    pAssist: 0,
     status: 'a',
     chanceOfPlaying: null,
     news: '',
