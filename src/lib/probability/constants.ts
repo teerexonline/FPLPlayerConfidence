@@ -19,9 +19,13 @@ export const BASELINE_TEAM_GOALS_PER_MATCH = 1.4;
  *
  * Without scaling, raw percentiles used directly as probabilities produce
  * lambdas >> 3 at 90 min for median players, saturating the probability caps.
- * With 0.15, the median outfield player produces p_goal ≈ 6–7% at 90 min (neutral
- * fixture), while the top striker in an easy fixture reaches ~33%. The caps
+ * With 0.15, the median outfield player produces p_goal ≈ 6.5% at 90 min (neutral
+ * fixture), while the top striker in an easy fixture reaches ~34%. The caps
  * (MAX_GOAL_PROB, MAX_ASSIST_PROB) remain as safety rails but stop dominating.
+ *
+ * Calibration note: 0.20 was also tested and rejected — at 0.20 the assist model
+ * MACE blew out to 10.4pp (vs 1.3pp at 0.15). 0.15 gives the best overall MACE on
+ * both models despite a residual FWD position-specific failure. See calibration-results.md.
  *
  * v1.3.2 calibration fix — see docs/v2/fpl_probability_algorithm.md changelog.
  */

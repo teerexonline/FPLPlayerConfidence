@@ -14,7 +14,7 @@ function at<T>(arr: T[], n: number): T {
 //
 // NOTE ON EXPECTED MINUTES: Since v1.3.2 introduced MAX_INVOLVEMENT_RATIO=0.15,
 // cap saturation at 90 min no longer occurs for typical players (median player
-// p_goal ≈ 6–7%; top striker in an easy fixture ≈ 33%). Ordering tests still use
+// p_goal ≈ 6.5%; top striker in an easy fixture ≈ 34%). Ordering tests still use
 // expectedMinutes = 20 to keep probabilities in a narrow range where differences
 // are numerically clear, but the old concern about median players hitting 0.65 cap
 // no longer applies.
@@ -249,7 +249,7 @@ describe('predict — spec test cases', () => {
 
   it('(9) top-percentile striker FDR1 at 90 min → p_goal in [0.25, 0.45]', () => {
     // Top FWD (0.95 pct in a 10-player cohort) vs easy FDR1 fixture at 90 min.
-    // With MAX_INVOLVEMENT_RATIO=0.15: pGoalPerEvent ≈ 0.0203,
+    // With MAX_INVOLVEMENT_RATIO=0.15: pGoalPerEvent = (0.95×0.15)² ≈ 0.0203,
     // team_events ≈ 20.2 (FDR1 vs FDR3), lambda ≈ 0.41 → p_goal ≈ 0.34.
     const players = makeFwdLeague();
     const league = buildLeagueData(players);
