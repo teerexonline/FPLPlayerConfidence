@@ -130,6 +130,15 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
   snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
     return [...this.store.values()].filter((s) => s.gameweek === gameweek);
   }
+  latestSnapshotsAtOrBeforeGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
+    const latest = new Map<number, DbConfidenceSnapshot>();
+    for (const s of this.store.values()) {
+      if (s.gameweek > gameweek) continue;
+      const existing = latest.get(s.player_id);
+      if (!existing || s.gameweek > existing.gameweek) latest.set(s.player_id, s);
+    }
+    return [...latest.values()];
+  }
   deleteByPlayer(pid: PlayerId): void {
     for (const [key, s] of this.store.entries()) {
       if (s.player_id === pid) this.store.delete(key);

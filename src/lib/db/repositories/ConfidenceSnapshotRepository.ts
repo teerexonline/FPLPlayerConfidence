@@ -39,6 +39,16 @@ export interface ConfidenceSnapshotRepository {
   snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[];
 
   /**
+   * Returns the most recent snapshot per player at or before `gameweek`.
+   * This is the correct query for historical GW navigation: a player who
+   * didn't play in GW N still carries the confidence from their last
+   * appearance, so we return their most recent snapshot ≤ N rather than
+   * requiring an exact-GW match (which would return 0 for skipped weeks
+   * and corrupt the confidence display).
+   */
+  latestSnapshotsAtOrBeforeGameweek(gameweek: number): readonly DbConfidenceSnapshot[];
+
+  /**
    * Returns a map of playerId → count of snapshots in gameweeks ≥ minGw.
    * Used to compute `recentAppearances` for the staleness indicator.
    * Players with no snapshots in that window are absent from the map (count = 0).

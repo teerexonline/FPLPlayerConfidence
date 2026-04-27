@@ -177,6 +177,81 @@ describe('SqliteConfidenceSnapshotRepository', () => {
     expect(act).not.toThrow();
   });
 
+  describe('latestSnapshotsAtOrBeforeGameweek', () => {
+    it('returns the most recent snapshot per player at or before the target GW', () => {
+      // Player 1: has GW3, GW5, GW7 — viewing GW6 should return GW5
+      // Player 2: has GW2, GW6 — viewing GW6 should return GW6
+      // Player 3: has GW8 only — viewing GW6 should return nothing (no snapshots ≤ 6)
+      repo.upsertMany([
+        aSnapshot({ player_id: 1, gameweek: 3, confidence_after: 1 }),
+        aSnapshot({ player_id: 1, gameweek: 5, confidence_after: 2 }),
+        aSnapshot({ player_id: 1, gameweek: 7, confidence_after: 3 }),
+        aSnapshot({ player_id: 2, gameweek: 2, confidence_after: -1 }),
+        aSnapshot({ player_id: 2, gameweek: 6, confidence_after: 4 }),
+        aSnapshot({ player_id: 3, gameweek: 8, confidence_after: 5 }),
+      ]);
+
+      const result = repo.latestSnapshotsAtOrBeforeGameweek(6);
+
+      expect(result).toHaveLength(2); // player 3 excluded (no snapshot ≤ 6)
+      const map = new Map(result.map((s) => [s.player_id, s]));
+      expect(map.get(1)?.gameweek).toBe(5); // GW5, not GW7
+      expect(map.get(1)?.confidence_after).toBe(2);
+      expect(map.get(2)?.gameweek).toBe(6); // exact GW6 match
+      expect(map.get(2)?.confidence_after).toBe(4);
+    });
+
+    it('returns the exact-GW snapshot when a player played exactly at the target GW', () => {
+      repo.upsertMany([
+        aSnapshot({ player_id: 10, gameweek: 34, confidence_after: 3 }),
+        aSnapshot({ player_id: 10, gameweek: 33, confidence_after: 2 }),
+      ]);
+
+      const result = repo.latestSnapshotsAtOrBeforeGameweek(34);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.gameweek).toBe(34);
+      expect(result[0]?.confidence_after).toBe(3);
+    });
+
+    it('falls back to an earlier GW snapshot when the player has no GW at targetGw', () => {
+      // Simulates the bug: player played GW33 but not GW34
+      repo.upsertMany([aSnapshot({ player_id: 7, gameweek: 33, confidence_after: 4 })]);
+
+      const result = repo.latestSnapshotsAtOrBeforeGameweek(34);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.gameweek).toBe(33);
+      expect(result[0]?.confidence_after).toBe(4); // NOT 0 — no corruption
+    });
+
+    it('returns empty array when no snapshots exist at or before the target GW', () => {
+      repo.upsertMany([aSnapshot({ player_id: 1, gameweek: 20, confidence_after: 1 })]);
+
+      const result = repo.latestSnapshotsAtOrBeforeGameweek(5);
+      expect(result).toHaveLength(0);
+    });
+
+    it('returns empty array when the table is empty', () => {
+      expect(repo.latestSnapshotsAtOrBeforeGameweek(34)).toHaveLength(0);
+    });
+
+    it('handles multiple players correctly — one entry per player', () => {
+      repo.upsertMany([
+        aSnapshot({ player_id: 1, gameweek: 1, confidence_after: 1 }),
+        aSnapshot({ player_id: 1, gameweek: 3, confidence_after: 3 }),
+        aSnapshot({ player_id: 2, gameweek: 2, confidence_after: -2 }),
+        aSnapshot({ player_id: 3, gameweek: 3, confidence_after: 5 }),
+      ]);
+
+      const result = repo.latestSnapshotsAtOrBeforeGameweek(3);
+
+      expect(result).toHaveLength(3);
+      const map = new Map(result.map((s) => [s.player_id, s.confidence_after]));
+      expect(map.get(1)).toBe(3); // GW3 wins over GW1
+      expect(map.get(2)).toBe(-2);
+      expect(map.get(3)).toBe(5);
+    });
+  });
+
   describe('snapshotsAtGameweek', () => {
     it('returns all player snapshots at the specified gameweek', () => {
       repo.upsertMany([

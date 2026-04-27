@@ -205,11 +205,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Default mode: use the most recent snapshot per player (same as before).
   const confidenceMap = new Map<number, number>();
   if (gwOverride !== null) {
-    const historicalSnaps = repos.confidenceSnapshots.snapshotsAtGameweek(targetGw);
+    // Use latestSnapshotsAtOrBeforeGameweek rather than snapshotsAtGameweek so
+    // players who didn't feature in a given GW still carry their most recent
+    // confidence forward. snapshotsAtGameweek(N) returns nothing for players who
+    // skipped N, causing them to fall back to confidence=0 (renders as 50%).
+    const historicalSnaps = repos.confidenceSnapshots.latestSnapshotsAtOrBeforeGameweek(targetGw);
     for (const snap of historicalSnaps) {
       confidenceMap.set(snap.player_id, snap.confidence_after);
     }
-    // Players with no snapshot at this GW keep 0 (Map default).
+    // Players with no snapshot at or before this GW (e.g. brand-new signings) keep 0.
   } else {
     for (const p of finalPicks) {
       const snap = repos.confidenceSnapshots.currentByPlayer(

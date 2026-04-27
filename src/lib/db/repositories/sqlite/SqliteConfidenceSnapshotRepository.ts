@@ -47,6 +47,7 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
   private readonly stmtLast5ForAll: Database.Statement<[], DeltaRow>;
   private readonly stmtDeleteByPlayer: Database.Statement<[number]>;
   private readonly stmtSnapshotsAtGameweek: Database.Statement<[number], SnapshotRow>;
+  private readonly stmtLatestAtOrBefore: Database.Statement<[number], SnapshotRow>;
   private readonly stmtRecentAppearances: Database.Statement<
     [number],
     { player_id: number; count: number }
@@ -88,6 +89,17 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
     );
     this.stmtSnapshotsAtGameweek = db.prepare<[number], SnapshotRow>(
       `SELECT ${SELECT_COLS} FROM confidence_snapshots WHERE gameweek = ?`,
+    );
+    // Window function: for each player, pick the row with the highest gameweek ≤ ?.
+    // Replaces snapshotsAtGameweek for historical GW navigation so players who
+    // skipped a week don't fall back to confidence=0.
+    this.stmtLatestAtOrBefore = db.prepare<[number], SnapshotRow>(
+      `SELECT ${SELECT_COLS} FROM (
+         SELECT ${SELECT_COLS},
+                ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY gameweek DESC) AS rn
+         FROM confidence_snapshots
+         WHERE gameweek <= ?
+       ) WHERE rn = 1`,
     );
     this.stmtRecentAppearances = db.prepare<[number], { player_id: number; count: number }>(
       `SELECT player_id, COUNT(*) AS count
@@ -174,6 +186,10 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
 
   snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
     return this.stmtSnapshotsAtGameweek.all(gameweek).map(rowToSnapshot);
+  }
+
+  latestSnapshotsAtOrBeforeGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
+    return this.stmtLatestAtOrBefore.all(gameweek).map(rowToSnapshot);
   }
 
   deleteByPlayer(pid: PlayerId): void {
