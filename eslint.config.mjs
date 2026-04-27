@@ -76,7 +76,9 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     'playwright-report/**',
     'test-results/**',
-    'scripts/**',
+    // scripts/** is intentionally NOT ignored here — it is linted with relaxed rules
+    // via the { files: ['scripts/**'] } override above. Ignoring it globally would
+    // make that override dead code and silently allow any rule violation in scripts.
   ]),
 ]);
 

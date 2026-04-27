@@ -14,7 +14,10 @@ function resolveDbPath(): string {
 }
 
 // Singleton: reuse one connection for the lifetime of the Node.js process.
-// The `global` check survives Next.js hot-reload in dev mode.
+// The `global` check survives Next.js hot-reload in dev mode, but it means
+// new SQL_MIGRATIONS entries only run when the process fully restarts (not on
+// hot-reload). After committing a migration, run `npx tsx scripts/run-migrations.ts`
+// or restart the dev server with `npm run dev`.
 const g = global as typeof globalThis & {
   __fplRepos?: Repositories;
 };
