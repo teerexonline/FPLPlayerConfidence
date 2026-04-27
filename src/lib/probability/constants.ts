@@ -51,7 +51,7 @@ export const INVOLVEMENT_MULTIPLIERS: Readonly<
   GK: { goal: 0.0, assist: 0.05 }, // GK goal zeroed in Step 5; assist replaces GK_ASSIST_SCALE
   DEF: { goal: 0.7, assist: 1.0 }, // Defenders score ~5–10% of league goals
   MID: { goal: 1.0, assist: 1.0 }, // Reference baseline — identical to v1.3.2
-  FWD: { goal: 2.0, assist: 0.8 }, // Forwards score more goals, create fewer assists
+  FWD: { goal: 2.5, assist: 0.8 }, // Forwards score more goals, create fewer assists
 } as const;
 
 /**
