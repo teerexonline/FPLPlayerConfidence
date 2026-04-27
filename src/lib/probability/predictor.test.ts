@@ -1,5 +1,11 @@
 import { assert, describe, expect, it } from 'vitest';
-import { MAX_ASSIST_PROB, MAX_GOAL_PROB, MIN_MINUTES_FOR_RANKING } from './constants';
+import {
+  BASE_INVOLVEMENT_RATIO,
+  INVOLVEMENT_MULTIPLIERS,
+  MAX_ASSIST_PROB,
+  MAX_GOAL_PROB,
+  MIN_MINUTES_FOR_RANKING,
+} from './constants';
 import { buildLeagueData, predict } from './predictor';
 import type { FixtureInput, PlayerInput } from './types';
 
@@ -12,12 +18,12 @@ function at<T>(arr: T[], n: number): T {
 
 // ── Fixture helpers ─────────────────────────────────────────────────────────
 //
-// NOTE ON EXPECTED MINUTES: Since v1.3.2 introduced MAX_INVOLVEMENT_RATIO=0.15,
-// cap saturation at 90 min no longer occurs for typical players (median player
-// p_goal ≈ 6.5%; top striker in an easy fixture ≈ 34%). Ordering tests still use
-// expectedMinutes = 20 to keep probabilities in a narrow range where differences
-// are numerically clear, but the old concern about median players hitting 0.65 cap
-// no longer applies.
+// NOTE ON EXPECTED MINUTES: Since v1.3.2 introduced BASE_INVOLVEMENT_RATIO=0.15,
+// cap saturation at 90 min no longer occurs for typical players (median MID
+// p_goal ≈ 6.5%; top FWD in an easy fixture ≈ 46% with 1.5× goal multiplier).
+// Ordering tests still use expectedMinutes = 20 to keep probabilities in a narrow
+// range where differences are numerically clear, but the old concern about median
+// players hitting the 0.65 cap no longer applies.
 
 const NEUTRAL_FIXTURE: FixtureInput = { playerTeamFdr: 3, opponentTeamFdr: 3, expectedMinutes: 90 };
 const NEUTRAL_SUB: FixtureInput = { playerTeamFdr: 3, opponentTeamFdr: 3, expectedMinutes: 20 };
@@ -100,19 +106,19 @@ describe('buildLeagueData', () => {
 // ── predict — Spec test case 1: high-ICT striker at 90 min hits cap ──────────
 
 describe('predict — spec test cases', () => {
-  it('(1) star striker (top-percentile) vs easy fixture → p_goal > 0.25', () => {
+  it('(1) star striker (top-percentile) vs easy fixture → p_goal > 0.30', () => {
     const players = makeFwdLeague();
     const league = buildLeagueData(players);
     const starStriker = at(players, players.length - 1);
     // Top-percentile FWD (0.95 pct in 10-player cohort), FDR1 vs FDR3, 90 min.
-    // With MAX_INVOLVEMENT_RATIO=0.15: lambda ≈ 0.41 → p_goal ≈ 0.34.
+    // BASE_INVOLVEMENT_RATIO=0.15 + FWD goal multiplier 1.5: lambda ≈ 0.61 → p_goal ≈ 0.46.
     const result = predict(
       starStriker.id,
       starStriker,
       { ...NEUTRAL_FIXTURE, playerTeamFdr: 1 },
       league,
     );
-    expect(result.pGoal).toBeGreaterThan(0.25);
+    expect(result.pGoal).toBeGreaterThan(0.3);
   });
 
   it('(2) same striker vs hard fixture → lower p_goal than easy fixture (tested at 20 min to avoid cap saturation)', () => {
@@ -234,12 +240,13 @@ describe('predict — spec test cases', () => {
     expect(result.pAssist).toBeLessThanOrEqual(MAX_ASSIST_PROB);
   });
 
-  it('(8) median player (50th pct, neutral fixture, 90 min) → p_goal in [0.04, 0.10]', () => {
-    // A single-player cohort produces percentile = 0.5 by definition (mid-rank).
-    // With MAX_INVOLVEMENT_RATIO=0.15: pGoalPerEvent = (0.5×0.15)² = 0.005625,
-    // lambda = 12 × 0.005625 × 1.0 = 0.0675 → p_goal ≈ 0.065.
+  it('(8) median MID (50th pct, neutral fixture, 90 min) → p_goal in [0.04, 0.10]', () => {
+    // A single-player MID cohort produces percentile = 0.5 by definition. MID uses
+    // goal multiplier 1.0 (reference position) so this equals the v1.3.2 formula:
+    // pGoalPerEvent = (0.5×0.15)² = 0.005625, lambda = 12×0.005625×1.0 = 0.0675
+    // → p_goal ≈ 0.065. MID is the invariant baseline across calibration iterations.
     const players: PlayerInput[] = [
-      { id: 1, position: 'FWD', minutes: 2700, influence: 500, threat: 500, creativity: 500 },
+      { id: 1, position: 'MID', minutes: 2700, influence: 500, threat: 500, creativity: 500 },
     ];
     const league = buildLeagueData(players);
     const result = predict(1, at(players, 0), NEUTRAL_FIXTURE, league);
@@ -247,10 +254,10 @@ describe('predict — spec test cases', () => {
     expect(result.pGoal).toBeLessThan(0.1);
   });
 
-  it('(9) top-percentile striker FDR1 at 90 min → p_goal in [0.25, 0.45]', () => {
+  it('(9) top-percentile striker FDR1 at 90 min → p_goal in [0.30, 0.55]', () => {
     // Top FWD (0.95 pct in a 10-player cohort) vs easy FDR1 fixture at 90 min.
-    // With MAX_INVOLVEMENT_RATIO=0.15: pGoalPerEvent = (0.95×0.15)² ≈ 0.0203,
-    // team_events ≈ 20.2 (FDR1 vs FDR3), lambda ≈ 0.41 → p_goal ≈ 0.34.
+    // BASE=0.15 + FWD goal multiplier 1.5: pGoalPerEvent=(0.95×0.15)×(0.95×0.15×1.5)≈0.0305,
+    // team_events≈20.2 (FDR1 vs FDR3), lambda≈0.61 → p_goal≈0.46.
     const players = makeFwdLeague();
     const league = buildLeagueData(players);
     const starStriker = at(players, players.length - 1);
@@ -260,8 +267,72 @@ describe('predict — spec test cases', () => {
       { playerTeamFdr: 1, opponentTeamFdr: 3, expectedMinutes: 90 },
       league,
     );
-    expect(result.pGoal).toBeGreaterThan(0.25);
-    expect(result.pGoal).toBeLessThan(0.45);
+    expect(result.pGoal).toBeGreaterThan(0.3);
+    expect(result.pGoal).toBeLessThan(0.55);
+  });
+});
+
+// ── predict — Position-specific multiplier tests (v1.3.3) ─────────────────
+
+describe('predict — position-specific multipliers (v1.3.3)', () => {
+  it('(A) FWD goal > MID goal > DEF goal for equal percentile cohort positions', () => {
+    // One player per position — all at 50th percentile in their own cohort.
+    // FWD goal multiplier (1.5) > MID (1.0) > DEF (0.7 × DEFENDER_THREAT_SCALE 0.35).
+    // Same ICT values, same fixture. Tests that multipliers drive the ordering.
+    const players: PlayerInput[] = [
+      { id: 1, position: 'DEF', minutes: 2700, influence: 500, threat: 500, creativity: 500 },
+      { id: 2, position: 'MID', minutes: 2700, influence: 500, threat: 500, creativity: 500 },
+      { id: 3, position: 'FWD', minutes: 2700, influence: 500, threat: 500, creativity: 500 },
+    ];
+    const league = buildLeagueData(players);
+
+    const def = predict(1, at(players, 0), NEUTRAL_SUB, league);
+    const mid = predict(2, at(players, 1), NEUTRAL_SUB, league);
+    const fwd = predict(3, at(players, 2), NEUTRAL_SUB, league);
+
+    expect(fwd.pGoal).toBeGreaterThan(mid.pGoal);
+    expect(mid.pGoal).toBeGreaterThan(def.pGoal);
+  });
+
+  it('(B) MID multiplier 1.0 → predictions equal BASE_INVOLVEMENT_RATIO formula directly', () => {
+    // MID is the reference baseline. Its predictions must be mathematically identical
+    // to the v1.3.2 single-constant formula: pGoalPerEvent = (pct × BASE)² .
+    // Single-player MID cohort → percentile = 0.5.
+    // Expected: lambda = EVENTS × (0.5×BASE)² × minutesFactor = 12 × 0.005625 × 1.0 = 0.0675
+    // → p_goal = 1 - exp(-0.0675) ≈ 0.0652.
+    const b = BASE_INVOLVEMENT_RATIO;
+    const pct = 0.5;
+    const expectedLambda = 12 * (pct * b) * (pct * b) * 1.0; // teamEvents=12, minutesFactor=1
+    const expectedPGoal = 1 - Math.exp(-expectedLambda);
+
+    expect(INVOLVEMENT_MULTIPLIERS.MID.goal).toBe(1.0);
+
+    const players: PlayerInput[] = [
+      { id: 1, position: 'MID', minutes: 2700, influence: 500, threat: 500, creativity: 500 },
+    ];
+    const league = buildLeagueData(players);
+    const result = predict(1, at(players, 0), NEUTRAL_FIXTURE, league);
+
+    expect(result.pGoal).toBeCloseTo(expectedPGoal, 5);
+  });
+
+  it('(C) goal multiplier does not affect p_assist; assist multiplier does not affect p_goal', () => {
+    // Two FWDs with different threat (different pGoal) but same creativity → same pAssist.
+    // Within the same position cohort, creativityPct is determined solely by creativity
+    // ranking. Same creativity values → same pAssist.
+    const players: PlayerInput[] = [
+      { id: 1, position: 'FWD', minutes: 2700, influence: 500, threat: 900, creativity: 400 },
+      { id: 2, position: 'FWD', minutes: 2700, influence: 500, threat: 100, creativity: 400 },
+    ];
+    const league = buildLeagueData(players);
+
+    const highThreat = predict(1, at(players, 0), NEUTRAL_SUB, league);
+    const lowThreat = predict(2, at(players, 1), NEUTRAL_SUB, league);
+
+    // Goal probability differs (different threat percentiles)
+    expect(highThreat.pGoal).toBeGreaterThan(lowThreat.pGoal);
+    // Assist probability is equal (same creativity percentile → same pAssistGivenInvolved)
+    expect(highThreat.pAssist).toBeCloseTo(lowThreat.pAssist, 8);
   });
 });
 

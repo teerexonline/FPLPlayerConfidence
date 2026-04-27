@@ -1,7 +1,7 @@
 /**
  * Tunable constants for the FPL Goal & Assist Probability algorithm (v1.3 + patches).
  *
- * Source: docs/v2/fpl_probability_algorithm.md (v1.3.2 spec)
+ * Source: docs/v2/fpl_probability_algorithm.md (v1.3.3 spec)
  *         docs/v2/fpl_probability_algorithm_v1.3_patch.md (Gap A, C, D)
  *
  * These are calibration starting points. Once backtest results are available
@@ -13,23 +13,46 @@
 export const BASELINE_TEAM_GOALS_PER_MATCH = 1.4;
 
 /**
- * Scales all three per-event probability components (p_involved,
- * p_goal_given_involved, p_assist_given_involved) from raw percentile ranks
- * (0..1) into realistic involvement shares.
+ * Base involvement ratio — the reference scaling constant for MID (the baseline
+ * position). Applied to all three per-event probability components before
+ * position-specific multipliers are applied (v1.3.2 calibrated value).
  *
- * Without scaling, raw percentiles used directly as probabilities produce
- * lambdas >> 3 at 90 min for median players, saturating the probability caps.
- * With 0.15, the median outfield player produces p_goal ≈ 6.5% at 90 min (neutral
- * fixture), while the top striker in an easy fixture reaches ~34%. The caps
- * (MAX_GOAL_PROB, MAX_ASSIST_PROB) remain as safety rails but stop dominating.
+ * Without scaling, raw percentiles produce lambdas >> 3 at 90 min for median
+ * players, saturating the probability caps. With 0.15, a median MID produces
+ * p_goal ≈ 6.5% at 90 min (neutral fixture). The position-specific multipliers
+ * in INVOLVEMENT_MULTIPLIERS layer on top to handle inter-position differences.
  *
- * Calibration note: 0.20 was also tested and rejected — at 0.20 the assist model
- * MACE blew out to 10.4pp (vs 1.3pp at 0.15). 0.15 gives the best overall MACE on
- * both models despite a residual FWD position-specific failure. See calibration-results.md.
- *
- * v1.3.2 calibration fix — see docs/v2/fpl_probability_algorithm.md changelog.
+ * v1.3.2 calibrated value (unchanged from v1.3.2 — only the multipliers move).
+ * v1.3.3 renamed from MAX_INVOLVEMENT_RATIO; FWD/DEF scaling extracted to INVOLVEMENT_MULTIPLIERS.
  */
-export const MAX_INVOLVEMENT_RATIO = 0.15;
+export const BASE_INVOLVEMENT_RATIO = 0.15;
+
+/**
+ * Position-specific multipliers applied on top of BASE_INVOLVEMENT_RATIO.
+ *
+ * Captures structural differences in how often each position converts attacking
+ * event involvement into goals vs assists. MID = 1.0 by definition (the reference
+ * position; its predictions are identical to the v1.3.2 single-constant model).
+ *
+ * Only goal and assist multipliers are position-specific. p_involved keeps just
+ * the base constant — being involved in attacking events is roughly position-agnostic
+ * within each position's own percentile cohort.
+ *
+ * GK is included for type completeness. GK goal probability is zeroed in Step 5
+ * regardless; the GK assist multiplier (0.05) replaces the former GK_ASSIST_SCALE
+ * and captures that goalkeepers almost never register attacking assists.
+ *
+ * Calibration history in docs/v2/calibration-results.md. Starting values are
+ * intuition-informed; the backtest iteration loop will adjust them empirically.
+ */
+export const INVOLVEMENT_MULTIPLIERS: Readonly<
+  Record<'GK' | 'DEF' | 'MID' | 'FWD', { readonly goal: number; readonly assist: number }>
+> = {
+  GK: { goal: 0.0, assist: 0.05 }, // GK goal zeroed in Step 5; assist replaces GK_ASSIST_SCALE
+  DEF: { goal: 0.7, assist: 1.0 }, // Defenders score ~5–10% of league goals
+  MID: { goal: 1.0, assist: 1.0 }, // Reference baseline — identical to v1.3.2
+  FWD: { goal: 1.5, assist: 0.8 }, // Forwards score more goals, create fewer assists
+} as const;
 
 /**
  * Gap A (patch): expected attacking events per match for a league-average team.
@@ -89,8 +112,8 @@ export const FORM_WEIGHT = 0.0;
 export const LEAGUE_AVG_CONVERSION = 0.33;
 
 /**
- * GK assist probability is multiplied by this factor. Goalkeepers rarely assist
- * outside of very unusual circumstances; the ICT Creativity model is not designed
- * for them (spec §Step 5).
+ * @deprecated Superseded by INVOLVEMENT_MULTIPLIERS['GK'].assist in v1.3.3.
+ * The GK assist scaling is now applied in Step 4 via the position multiplier
+ * rather than as a post-hoc Step 5 correction. Retained for export compatibility.
  */
 export const GK_ASSIST_SCALE = 0.05;

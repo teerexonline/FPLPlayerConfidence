@@ -1,7 +1,8 @@
-# FPL Goal & Assist Probability Algorithm — Implementation Spec (v1.3.2)
+# FPL Goal & Assist Probability Algorithm — Implementation Spec (v1.3.3)
 
 ## Changelog
 
+- **v1.3.3**: Replaced the single `MAX_INVOLVEMENT_RATIO` with `BASE_INVOLVEMENT_RATIO = 0.15` (the reference constant, unchanged from v1.3.2) plus position-specific `INVOLVEMENT_MULTIPLIERS` (goal and assist independently per position). MID = 1.0 by definition — MID predictions are mathematically identical to v1.3.2. FWD/DEF/GK multipliers capture structural differences in per-event goal and assist rates that a single global constant could not. Resolves the FWD-specific MACE failure (15.4pp) discovered in the Phase 2 backtest. GK_ASSIST_SCALE moved into INVOLVEMENT_MULTIPLIERS['GK'].assist; Step 5 GK block now only zeros pGoal. Calibration of multiplier values is iterative — see `docs/v2/calibration-results.md`.
 - **v1.3.2**: Introduced `MAX_INVOLVEMENT_RATIO = 0.15` constant applied to all three per-event probability components (`p_involved`, `p_goal_given_involved`, `p_assist_given_involved`) in Step 4. Raw percentile ranks (0..1) used directly as probabilities caused cap saturation for ~46% of predictions (backtest GW5–33); median players hit lambda≈3 at 90 min → p_goal≈0.95, capped at MAX_GOAL_PROB=0.65. With the ratio applied, the median outfield player produces p_goal≈6.5% (neutral fixture, 90 min) and the top striker in an easy fixture reaches ~34%, while caps remain as safety rails.
 - **v1.3.1**: Corrected transcription error in Step 4 — `xg_player_team` replaced with `team_event_strength` (= `xg_player_team * openness_factor`) so that opponent FDR (computed in Step 3) actually feeds into the lambda calculation. Using raw `xg_player_team` made Step 3's openness calculation a dead computation. See patch document Gap A.
 - **v1.3**: Added `effective_position` and `effective_role` overrides to handle tactical deployments that differ from a player's season-default (e.g., Havertz starting as a striker, a midfielder pushed into a #10 role for one match)
@@ -214,18 +215,24 @@ With `FORM_WEIGHT = 0` (default), behavior is identical to v1.0. Recommended sta
 
 ## Step 4 — Per-Player Goal & Assist Probabilities
 
-> **NOTE:** This step is amended by `fpl_probability_algorithm_v1.3_patch.md` Gap A (Poisson interpretation fix, `BASELINE_ATTACKING_EVENTS_PER_MATCH = 12`) and further updated in v1.3.2 (cap saturation fix, `MAX_INVOLVEMENT_RATIO = 0.15`). **Use the patched + v1.3.2-updated version of Step 4, not the version below.** The version below is preserved for reference and changelog continuity.
+> **NOTE:** This step is amended by `fpl_probability_algorithm_v1.3_patch.md` Gap A (Poisson interpretation fix, `BASELINE_ATTACKING_EVENTS_PER_MATCH = 12`) and further updated in v1.3.2 (cap saturation fix, `BASE_INVOLVEMENT_RATIO = 0.15`) and v1.3.3 (position-specific multipliers). **Use the v1.3.3 version of Step 4, not the version below.** The version below is preserved for reference and changelog continuity.
 
 Combine the chain. The team's expected goals already represents the "probability mass" of scoring events in the match for that team. We allocate that mass across players using their normalized ICT.
 
 ```
-# v1.3.2: Scale all three probability components by MAX_INVOLVEMENT_RATIO (0.15)
-# to convert raw percentile ranks (0..1) into realistic per-event involvement shares.
-# Without this, median players generate lambdas >> 3 at 90 min → p_goal ≈ 1.0,
-# saturating the caps and producing systematically overconfident predictions.
-p_involved              = influence_pct * MAX_INVOLVEMENT_RATIO
-p_goal_given_involved   = threat_pct    * MAX_INVOLVEMENT_RATIO   # DEFENDER_THREAT_SCALE applied first
-p_assist_given_involved = creativity_pct * MAX_INVOLVEMENT_RATIO
+# v1.3.3: BASE_INVOLVEMENT_RATIO (0.15) converts raw percentile ranks to realistic
+# involvement shares (unchanged from v1.3.2). Position-specific INVOLVEMENT_MULTIPLIERS
+# then scale goal and assist components independently:
+#   GK:  goal=0.0,  assist=0.05   (GK goal zeroed explicitly in Step 5)
+#   DEF: goal=0.7,  assist=1.0
+#   MID: goal=1.0,  assist=1.0    ← reference baseline (identical to v1.3.2)
+#   FWD: goal=1.5,  assist=0.8
+#
+# p_involved uses only BASE_INVOLVEMENT_RATIO — within-cohort percentile ranking
+# already normalises for position-specific event involvement frequency.
+p_involved              = influence_pct  * BASE_INVOLVEMENT_RATIO
+p_goal_given_involved   = threat_pct     * BASE_INVOLVEMENT_RATIO * INVOLVEMENT_MULTIPLIERS[position].goal
+p_assist_given_involved = creativity_pct * BASE_INVOLVEMENT_RATIO * INVOLVEMENT_MULTIPLIERS[position].assist
 
 # Per-attacking-event probabilities for THIS player
 p_goal_per_event   = p_involved * p_goal_given_involved

@@ -1,11 +1,11 @@
 import {
   BASELINE_ATTACKING_EVENTS_PER_MATCH,
   BASELINE_TEAM_GOALS_PER_MATCH,
+  BASE_INVOLVEMENT_RATIO,
   DEFENDER_THREAT_SCALE,
-  GK_ASSIST_SCALE,
+  INVOLVEMENT_MULTIPLIERS,
   MAX_ASSIST_PROB,
   MAX_GOAL_PROB,
-  MAX_INVOLVEMENT_RATIO,
 } from './constants';
 import { clampFdr, computeMatchOpenness } from './fixture';
 import { buildPositionCohort, computePercentileRanks } from './normalize';
@@ -106,11 +106,15 @@ export function predict(
   );
 
   // ── Step 4: per-player lambdas ────────────────────────────────────────────
-  // MAX_INVOLVEMENT_RATIO scales raw percentiles (0..1) into realistic per-event
-  // involvement shares, preventing cap saturation for median players (v1.3.2 fix).
-  const pInvolved = influencePct * MAX_INVOLVEMENT_RATIO;
-  const pGoalGivenInvolved = threatPct * MAX_INVOLVEMENT_RATIO;
-  const pAssistGivenInvolved = creativityPct * MAX_INVOLVEMENT_RATIO;
+  // BASE_INVOLVEMENT_RATIO scales raw percentiles (0..1) into realistic per-event
+  // involvement shares (v1.3.2 calibrated value). Position-specific multipliers
+  // layer on top to capture structural goal/assist differences across positions
+  // (v1.3.3). p_involved uses only the base constant — within-cohort percentile
+  // already normalises for position-specific event-involvement frequency.
+  const mults = INVOLVEMENT_MULTIPLIERS[seasonPos];
+  const pInvolved = influencePct * BASE_INVOLVEMENT_RATIO;
+  const pGoalGivenInvolved = threatPct * BASE_INVOLVEMENT_RATIO * mults.goal;
+  const pAssistGivenInvolved = creativityPct * BASE_INVOLVEMENT_RATIO * mults.assist;
 
   const pGoalPerEvent = pInvolved * pGoalGivenInvolved;
   const pAssistPerEvent = pInvolved * pAssistGivenInvolved;
@@ -133,10 +137,12 @@ export function predict(
   let pAssist = 1 - Math.exp(-lambdaAssist);
 
   // ── Step 5: caps and GK special-case ─────────────────────────────────────
-  // GKs never score; their Creativity model isn't calibrated for assists.
+  // GK goal: zeroed explicitly (goal multiplier 0.0 already drives lambda → 0,
+  // but explicit zero avoids floating-point edge cases). GK assist: scaling is
+  // now handled by INVOLVEMENT_MULTIPLIERS['GK'].assist = 0.05 in Step 4 —
+  // no additional GK_ASSIST_SCALE application needed here (v1.3.3 change).
   if (seasonPos === 'GK') {
     pGoal = 0;
-    pAssist = pAssist * GK_ASSIST_SCALE;
   }
 
   pGoal = Math.min(pGoal, MAX_GOAL_PROB);
