@@ -44,6 +44,12 @@ export const HistoryItemSchema = z.object({
   saves: z.number().int().nonnegative(),
   // Pre-computed aggregate by FPL; formula is position-dependent (DEF excludes recoveries).
   defensive_contribution: z.number().int().nonnegative(),
+  // FPL returns ICT values as strings; coerce to float. Default 0 for fixtures that predate
+  // the backtest extension or are constructed directly in tests.
+  total_points: z.number().int().default(0),
+  influence: z.coerce.number().nonnegative().default(0),
+  creativity: z.coerce.number().nonnegative().default(0),
+  threat: z.coerce.number().nonnegative().default(0),
 });
 
 export const ElementSummarySchema = z.object({

@@ -19,6 +19,10 @@ function aHistoryItem(overrides: Partial<HistoryItem> = {}): HistoryItem {
     clean_sheets: 0,
     saves: 0,
     defensive_contribution: 0,
+    total_points: 0,
+    influence: 0,
+    creativity: 0,
+    threat: 0,
     ...overrides,
   };
 }
