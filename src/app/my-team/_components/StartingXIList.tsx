@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import Link from 'next/link';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { computeFormation } from './computeFormation';
 import type { SquadPlayerRow } from './types';
 
 interface StartingXIListProps {
@@ -97,11 +98,24 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
 
 /**
  * Renders the 11 starting players sorted by squad position (1–11).
- * Each row links to the player's detail page.
+ * Each row links to the player's detail page. Includes the formation label
+ * derived from the actual squad positions.
  */
 export function StartingXIList({ starters }: StartingXIListProps): JSX.Element {
+  const formation = computeFormation(starters);
+
   return (
     <section aria-label="Starting XI" className="mb-2">
+      {/* Formation label */}
+      <div className="mb-3" aria-label={`Formation: ${formation}`}>
+        <p className="text-muted font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
+          Formation
+        </p>
+        <p className="text-text mt-0.5 font-sans text-[18px] font-semibold tracking-tight tabular-nums">
+          {formation}
+        </p>
+      </div>
+
       <h2 className="text-muted mb-1 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
         Starting XI
       </h2>
