@@ -1,7 +1,7 @@
 /**
  * Tunable constants for the FPL Goal & Assist Probability algorithm (v1.3 + patches).
  *
- * Source: docs/v2/fpl_probability_algorithm.md (v1.3 spec)
+ * Source: docs/v2/fpl_probability_algorithm.md (v1.3.2 spec)
  *         docs/v2/fpl_probability_algorithm_v1.3_patch.md (Gap A, C, D)
  *
  * These are calibration starting points. Once backtest results are available
@@ -11,6 +11,21 @@
 
 /** Premier League long-run average goals per team per match. */
 export const BASELINE_TEAM_GOALS_PER_MATCH = 1.4;
+
+/**
+ * Scales all three per-event probability components (p_involved,
+ * p_goal_given_involved, p_assist_given_involved) from raw percentile ranks
+ * (0..1) into realistic involvement shares.
+ *
+ * Without scaling, raw percentiles used directly as probabilities produce
+ * lambdas >> 3 at 90 min for median players, saturating the probability caps.
+ * With 0.15, the median outfield player produces p_goal ≈ 6–7% at 90 min (neutral
+ * fixture), while the top striker in an easy fixture reaches ~33%. The caps
+ * (MAX_GOAL_PROB, MAX_ASSIST_PROB) remain as safety rails but stop dominating.
+ *
+ * v1.3.2 calibration fix — see docs/v2/fpl_probability_algorithm.md changelog.
+ */
+export const MAX_INVOLVEMENT_RATIO = 0.15;
 
 /**
  * Gap A (patch): expected attacking events per match for a league-average team.

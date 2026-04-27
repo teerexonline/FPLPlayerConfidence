@@ -5,6 +5,7 @@ import {
   GK_ASSIST_SCALE,
   MAX_ASSIST_PROB,
   MAX_GOAL_PROB,
+  MAX_INVOLVEMENT_RATIO,
 } from './constants';
 import { clampFdr, computeMatchOpenness } from './fixture';
 import { buildPositionCohort, computePercentileRanks } from './normalize';
@@ -105,9 +106,11 @@ export function predict(
   );
 
   // ── Step 4: per-player lambdas ────────────────────────────────────────────
-  const pInvolved = influencePct;
-  const pGoalGivenInvolved = threatPct;
-  const pAssistGivenInvolved = creativityPct;
+  // MAX_INVOLVEMENT_RATIO scales raw percentiles (0..1) into realistic per-event
+  // involvement shares, preventing cap saturation for median players (v1.3.2 fix).
+  const pInvolved = influencePct * MAX_INVOLVEMENT_RATIO;
+  const pGoalGivenInvolved = threatPct * MAX_INVOLVEMENT_RATIO;
+  const pAssistGivenInvolved = creativityPct * MAX_INVOLVEMENT_RATIO;
 
   const pGoalPerEvent = pInvolved * pGoalGivenInvolved;
   const pAssistPerEvent = pInvolved * pAssistGivenInvolved;
