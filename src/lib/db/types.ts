@@ -49,7 +49,14 @@ export interface DbSyncMeta {
   readonly updated_at: number;
 }
 
+export interface DbUser {
+  readonly id: number;
+  readonly email: string;
+  readonly created_at: number;
+}
+
 export interface DbManagerSquadPick {
+  readonly user_id: number;
   readonly team_id: number;
   readonly gameweek: number;
   readonly player_id: number;

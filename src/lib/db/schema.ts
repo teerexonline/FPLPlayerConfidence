@@ -3,6 +3,8 @@
  * Each statement is idempotent: ALTER TABLE … ADD COLUMN is a no-op if
  * the column already exists in SQLite ≥ 3.37 (better-sqlite3 bundles ≥ 3.43).
  * If the bundled version is older we rely on the try/catch in createDb().
+ *
+ * ORDER MATTERS — do not reorder existing entries.
  */
 export const SQL_MIGRATIONS: readonly string[] = [
   `ALTER TABLE players ADD COLUMN status TEXT NOT NULL DEFAULT 'a'`,
@@ -10,9 +12,20 @@ export const SQL_MIGRATIONS: readonly string[] = [
   `ALTER TABLE players ADD COLUMN news TEXT NOT NULL DEFAULT ''`,
   `ALTER TABLE confidence_snapshots ADD COLUMN defcon_counter INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE confidence_snapshots ADD COLUMN savecon_counter INTEGER NOT NULL DEFAULT 0`,
+  // Phase 1 multi-user infrastructure: seed the system user and add ownership
+  // column to manager_squads so every squad pick is owned by a specific user.
+  // INSERT OR IGNORE is idempotent — re-running on an existing DB is safe.
+  `INSERT OR IGNORE INTO users (id, email, created_at) VALUES (1, 'system@fpltool.internal', unixepoch())`,
+  `ALTER TABLE manager_squads ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1`,
 ];
 
 export const SQL_SCHEMA = `
+CREATE TABLE IF NOT EXISTS users (
+  id         INTEGER PRIMARY KEY,
+  email      TEXT    NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS players (
   id           INTEGER PRIMARY KEY,
   web_name     TEXT    NOT NULL,

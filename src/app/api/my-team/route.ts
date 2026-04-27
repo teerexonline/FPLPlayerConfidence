@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { fetchEntryInfo, fetchEntryPicks } from '@/lib/fpl/api';
 import { resolveSquadPicks } from '@/lib/fpl/resolveSquadPicks';
 import { getRepositories } from '@/lib/db/server';
+import { SYSTEM_USER_ID } from '@/lib/db/constants';
 import { calculateTeamConfidence, confidenceToPercent } from '@/lib/team-confidence';
 import { createLogger } from '@/lib/logger';
 import type { SquadPlayerRow, MyTeamData, MyTeamApiError } from '@/app/my-team/_components/types';
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let isGw1FreeHit: boolean;
 
   if (gwOverride !== null) {
-    const cached = repos.managerSquads.listByTeamAndGameweek(teamId, gwOverride);
+    const cached = repos.managerSquads.listByTeamAndGameweek(SYSTEM_USER_ID, teamId, gwOverride);
     if (cached.length > 0) {
       finalPicks = cached.map((p) => ({
         element: p.player_id,
@@ -112,6 +113,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       finalPicks = fetchResult.value.picks;
       repos.managerSquads.upsertMany(
         finalPicks.map((p) => ({
+          user_id: SYSTEM_USER_ID,
           team_id: teamId,
           gameweek: gwOverride,
           player_id: p.element,
@@ -180,6 +182,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (gwOverride === null) {
     repos.managerSquads.upsertMany(
       finalPicks.map((p) => ({
+        user_id: SYSTEM_USER_ID,
         team_id: teamId,
         gameweek: targetGw,
         player_id: p.element,
@@ -280,7 +283,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Collect available GWs for the scrubber timeline (after any upserts so the
   // current fetch is included in the list).
-  const availableGameweeks = repos.managerSquads.listGameweeksForTeam(teamId);
+  const availableGameweeks = repos.managerSquads.listGameweeksForTeam(SYSTEM_USER_ID, teamId);
 
   const data: MyTeamData = {
     managerName: `${info.player_first_name} ${info.player_last_name}`,

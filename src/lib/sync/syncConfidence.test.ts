@@ -6,11 +6,13 @@ import type {
   DbManagerSquadPick,
   DbPlayer,
   DbTeam,
+  DbUser,
   ManagerSquadRepository,
   PlayerRepository,
   Repositories,
   SyncMetaRepository,
   TeamRepository,
+  UserRepository,
 } from '@/lib/db';
 import { playerId } from '@/lib/db';
 import type { PlayerId } from '@/lib/db/types';
@@ -152,13 +154,26 @@ class FakeManagerSquadRepository implements ManagerSquadRepository {
   upsertMany(_picks: readonly DbManagerSquadPick[]): void {
     /* no-op stub */
   }
-  listByTeamAndGameweek(_teamId: number, _gameweek: number): readonly DbManagerSquadPick[] {
+  listByTeamAndGameweek(
+    _userId: number,
+    _teamId: number,
+    _gameweek: number,
+  ): readonly DbManagerSquadPick[] {
     return [];
   }
-  latestGameweekForTeam(_teamId: number): number | null {
+  latestGameweekForTeam(_userId: number, _teamId: number): number | null {
     return null;
   }
-  listGameweeksForTeam(_teamId: number): readonly number[] {
+  listGameweeksForTeam(_userId: number, _teamId: number): readonly number[] {
+    return [];
+  }
+}
+
+class FakeUserRepository implements UserRepository {
+  findById(_id: number): DbUser | null {
+    return null;
+  }
+  listAll(): readonly DbUser[] {
     return [];
   }
 }
@@ -174,7 +189,15 @@ function makeRepos(): {
   const confidenceSnapshots = new FakeConfidenceSnapshotRepository();
   const syncMeta = new FakeSyncMetaRepository();
   const managerSquads = new FakeManagerSquadRepository();
-  const repos: Repositories = { players, teams, confidenceSnapshots, syncMeta, managerSquads };
+  const users = new FakeUserRepository();
+  const repos: Repositories = {
+    players,
+    teams,
+    confidenceSnapshots,
+    syncMeta,
+    managerSquads,
+    users,
+  };
   return { repos, players, confidenceSnapshots, syncMeta };
 }
 

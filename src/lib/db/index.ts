@@ -4,13 +4,16 @@ import type { ManagerSquadRepository } from './repositories/ManagerSquadReposito
 import type { PlayerRepository } from './repositories/PlayerRepository';
 import type { SyncMetaRepository } from './repositories/SyncMetaRepository';
 import type { TeamRepository } from './repositories/TeamRepository';
+import type { UserRepository } from './repositories/UserRepository';
 import { SqliteConfidenceSnapshotRepository } from './repositories/sqlite/SqliteConfidenceSnapshotRepository';
 import { SqliteManagerSquadRepository } from './repositories/sqlite/SqliteManagerSquadRepository';
 import { SqlitePlayerRepository } from './repositories/sqlite/SqlitePlayerRepository';
 import { SqliteSyncMetaRepository } from './repositories/sqlite/SqliteSyncMetaRepository';
 import { SqliteTeamRepository } from './repositories/sqlite/SqliteTeamRepository';
+import { SqliteUserRepository } from './repositories/sqlite/SqliteUserRepository';
 
 export { createDb } from './client';
+export { SYSTEM_USER_ID } from './constants';
 
 export type {
   DbConfidenceSnapshot,
@@ -18,6 +21,7 @@ export type {
   DbPlayer,
   DbSyncMeta,
   DbTeam,
+  DbUser,
   PlayerId,
   TeamId,
 } from './types';
@@ -28,6 +32,7 @@ export type { TeamRepository } from './repositories/TeamRepository';
 export type { ConfidenceSnapshotRepository } from './repositories/ConfidenceSnapshotRepository';
 export type { SyncMetaRepository } from './repositories/SyncMetaRepository';
 export type { ManagerSquadRepository } from './repositories/ManagerSquadRepository';
+export type { UserRepository } from './repositories/UserRepository';
 
 export interface Repositories {
   readonly players: PlayerRepository;
@@ -35,6 +40,7 @@ export interface Repositories {
   readonly confidenceSnapshots: ConfidenceSnapshotRepository;
   readonly syncMeta: SyncMetaRepository;
   readonly managerSquads: ManagerSquadRepository;
+  readonly users: UserRepository;
 }
 
 /** Returns concrete repository instances backed by the provided database. */
@@ -45,5 +51,6 @@ export function createRepositories(db: Database.Database): Repositories {
     confidenceSnapshots: new SqliteConfidenceSnapshotRepository(db),
     syncMeta: new SqliteSyncMetaRepository(db),
     managerSquads: new SqliteManagerSquadRepository(db),
+    users: new SqliteUserRepository(db),
   };
 }
