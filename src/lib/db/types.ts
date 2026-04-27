@@ -22,6 +22,13 @@ export interface DbPlayer {
   readonly status: string;
   readonly chance_of_playing_next_round: number | null;
   readonly news: string;
+  /** Season-total ICT stats from FPL bootstrap-static — inputs for probability calculator. */
+  readonly influence: number;
+  readonly creativity: number;
+  readonly threat: number;
+  readonly minutes: number;
+  /** Difficulty of the player's next scheduled fixture (1–5). 3 = neutral fallback. */
+  readonly next_fixture_fdr: number;
 }
 
 export interface DbTeam {

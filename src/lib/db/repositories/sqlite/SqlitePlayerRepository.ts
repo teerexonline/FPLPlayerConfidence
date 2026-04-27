@@ -13,6 +13,11 @@ interface PlayerRow {
   status: string;
   chance_of_playing_next_round: number | null;
   news: string;
+  influence: number;
+  creativity: number;
+  threat: number;
+  minutes: number;
+  next_fixture_fdr: number;
 }
 
 function isPosition(s: string): s is Position {
@@ -33,17 +38,39 @@ function rowToPlayer(row: PlayerRow): DbPlayer {
     status: row.status,
     chance_of_playing_next_round: row.chance_of_playing_next_round,
     news: row.news,
+    influence: row.influence,
+    creativity: row.creativity,
+    threat: row.threat,
+    minutes: row.minutes,
+    next_fixture_fdr: row.next_fixture_fdr,
   };
 }
 
 const SELECT_COLS =
-  'id, web_name, team_id, position, now_cost, total_points, updated_at, status, chance_of_playing_next_round, news';
+  'id, web_name, team_id, position, now_cost, total_points, updated_at, status, ' +
+  'chance_of_playing_next_round, news, influence, creativity, threat, minutes, next_fixture_fdr';
 
 export class SqlitePlayerRepository implements PlayerRepository {
   private readonly stmtFindById: Database.Statement<[number], PlayerRow>;
   private readonly stmtListAll: Database.Statement<[], PlayerRow>;
   private readonly stmtUpsert: Database.Statement<
-    [number, string, number, string, number, number, number, string, number | null, string]
+    [
+      number,
+      string,
+      number,
+      string,
+      number,
+      number,
+      number,
+      string,
+      number | null,
+      string,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ]
   >;
 
   constructor(private readonly db: Database.Database) {
@@ -53,8 +80,9 @@ export class SqlitePlayerRepository implements PlayerRepository {
     this.stmtListAll = db.prepare<[], PlayerRow>(`SELECT ${SELECT_COLS} FROM players ORDER BY id`);
     this.stmtUpsert = db.prepare(
       `INSERT OR REPLACE INTO players
-       (id, web_name, team_id, position, now_cost, total_points, updated_at, status, chance_of_playing_next_round, news)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, web_name, team_id, position, now_cost, total_points, updated_at, status,
+        chance_of_playing_next_round, news, influence, creativity, threat, minutes, next_fixture_fdr)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
   }
 
@@ -70,6 +98,11 @@ export class SqlitePlayerRepository implements PlayerRepository {
       player.status,
       player.chance_of_playing_next_round,
       player.news,
+      player.influence,
+      player.creativity,
+      player.threat,
+      player.minutes,
+      player.next_fixture_fdr,
     );
   }
 
@@ -87,6 +120,11 @@ export class SqlitePlayerRepository implements PlayerRepository {
           p.status,
           p.chance_of_playing_next_round,
           p.news,
+          p.influence,
+          p.creativity,
+          p.threat,
+          p.minutes,
+          p.next_fixture_fdr,
         );
       }
     });

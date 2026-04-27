@@ -6,6 +6,7 @@ import { SMOKE_PLAYERS } from './__fixtures__/players';
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
   useSearchParams: vi.fn(() => new URLSearchParams()),
+  usePathname: vi.fn(() => '/players'),
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({

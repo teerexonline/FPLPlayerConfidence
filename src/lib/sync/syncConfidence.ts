@@ -4,7 +4,13 @@ import type { DbConfidenceSnapshot } from '@/lib/db/types';
 import type { FetchError } from '@/lib/fpl/types';
 import { ok } from '@/lib/utils/result';
 import type { Result } from '@/lib/utils/result';
-import { buildFdrLookup, elementTypeToPosition, mapMatchEvents } from './internal/matchEventMapper';
+import {
+  buildFdrLookup,
+  buildNextFdrByTeam,
+  elementTypeToPosition,
+  FALLBACK_FDR,
+  mapMatchEvents,
+} from './internal/matchEventMapper';
 import type { SyncConfidenceDeps, SyncResult } from './types';
 
 const DEFAULT_THROTTLE_MS = 200;
@@ -117,6 +123,8 @@ export async function syncConfidence(
     [...events].filter((e) => e.finished).pop();
   const currentGw = currentEvent?.id ?? 1;
 
+  const nextFdrByTeam = buildNextFdrByTeam(fixturesResult.value, currentGw);
+
   // Step c: persist teams + players (upsert semantics — safe to re-run)
   repos.teams.upsertMany(teams);
   repos.players.upsertMany(
@@ -131,6 +139,11 @@ export async function syncConfidence(
       status: e.status,
       chance_of_playing_next_round: e.chance_of_playing_next_round,
       news: e.news,
+      influence: e.influence,
+      creativity: e.creativity,
+      threat: e.threat,
+      minutes: e.minutes,
+      next_fixture_fdr: nextFdrByTeam.get(e.team) ?? FALLBACK_FDR,
     })),
   );
 

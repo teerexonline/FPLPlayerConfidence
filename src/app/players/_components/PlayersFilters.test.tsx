@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { parseFilters, filtersToParams, PlayersFilters } from './PlayersFilters';
 import { DEFAULT_FILTER_STATE } from './types';
@@ -131,6 +131,7 @@ const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
   useSearchParams: vi.fn(() => new URLSearchParams()),
+  usePathname: vi.fn(() => '/players'),
 }));
 
 describe('PlayersFilters component', () => {
@@ -143,8 +144,9 @@ describe('PlayersFilters component', () => {
 
   it('renders sort buttons', () => {
     render(<PlayersFilters />);
-    expect(screen.getByRole('button', { name: /confidence/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /price/i })).toBeInTheDocument();
+    const sortGroup = screen.getByRole('group', { name: /sort players/i });
+    expect(within(sortGroup).getByRole('button', { name: /confidence/i })).toBeInTheDocument();
+    expect(within(sortGroup).getByRole('button', { name: /price/i })).toBeInTheDocument();
   });
 
   it('renders search input', () => {

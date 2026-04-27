@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 import type { JSX, KeyboardEvent } from 'react';
+import { useMetricMode } from '@/components/metric/useMetricMode';
 import { EmptyFilterState } from './EmptyFilterState';
 import { PlayerCard } from './PlayerCard';
 import { PlayerRow } from './PlayerRow';
@@ -11,7 +12,9 @@ import { parseFilters } from './PlayersFilters';
 import type { FilterState, PlayerWithConfidence, SortKey } from './types';
 
 // Matches grid-cols in PlayerRow and SkeletonRow.
-const HEADERS = ['Player', 'Team', 'Pos', 'Price', 'Confidence', 'Last 5'] as const;
+const CONFIDENCE_HEADERS = ['Player', 'Team', 'Pos', 'Price', 'Confidence', 'Last 5'] as const;
+const PGOAL_HEADERS = ['Player', 'Team', 'Pos', 'Price', 'P(Goal)', 'Last 5'] as const;
+const PASSIST_HEADERS = ['Player', 'Team', 'Pos', 'Price', 'P(Assist)', 'Last 5'] as const;
 
 const ROW_HEIGHT = 56; // h-14 = 56px
 const HEADER_HEIGHT = 40; // py-2.5 + text
@@ -61,6 +64,9 @@ function DesktopVirtualTable({
   readonly filtered: readonly PlayerWithConfidence[];
 }): JSX.Element {
   const router = useRouter();
+  const { mode } = useMetricMode();
+  const HEADERS =
+    mode === 'g' ? PGOAL_HEADERS : mode === 'a' ? PASSIST_HEADERS : CONFIDENCE_HEADERS;
   const parentRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
@@ -198,6 +204,12 @@ function sortPlayers(
     switch (key) {
       case 'confidence':
         cmp = a.confidence - b.confidence;
+        break;
+      case 'pGoal':
+        cmp = a.pGoal - b.pGoal;
+        break;
+      case 'pAssist':
+        cmp = a.pAssist - b.pAssist;
         break;
       case 'price':
         cmp = a.nowCost - b.nowCost;

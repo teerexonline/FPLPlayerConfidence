@@ -17,6 +17,10 @@ export const ElementSchema = z.object({
   status: z.string().default('a'),
   chance_of_playing_next_round: z.number().int().min(0).max(100).nullable().default(null),
   news: z.string().default(''),
+  minutes: z.number().int().nonnegative().default(0),
+  influence: z.coerce.number().nonnegative().default(0),
+  creativity: z.coerce.number().nonnegative().default(0),
+  threat: z.coerce.number().nonnegative().default(0),
 });
 
 export const EventSchema = z.object({

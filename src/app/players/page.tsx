@@ -5,6 +5,8 @@ import type { JSX } from 'react';
 export const dynamic = 'force-dynamic';
 import { getRepositories } from '@/lib/db/server';
 import { teamId as brandTeamId } from '@/lib/db';
+import { buildLeagueData, predict } from '@/lib/probability';
+import type { PlayerInput } from '@/lib/probability';
 import { PlayersShell } from './_components/PlayersShell';
 import type { PlayerWithConfidence } from './_components/types';
 
@@ -34,10 +36,48 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
   const recentAppearancesMap =
     repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
+  // Build probability predictor inputs from stored ICT stats
+  const playerInputs: PlayerInput[] = allPlayers
+    .filter((p) => p.minutes > 0)
+    .map((p) => ({
+      id: p.id,
+      position: p.position,
+      minutes: p.minutes,
+      influence: p.influence,
+      creativity: p.creativity,
+      threat: p.threat,
+    }));
+
+  const playerInputById = new Map(playerInputs.map((pi) => [pi.id, pi]));
+  const leagueData = playerInputs.length > 0 ? buildLeagueData(playerInputs) : null;
+
+  // Pre-compute predictions for all players that have ICT data
+  const predictionMap = new Map<number, { pGoal: number; pAssist: number }>();
+  if (leagueData) {
+    for (const p of allPlayers) {
+      if (p.minutes === 0) continue;
+      const pi = playerInputById.get(p.id);
+      if (!pi) continue;
+      const result = predict(
+        p.id,
+        pi,
+        {
+          playerTeamFdr: p.next_fixture_fdr,
+          opponentTeamFdr: 3,
+          expectedMinutes: 90,
+        },
+        leagueData,
+      );
+      predictionMap.set(p.id, { pGoal: result.pGoal, pAssist: result.pAssist });
+    }
+  }
+
   return currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const player = playerMap.get(pid);
     const team = player ? teamMap.get(player.team_id) : undefined;
     if (!player || !team) return [];
+
+    const prediction = predictionMap.get(pid);
 
     return [
       {
@@ -55,6 +95,8 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
         chanceOfPlaying: player.chance_of_playing_next_round,
         news: player.news,
         recentAppearances: recentAppearancesMap.get(pid) ?? 0,
+        pGoal: prediction?.pGoal ?? 0,
+        pAssist: prediction?.pAssist ?? 0,
       },
     ];
   });

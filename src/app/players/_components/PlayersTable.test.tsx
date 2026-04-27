@@ -12,6 +12,7 @@ const mockSearchParams = vi.hoisted(() => new URLSearchParams());
 vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(() => mockSearchParams),
   useRouter: vi.fn(() => ({ push: vi.fn() })),
+  usePathname: vi.fn(() => '/players'),
 }));
 
 // @tanstack/react-virtual relies on DOM layout (getBoundingClientRect). In

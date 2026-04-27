@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Fixture, HistoryItem } from '@/lib/fpl/types';
 import {
   buildFdrLookup,
+  buildNextFdrByTeam,
   elementTypeToPosition,
+  FALLBACK_FDR,
   mapMatchEvents,
   mapToMatchEvent,
 } from './matchEventMapper';
@@ -253,5 +255,72 @@ describe('mapMatchEvents', () => {
     const result = mapMatchEvents(history, 1, EMPTY_LOOKUP);
 
     expect(result.map((e) => e.gameweek)).toEqual([3, 1, 2]);
+  });
+});
+
+// ── buildNextFdrByTeam ────────────────────────────────────────────────────────
+
+describe('buildNextFdrByTeam', () => {
+  it('returns the home team difficulty for the home team', () => {
+    const fixture = aFixture({
+      event: 21,
+      team_h: 1,
+      team_a: 2,
+      team_h_difficulty: 2,
+      team_a_difficulty: 4,
+    });
+    const result = buildNextFdrByTeam([fixture], 20);
+    expect(result.get(1)).toBe(2);
+  });
+
+  it('returns the away team difficulty for the away team', () => {
+    const fixture = aFixture({
+      event: 21,
+      team_h: 1,
+      team_a: 2,
+      team_h_difficulty: 2,
+      team_a_difficulty: 4,
+    });
+    const result = buildNextFdrByTeam([fixture], 20);
+    expect(result.get(2)).toBe(4);
+  });
+
+  it('returns the earliest upcoming fixture for each team', () => {
+    const fixtures = [
+      aFixture({ event: 22, team_h: 1, team_a: 3, team_h_difficulty: 5, team_a_difficulty: 1 }),
+      aFixture({ event: 21, team_h: 1, team_a: 2, team_h_difficulty: 2, team_a_difficulty: 4 }),
+    ];
+    const result = buildNextFdrByTeam(fixtures, 20);
+    // Team 1 next fixture is event 21 (not 22)
+    expect(result.get(1)).toBe(2);
+  });
+
+  it('excludes fixtures from the current or past gameweeks', () => {
+    const fixtures = [
+      aFixture({ event: 20, team_h: 1, team_a: 2, team_h_difficulty: 2, team_a_difficulty: 4 }),
+    ];
+    const result = buildNextFdrByTeam(fixtures, 20);
+    expect(result.has(1)).toBe(false);
+  });
+
+  it('excludes unscheduled fixtures (event=null)', () => {
+    const fixture = aFixture({
+      event: null,
+      team_h: 1,
+      team_a: 2,
+      team_h_difficulty: 2,
+      team_a_difficulty: 4,
+    });
+    const result = buildNextFdrByTeam([fixture], 20);
+    expect(result.has(1)).toBe(false);
+  });
+
+  it('returns an empty map when no upcoming fixtures exist', () => {
+    const result = buildNextFdrByTeam([], 20);
+    expect(result.size).toBe(0);
+  });
+
+  it('FALLBACK_FDR is 3', () => {
+    expect(FALLBACK_FDR).toBe(3);
   });
 });

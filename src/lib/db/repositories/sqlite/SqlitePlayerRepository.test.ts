@@ -19,6 +19,11 @@ function aPlayer(overrides: Partial<DbPlayer> = {}): DbPlayer {
     status: 'a',
     chance_of_playing_next_round: null,
     news: '',
+    influence: 0,
+    creativity: 0,
+    threat: 0,
+    minutes: 0,
+    next_fixture_fdr: 3,
     ...overrides,
   };
 }
@@ -80,5 +85,41 @@ describe('SqlitePlayerRepository', () => {
 
   it('listAll returns an empty array when no players have been inserted', () => {
     expect(repo.listAll()).toHaveLength(0);
+  });
+
+  it('stores and retrieves ICT stats and next_fixture_fdr', () => {
+    const player = aPlayer({
+      id: 99,
+      influence: 450.5,
+      creativity: 123.3,
+      threat: 567.8,
+      minutes: 2300,
+      next_fixture_fdr: 2,
+    });
+    repo.upsert(player);
+    const found = repo.findById(99);
+    expect(found).toMatchObject({
+      influence: 450.5,
+      creativity: 123.3,
+      threat: 567.8,
+      minutes: 2300,
+      next_fixture_fdr: 2,
+    });
+  });
+
+  it('ICT fields default to 0 / next_fixture_fdr defaults to 3 for existing rows', () => {
+    // Existing DB rows without ICT cols get the migration default values
+    const player = aPlayer({
+      id: 1,
+      influence: 0,
+      creativity: 0,
+      threat: 0,
+      minutes: 0,
+      next_fixture_fdr: 3,
+    });
+    repo.upsert(player);
+    const found = repo.findById(1);
+    expect(found?.influence).toBe(0);
+    expect(found?.next_fixture_fdr).toBe(3);
   });
 });

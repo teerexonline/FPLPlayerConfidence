@@ -17,6 +17,13 @@ export const SQL_MIGRATIONS: readonly string[] = [
   // INSERT OR IGNORE is idempotent — re-running on an existing DB is safe.
   `INSERT OR IGNORE INTO users (id, email, created_at) VALUES (1, 'system@fpltool.internal', unixepoch())`,
   `ALTER TABLE manager_squads ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1`,
+  // v2.0: probability calculator inputs — season-total ICT stats per player
+  `ALTER TABLE players ADD COLUMN influence REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE players ADD COLUMN creativity REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE players ADD COLUMN threat REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE players ADD COLUMN minutes INTEGER NOT NULL DEFAULT 0`,
+  // Difficulty of the player's next scheduled fixture (1–5). 3 = neutral fallback.
+  `ALTER TABLE players ADD COLUMN next_fixture_fdr INTEGER NOT NULL DEFAULT 3`,
 ];
 
 export const SQL_SCHEMA = `

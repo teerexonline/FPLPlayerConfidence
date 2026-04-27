@@ -39,7 +39,29 @@ export function buildFdrLookup(fixtures: Fixtures): FdrLookup {
   return map;
 }
 
-const FALLBACK_FDR = 3;
+export const FALLBACK_FDR = 3;
+
+/**
+ * Returns the FDR each team faces in their next scheduled fixture after `currentGw`.
+ * Key: team_id → playerTeamFdr (the difficulty their opponents present to them).
+ * If a team has no upcoming fixture, they receive FALLBACK_FDR.
+ */
+export function buildNextFdrByTeam(
+  fixtures: Fixtures,
+  currentGw: number,
+): ReadonlyMap<number, number> {
+  const map = new Map<number, number>();
+  // Sort ascending so we find each team's earliest upcoming fixture first
+  const upcoming = fixtures
+    .filter((f) => f.event !== null && f.event > currentGw)
+    .sort((a, b) => (a.event ?? 0) - (b.event ?? 0));
+
+  for (const fixture of upcoming) {
+    if (!map.has(fixture.team_h)) map.set(fixture.team_h, fixture.team_h_difficulty);
+    if (!map.has(fixture.team_a)) map.set(fixture.team_a, fixture.team_a_difficulty);
+  }
+  return map;
+}
 
 function lookupFdr(item: HistoryItem, playerTeamId: number, fdrLookup: FdrLookup): number {
   // Home player: their team is team_h; away player: their team is team_a.

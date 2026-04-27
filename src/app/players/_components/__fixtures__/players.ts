@@ -17,6 +17,8 @@ export function makePlayer(overrides: Partial<PlayerWithConfidence> = {}): Playe
     chanceOfPlaying: null,
     news: '',
     recentAppearances: 3,
+    pGoal: 0.1,
+    pAssist: 0.08,
     ...overrides,
   };
 }
