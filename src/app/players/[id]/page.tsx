@@ -4,9 +4,12 @@ import type { JSX } from 'react';
 import Link from 'next/link';
 import { getRepositories } from '@/lib/db/server';
 import { playerId } from '@/lib/db';
+import { buildLeagueData, predict } from '@/lib/probability';
+import type { PlayerInput } from '@/lib/probability';
 import { PlayerHeader } from './_components/PlayerHeader';
 import { PlayerDetailInteractive } from './_components/PlayerDetailInteractive';
 import { FdrBreakdown } from './_components/BigTeamBreakdown';
+import { MatchPredictionPanel } from './_components/MatchPredictionPanel';
 import { ConfidenceChart } from '@/components/confidence/ConfidenceChart';
 import type { PlayerDetailData, SnapshotPoint } from './_components/types';
 
@@ -41,6 +44,42 @@ function loadPlayer(rawId: string): PlayerDetailData {
   const latestReason = latest?.reason ?? '';
   const latestGameweek = latest?.gameweek ?? 0;
 
+  // Compute goal/assist probabilities when ICT data is available.
+  let pGoal: number | null = null;
+  let pAssist: number | null = null;
+  const nextFixtureFdr: number | null = player.minutes > 0 ? player.next_fixture_fdr : null;
+  if (player.minutes > 0) {
+    const allPlayers = repos.players.listAll();
+    const playerInputs: PlayerInput[] = allPlayers
+      .filter((p) => p.minutes > 0)
+      .map((p) => ({
+        id: p.id,
+        position: p.position,
+        minutes: p.minutes,
+        influence: p.influence,
+        creativity: p.creativity,
+        threat: p.threat,
+      }));
+    if (playerInputs.length > 0) {
+      const leagueData = buildLeagueData(playerInputs);
+      const pi = playerInputs.find((p) => p.id === player.id);
+      if (pi) {
+        const result = predict(
+          player.id,
+          pi,
+          {
+            playerTeamFdr: player.next_fixture_fdr,
+            opponentTeamFdr: 3,
+            expectedMinutes: 90,
+          },
+          leagueData,
+        );
+        pGoal = result.pGoal;
+        pAssist = result.pAssist;
+      }
+    }
+  }
+
   return {
     id: player.id,
     webName: player.web_name,
@@ -57,6 +96,9 @@ function loadPlayer(rawId: string): PlayerDetailData {
     status: player.status,
     chanceOfPlaying: player.chance_of_playing_next_round,
     news: player.news,
+    pGoal,
+    pAssist,
+    nextFixtureFdr,
   };
 }
 
@@ -106,6 +148,14 @@ export default async function PlayerDetailPage({
 
         {/* FDR breakdown — three difficulty buckets */}
         <FdrBreakdown snapshots={player.snapshots} />
+
+        {/* Next match prediction — P(Goal), P(Assist), FDR */}
+        <MatchPredictionPanel
+          pGoal={player.pGoal}
+          pAssist={player.pAssist}
+          nextFixtureFdr={player.nextFixtureFdr}
+          position={player.position}
+        />
       </div>
     </div>
   );
