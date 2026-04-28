@@ -13,21 +13,33 @@ function resolveDbPath(): string {
   return join(process.cwd(), 'data', 'fpl.db');
 }
 
-// Singleton: reuse one connection for the lifetime of the Node.js process.
-// The `global` check survives Next.js hot-reload in dev mode, but it means
-// new SQL_MIGRATIONS entries only run when the process fully restarts (not on
-// hot-reload). After committing a migration, run `npx tsx scripts/run-migrations.ts`
-// or restart the dev server with `npm run dev`.
+function openDb() {
+  const dbPath = resolveDbPath();
+  mkdirSync(dirname(dbPath), { recursive: true });
+  return createDb(dbPath);
+}
+
+// Production: singleton — one connection per process lifetime, shared across
+// all requests. createDb is called once, migrations run once.
+//
+// Development: fresh instance on every call. Next.js hot-reload keeps the
+// Node process alive and preserves `global`, so a cached singleton would
+// skip createDb (and therefore all SQL_MIGRATIONS) after the initial boot.
+// This has bitten us three times: status fields (v1.1), repository methods
+// (v1.6), watchlist table (v1.7). In dev the per-request overhead is trivial;
+// all migrations are idempotent so re-running them on every request is safe.
+//
+// DO NOT restore the singleton pattern in dev — the pain is not worth it.
 const g = global as typeof globalThis & {
   __fplRepos?: Repositories;
 };
 
 export function getRepositories(): Repositories {
-  if (!g.__fplRepos) {
-    const dbPath = resolveDbPath();
-    mkdirSync(dirname(dbPath), { recursive: true });
-    const db = createDb(dbPath);
-    g.__fplRepos = createRepositories(db);
+  if (process.env.NODE_ENV === 'production') {
+    g.__fplRepos ??= createRepositories(openDb());
+    return g.__fplRepos;
   }
-  return g.__fplRepos;
+  // Dev: always fresh — picks up new migrations and repository methods without
+  // requiring a full server restart after schema or code changes.
+  return createRepositories(openDb());
 }
