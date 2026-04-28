@@ -1,8 +1,9 @@
 import 'server-only';
 import type { JSX } from 'react';
 import { getRepositories } from '@/lib/db/server';
+import { hotStreakFromGwsSince } from '@/lib/confidence/hotStreak';
 import { BiggestMoversCard } from './_components/BiggestMoversCard';
-import { WatchlistCard } from './_components/WatchlistCard';
+import { HotPlayersCard } from './_components/HotPlayersCard';
 import { LeaderboardPreview } from './_components/LeaderboardPreview';
 import { TeamConfidenceHero } from './_components/TeamConfidenceHero';
 import { DashboardEmptyState } from './_components/DashboardEmptyState';
@@ -25,6 +26,7 @@ function loadDashboard(): DashboardData {
       risers: [],
       fallers: [],
       leaderboard: emptyLeaderboard,
+      hotPlayers: [],
       isEmpty: true,
     };
   }
@@ -44,11 +46,20 @@ function loadDashboard(): DashboardData {
   const recentAppearancesMap =
     repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
+  // Hot streak: find the most recent GW where each player had delta ≥ 3.
+  // Look back 4 GWs — anything older cannot produce a streak level.
+  const minBoostGw = Math.max(1, currentGameweek - 3);
+  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(minBoostGw);
+
   const players: DashboardPlayer[] = currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const numericId = Number(pid);
     const player = playerMap.get(numericId);
     const team = player ? teamMap.get(player.team_id) : undefined;
     if (!player || !team) return [];
+
+    const boostGw = boostGwMap.get(numericId);
+    const hotStreakLevel =
+      boostGw !== undefined ? hotStreakFromGwsSince(currentGameweek - boostGw) : null;
 
     return [
       {
@@ -65,6 +76,7 @@ function loadDashboard(): DashboardData {
         chanceOfPlaying: player.chance_of_playing_next_round,
         news: player.news,
         recentAppearances: recentAppearancesMap.get(numericId) ?? 0,
+        hotStreakLevel,
       },
     ];
   });
@@ -78,6 +90,16 @@ function loadDashboard(): DashboardData {
     .filter((p) => p.latestDelta < 0)
     .sort((a, b) => a.latestDelta - b.latestDelta);
 
+  const HOT_STREAK_ORDER: Record<string, number> = { red_hot: 0, med_hot: 1, low_hot: 2 };
+  const hotPlayers = players
+    .filter((p) => p.hotStreakLevel !== null)
+    .sort((a, b) => {
+      const aOrd = HOT_STREAK_ORDER[a.hotStreakLevel ?? ''] ?? 99;
+      const bOrd = HOT_STREAK_ORDER[b.hotStreakLevel ?? ''] ?? 99;
+      return aOrd !== bOrd ? aOrd - bOrd : b.confidence - a.confidence;
+    })
+    .slice(0, 5);
+
   return {
     currentGameweek,
     risers: byDeltaDesc.slice(0, 3),
@@ -89,6 +111,7 @@ function loadDashboard(): DashboardData {
       MID: byConfidenceDesc.filter((p) => p.position === 'MID').slice(0, 10),
       FWD: byConfidenceDesc.filter((p) => p.position === 'FWD').slice(0, 10),
     },
+    hotPlayers,
     isEmpty: false,
   };
 }
@@ -129,7 +152,7 @@ export default async function DashboardPage({
           )}
         </div>
 
-        {/* Hero strip — Risers, Fallers, Watchlist, My Team */}
+        {/* Hero strip — Risers, Fallers, Hot Players, My Team */}
         <section aria-label="Hero overview" className="mb-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <BiggestMoversCard
@@ -144,7 +167,7 @@ export default async function DashboardPage({
               variant="fallers"
               ariaLabel="Biggest confidence fallers this gameweek"
             />
-            <WatchlistCard />
+            <HotPlayersCard players={data.hotPlayers} />
             <TeamConfidenceHero />
           </div>
         </section>

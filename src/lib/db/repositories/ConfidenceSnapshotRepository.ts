@@ -56,6 +56,14 @@ export interface ConfidenceSnapshotRepository {
   recentAppearancesForAllPlayers(minGw: number): ReadonlyMap<number, number>;
 
   /**
+   * Returns a map of playerId → the most recent gameweek in which delta ≥ 3,
+   * considering only gameweeks ≥ minGw. Players with no qualifying boost are
+   * absent from the map. Used by bulk-load pages to derive hot-streak levels
+   * without iterating every player's full snapshot history.
+   */
+  recentBoostGameweekForAllPlayers(minGw: number): ReadonlyMap<number, number>;
+
+  /**
    * Deletes all snapshots for a player. Used by the Big Teams recompute
    * flow before re-running the confidence calculator with updated settings.
    */

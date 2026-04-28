@@ -1,3 +1,4 @@
+import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
 import type { Position } from '@/lib/confidence/types';
 
 export interface DashboardPlayer {
@@ -14,6 +15,7 @@ export interface DashboardPlayer {
   readonly chanceOfPlaying: number | null;
   readonly news: string;
   readonly recentAppearances: number;
+  readonly hotStreakLevel: HotStreakLevel | null;
 }
 
 /** Pre-computed top-10 slices by position, for the leaderboard tabs. */
@@ -33,6 +35,8 @@ export interface DashboardData {
   readonly fallers: readonly DashboardPlayer[];
   /** Top 10 slices by position (and overall), confidence descending */
   readonly leaderboard: DashboardLeaderboard;
+  /** Players currently in a hot streak, sorted red_hot → med_hot → low_hot, up to 5. */
+  readonly hotPlayers: readonly DashboardPlayer[];
   /** True when the DB has no confidence snapshots at all */
   readonly isEmpty: boolean;
 }

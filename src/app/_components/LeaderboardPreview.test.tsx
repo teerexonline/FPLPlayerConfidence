@@ -25,6 +25,7 @@ function makePlayer(id: number, position: DashboardPlayer['position']): Dashboar
     chanceOfPlaying: null,
     news: '',
     recentAppearances: 3,
+    hotStreakLevel: null,
   };
 }
 

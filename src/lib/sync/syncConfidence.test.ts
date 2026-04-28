@@ -139,6 +139,18 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
     }
     return [...latest.values()];
   }
+  recentBoostGameweekForAllPlayers(minGw: number): ReadonlyMap<number, number> {
+    const map = new Map<number, number>();
+    for (const s of this.store.values()) {
+      if (s.delta >= 3 && s.gameweek >= minGw) {
+        const existing = map.get(s.player_id);
+        if (existing === undefined || s.gameweek > existing) {
+          map.set(s.player_id, s.gameweek);
+        }
+      }
+    }
+    return map;
+  }
   deleteByPlayer(pid: PlayerId): void {
     for (const [key, s] of this.store.entries()) {
       if (s.player_id === pid) this.store.delete(key);

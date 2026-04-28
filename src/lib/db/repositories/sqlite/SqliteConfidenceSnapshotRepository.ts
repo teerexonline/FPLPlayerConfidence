@@ -52,6 +52,10 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
     [number],
     { player_id: number; count: number }
   >;
+  private readonly stmtRecentBoost: Database.Statement<
+    [number],
+    { player_id: number; boost_gw: number }
+  >;
 
   constructor(private readonly db: Database.Database) {
     this.stmtUpsert = db.prepare(
@@ -105,6 +109,12 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
       `SELECT player_id, COUNT(*) AS count
        FROM confidence_snapshots
        WHERE gameweek >= ?
+       GROUP BY player_id`,
+    );
+    this.stmtRecentBoost = db.prepare<[number], { player_id: number; boost_gw: number }>(
+      `SELECT player_id, MAX(gameweek) AS boost_gw
+       FROM confidence_snapshots
+       WHERE delta >= 3 AND gameweek >= ?
        GROUP BY player_id`,
     );
   }
@@ -180,6 +190,15 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
     const map = new Map<number, number>();
     for (const row of rows) {
       map.set(row.player_id, row.count);
+    }
+    return map;
+  }
+
+  recentBoostGameweekForAllPlayers(minGw: number): ReadonlyMap<number, number> {
+    const rows = this.stmtRecentBoost.all(minGw);
+    const map = new Map<number, number>();
+    for (const row of rows) {
+      map.set(row.player_id, row.boost_gw);
     }
     return map;
   }
