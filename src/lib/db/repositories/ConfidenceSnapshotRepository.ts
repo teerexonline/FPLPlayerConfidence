@@ -57,11 +57,14 @@ export interface ConfidenceSnapshotRepository {
 
   /**
    * Returns a map of playerId → the most recent gameweek in which delta ≥ 3,
-   * considering only gameweeks ≥ minGw. Players with no qualifying boost are
-   * absent from the map. Used by bulk-load pages to derive hot-streak levels
-   * without iterating every player's full snapshot history.
+   * considering only gameweeks in [minGw, maxGw]. Players with no qualifying
+   * boost in that window are absent from the map.
+   *
+   * maxGw must be supplied to avoid returning future boosts when viewing a
+   * historical GW — MAX(gameweek) without an upper bound would otherwise
+   * pick a later boost and hide the most-recent past one.
    */
-  recentBoostGameweekForAllPlayers(minGw: number): ReadonlyMap<number, number>;
+  recentBoostGameweekForAllPlayers(minGw: number, maxGw: number): ReadonlyMap<number, number>;
 
   /**
    * Deletes all snapshots for a player. Used by the Big Teams recompute

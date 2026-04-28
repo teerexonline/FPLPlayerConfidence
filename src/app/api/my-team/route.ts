@@ -6,7 +6,7 @@ import { resolveSquadPicks } from '@/lib/fpl/resolveSquadPicks';
 import { getRepositories } from '@/lib/db/server';
 import { SYSTEM_USER_ID } from '@/lib/db/constants';
 import { calculateTeamConfidence, confidenceToPercent } from '@/lib/team-confidence';
-import { hotStreakFromGwsSince } from '@/lib/confidence/hotStreak';
+import { hotStreakAtGw } from '@/lib/confidence/hotStreak';
 import { createLogger } from '@/lib/logger';
 import type { SquadPlayerRow, MyTeamData, MyTeamApiError } from '@/app/my-team/_components/types';
 import type { Position } from '@/lib/db/types';
@@ -256,17 +256,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? calcResult.value.positional
     : { defence: 0, midfield: 0, attack: 0 };
 
-  // Hot streak: one aggregation query across the 3-GW look-back window (0, 1, 2 GWs since boost).
-  const minBoostGw = Math.max(1, currentGw - 2);
-  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(minBoostGw);
+  // Hot streak: look back up to 2 GWs from the *viewed* GW (not the live GW)
+  // so the flame reflects what was true at GW N, not at the current season GW.
+  const minBoostGw = Math.max(1, targetGw - 2);
+  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(
+    minBoostGw,
+    targetGw,
+  );
 
   // Build squad player rows.
   const squadRows: SquadPlayerRow[] = finalPicks.map((p) => {
     const player = playerMap.get(p.element);
     const team = player ? teamMap.get(player.team_id) : undefined;
     const boostGw = boostGwMap.get(p.element);
-    const hotStreakLevel =
-      boostGw !== undefined ? hotStreakFromGwsSince(currentGw - boostGw) : null;
+    const hotStreakLevel = boostGw !== undefined ? hotStreakAtGw(boostGw, targetGw) : null;
     return {
       playerId: p.element,
       webName: player?.web_name ?? `Player ${p.element.toString()}`,

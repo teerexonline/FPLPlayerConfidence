@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { computeHotStreak, computeHotStreakAtMatch, hotStreakFromGwsSince } from './hotStreak';
+import {
+  computeHotStreak,
+  computeHotStreakAtMatch,
+  hotStreakAtGw,
+  hotStreakFromGwsSince,
+} from './hotStreak';
 
 // ── hotStreakFromGwsSince ────────────────────────────────────────────────────
 
@@ -31,6 +36,31 @@ describe('hotStreakFromGwsSince', () => {
 
   it('returns null for negative gwsSince (no === 0 match)', () => {
     expect(hotStreakFromGwsSince(-1)).toBeNull();
+  });
+});
+
+// ── hotStreakAtGw ────────────────────────────────────────────────────────────
+// These three cases mirror the /my-team scrubber scenarios from the bug report.
+
+describe('hotStreakAtGw', () => {
+  it('GW10 view: boost at GW8 shows low_hot (2 GWs after boost)', () => {
+    expect(hotStreakAtGw(8, 10)).toBe('low_hot');
+  });
+
+  it('GW10 view: boost at GW15 shows no flame — boost has not happened yet', () => {
+    expect(hotStreakAtGw(15, 10)).toBeNull();
+  });
+
+  it('GW10 view: boost at GW5 shows no flame — streak window expired', () => {
+    expect(hotStreakAtGw(5, 10)).toBeNull();
+  });
+
+  it('GW10 view: boost at GW10 shows red_hot (same GW as boost)', () => {
+    expect(hotStreakAtGw(10, 10)).toBe('red_hot');
+  });
+
+  it('GW10 view: boost at GW9 shows med_hot (1 GW after boost)', () => {
+    expect(hotStreakAtGw(9, 10)).toBe('med_hot');
   });
 });
 

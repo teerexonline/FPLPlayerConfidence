@@ -36,7 +36,10 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
     repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
   const minBoostGw = Math.max(1, currentGameweek - 2);
-  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(minBoostGw);
+  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(
+    minBoostGw,
+    currentGameweek,
+  );
 
   return currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const player = playerMap.get(pid);

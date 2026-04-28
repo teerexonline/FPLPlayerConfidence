@@ -149,6 +149,26 @@ describe('StartingXIList', () => {
 
   // ── GW scrubber interaction ─────────────────────────────────────────────────
 
+  it('scrubbing from GW34 to GW3 — flame appears when hotStreakLevel changes from null to red_hot', () => {
+    // Simulates API returning no flame at GW34 (boost expired) then a fresh
+    // flame at GW3 (boost was on GW3 from the viewed GW's perspective).
+    const { rerender } = render(
+      <StartingXIList
+        starters={[makePlayer({ playerId: 1, squadPosition: 1, hotStreakLevel: null })]}
+        currentGW={34}
+      />,
+    );
+    expect(screen.queryByRole('img', { name: /streak/i })).toBeNull();
+
+    rerender(
+      <StartingXIList
+        starters={[makePlayer({ playerId: 1, squadPosition: 1, hotStreakLevel: 'red_hot' })]}
+        currentGW={3}
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Fresh streak · GW3' })).toBeInTheDocument();
+  });
+
   it('hot streak indicator shows GW label matching currentGW prop (GW21)', () => {
     const starters = [makePlayer({ playerId: 1, squadPosition: 1, hotStreakLevel: 'red_hot' })];
     render(<StartingXIList starters={starters} currentGW={21} />);

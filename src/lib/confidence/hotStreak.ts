@@ -52,6 +52,20 @@ export function computeHotStreakAtMatch(
 }
 
 /**
+ * Computes the hot streak level for a player as seen from a specific gameweek,
+ * given the most recent past boost gameweek.
+ *
+ * Used by the /my-team route when serving a scrubber-selected historical GW.
+ * The critical difference from hotStreakFromGwsSince: guards against future
+ * boosts (boostGw > atGw) that would otherwise show a flame for events that
+ * haven't happened yet from the viewer's perspective.
+ */
+export function hotStreakAtGw(boostGw: number, atGw: number): HotStreakLevel | null {
+  if (boostGw > atGw) return null;
+  return hotStreakFromGwsSince(atGw - boostGw);
+}
+
+/**
  * Computes a player's current hot streak level from their full match brief list.
  * Anchors to the highest matchOrder (most recent match) — a thin wrapper around
  * computeHotStreakAtMatch for the live-indicator path.
