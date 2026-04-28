@@ -22,6 +22,7 @@ function makePlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRow {
     status: 'a',
     chanceOfPlaying: null,
     news: '',
+    hotStreakLevel: null,
     ...overrides,
   };
 }

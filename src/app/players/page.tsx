@@ -5,6 +5,7 @@ import type { JSX } from 'react';
 export const dynamic = 'force-dynamic';
 import { getRepositories } from '@/lib/db/server';
 import { teamId as brandTeamId } from '@/lib/db';
+import { hotStreakFromGwsSince } from '@/lib/confidence/hotStreak';
 import { PlayersShell } from './_components/PlayersShell';
 import type { PlayerWithConfidence } from './_components/types';
 
@@ -34,10 +35,18 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
   const recentAppearancesMap =
     repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
+  const minBoostGw = Math.max(1, currentGameweek - 3);
+  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(minBoostGw);
+
   return currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const player = playerMap.get(pid);
     const team = player ? teamMap.get(player.team_id) : undefined;
     if (!player || !team) return [];
+
+    const numericPid = Number(pid);
+    const boostGw = boostGwMap.get(numericPid);
+    const hotStreakLevel =
+      boostGw !== undefined ? hotStreakFromGwsSince(currentGameweek - boostGw) : null;
 
     return [
       {
@@ -55,6 +64,7 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
         chanceOfPlaying: player.chance_of_playing_next_round,
         news: player.news,
         recentAppearances: recentAppearancesMap.get(pid) ?? 0,
+        hotStreakLevel,
       },
     ];
   });

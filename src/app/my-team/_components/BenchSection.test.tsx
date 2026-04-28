@@ -22,6 +22,7 @@ function makeBenchPlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRo
     status: 'a',
     chanceOfPlaying: null,
     news: '',
+    hotStreakLevel: null,
     ...overrides,
   };
 }

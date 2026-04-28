@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import type { JSX } from 'react';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
+import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     chanceOfPlaying,
     news,
     recentAppearances,
+    hotStreakLevel,
   } = player;
   const router = useRouter();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
@@ -98,6 +100,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex items-center gap-1.5">
         <ConfidenceNumber value={confidence} mode="c" size="sm" animated={false} />
+        <HotStreakIndicator level={hotStreakLevel} size="sm" />
         <StaleDataIndicator recentAppearances={recentAppearances} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
       </div>

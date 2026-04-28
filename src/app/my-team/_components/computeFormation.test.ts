@@ -16,6 +16,7 @@ function makeStarters(positions: ('GK' | 'DEF' | 'MID' | 'FWD')[]): SquadPlayerR
     status: 'a',
     chanceOfPlaying: null,
     news: '',
+    hotStreakLevel: null,
   }));
 }
 

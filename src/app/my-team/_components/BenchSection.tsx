@@ -3,6 +3,7 @@
 import type { JSX } from 'react';
 import Link from 'next/link';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
+import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import type { SquadPlayerRow } from './types';
 
@@ -58,6 +59,7 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
 
         {/* Confidence — full opacity so the value is readable */}
         <div className="flex shrink-0 items-center gap-1">
+          <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
           <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
         </div>
       </Link>
