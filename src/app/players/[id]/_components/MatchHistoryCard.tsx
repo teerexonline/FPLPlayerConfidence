@@ -235,6 +235,7 @@ export function MatchHistoryCard({
 
   const hasFatigueClause = fatigueApplied || reason.toLowerCase().includes('fatigue');
   const isBigOpponent = reason.includes('vs BIG opponent');
+  const isBoostMatch = delta >= 3;
 
   const deltaColor = delta > 0 ? 'text-positive' : delta < 0 ? 'text-negative' : 'text-neutral';
 
@@ -247,6 +248,7 @@ export function MatchHistoryCard({
       className={cn(
         'border-border relative flex w-20 shrink-0 flex-col items-center rounded-[10px] border px-2 pt-2.5 pb-3',
         bgClass,
+        isBoostMatch && 'border-t-2 border-t-[#f59e0b]',
         isSelected && 'ring-accent ring-1',
         onClick && 'cursor-pointer',
       )}
@@ -254,6 +256,7 @@ export function MatchHistoryCard({
       aria-label={`GW${gameweek.toString()}, ${label}, ${formatDelta(delta)}`}
       aria-current={isSelected ? 'true' : undefined}
       data-gameweek={gameweek}
+      data-boost={isBoostMatch ? 'true' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={
@@ -267,21 +270,30 @@ export function MatchHistoryCard({
           : undefined
       }
     >
-      {/* Header: GW label + optional BIG badge
+      {/* Header: GW label + optional boost dot + optional BIG badge
           Interactive (onClick provided): split into child spans so getNodeText="" — avoids
           conflicting with hero text when getByText(/GWxx/) is queried in tests.
           Non-interactive: direct text nodes so getByText('GW1') works in strip-only tests. */}
       <div className="flex w-full items-center justify-between">
-        {onClick ? (
-          <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
-            <span>GW</span>
-            <span>{gameweek.toString()}</span>
-          </span>
-        ) : (
-          <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
-            GW{gameweek.toString()}
-          </span>
-        )}
+        <div className="flex items-center gap-1">
+          {onClick ? (
+            <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
+              <span>GW</span>
+              <span>{gameweek.toString()}</span>
+            </span>
+          ) : (
+            <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
+              GW{gameweek.toString()}
+            </span>
+          )}
+          {isBoostMatch && (
+            <span
+              className="block h-[5px] w-[5px] shrink-0 rounded-full bg-[#f59e0b]"
+              aria-label="boost match"
+              role="img"
+            />
+          )}
+        </div>
         {isBigOpponent && (
           <span
             className="bg-accent/15 text-accent rounded-sm px-[3px] py-px text-[7px] leading-none font-bold tracking-[0.06em] uppercase"

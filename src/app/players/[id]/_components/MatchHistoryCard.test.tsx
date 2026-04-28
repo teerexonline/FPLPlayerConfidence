@@ -165,4 +165,45 @@ describe('MatchHistoryCard', () => {
     const results = await axe(container);
     expect(results).toHaveNoViolations();
   });
+
+  // ── Boost-match visual emphasis ────────────────────────────────────────────
+
+  it('renders a boost dot when delta >= 3', () => {
+    render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 3 })} />);
+    expect(screen.getByRole('img', { name: 'boost match' })).toBeInTheDocument();
+  });
+
+  it('renders a boost dot when delta > 3', () => {
+    render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 5 })} />);
+    expect(screen.getByRole('img', { name: 'boost match' })).toBeInTheDocument();
+  });
+
+  it('does NOT render a boost dot when delta === 2', () => {
+    render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 2 })} />);
+    expect(screen.queryByRole('img', { name: 'boost match' })).toBeNull();
+  });
+
+  it('does NOT render a boost dot when delta is negative', () => {
+    render(<MatchHistoryCard snapshot={makeSnapshot({ delta: -1 })} />);
+    expect(screen.queryByRole('img', { name: 'boost match' })).toBeNull();
+  });
+
+  it('sets data-boost="true" on the card container when delta >= 3', () => {
+    const { container } = render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 3 })} />);
+    expect(container.firstChild).toHaveAttribute('data-boost', 'true');
+  });
+
+  it('does not set data-boost on the card container when delta < 3', () => {
+    const { container } = render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 2 })} />);
+    expect(container.firstChild).not.toHaveAttribute('data-boost');
+  });
+
+  it('has no axe violations on a boost-match card', async () => {
+    const { container } = render(
+      <ul role="list">
+        <MatchHistoryCard snapshot={makeSnapshot({ delta: 4 })} />
+      </ul>,
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  });
 });
