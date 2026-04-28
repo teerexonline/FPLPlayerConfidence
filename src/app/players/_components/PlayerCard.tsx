@@ -3,6 +3,7 @@
 import type { JSX } from 'react';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
+import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
 import type { PlayerWithConfidence } from './types';
@@ -29,6 +30,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     chanceOfPlaying,
     news,
     recentAppearances,
+    hotStreakLevel,
   } = player;
   const price = `£${(nowCost / 10).toFixed(1)}m`;
 
@@ -39,9 +41,12 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     >
       {/* Line 1: name | metric + indicators — role="cell" satisfies aria-required-children */}
       <div role="cell" className="flex items-center justify-between gap-3">
-        <span className="text-text min-w-0 truncate text-[15px] leading-tight font-semibold">
-          {webName}
-        </span>
+        <div className="flex min-w-0 items-center gap-1">
+          <span className="text-text min-w-0 truncate text-[15px] leading-tight font-semibold">
+            {webName}
+          </span>
+          <HotStreakIndicator level={hotStreakLevel} size="sm" />
+        </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />
           <StaleDataIndicator recentAppearances={recentAppearances} />

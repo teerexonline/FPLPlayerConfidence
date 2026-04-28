@@ -67,6 +67,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
           className="h-8 w-8 shrink-0 object-contain"
         />
         <span className="text-text truncate text-[14px] font-medium">{webName}</span>
+        <HotStreakIndicator level={hotStreakLevel} size="sm" />
         <button
           type="button"
           onClick={(e) => {
@@ -100,7 +101,6 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex items-center gap-1.5">
         <ConfidenceNumber value={confidence} mode="c" size="sm" animated={false} />
-        <HotStreakIndicator level={hotStreakLevel} size="sm" />
         <StaleDataIndicator recentAppearances={recentAppearances} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
       </div>

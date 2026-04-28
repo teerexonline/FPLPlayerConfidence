@@ -35,8 +35,6 @@ export interface DashboardData {
   readonly fallers: readonly DashboardPlayer[];
   /** Top 10 slices by position (and overall), confidence descending */
   readonly leaderboard: DashboardLeaderboard;
-  /** Players currently in a hot streak, sorted red_hot → med_hot → low_hot, up to 5. */
-  readonly hotPlayers: readonly DashboardPlayer[];
   /** True when the DB has no confidence snapshots at all */
   readonly isEmpty: boolean;
 }

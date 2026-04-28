@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { confidenceToPercent } from '@/lib/utils/math';
 import { classifyReason } from './types';
@@ -287,11 +288,9 @@ export function MatchHistoryCard({
             </span>
           )}
           {isBoostMatch && (
-            <span
-              className="block h-[5px] w-[5px] shrink-0 rounded-full bg-[#f59e0b]"
-              aria-label="boost match"
-              role="img"
-            />
+            <span role="img" aria-label="boost match" className="inline-flex shrink-0 items-center">
+              <Flame aria-hidden="true" className="h-3 w-3 text-[#f59e0b]" />
+            </span>
           )}
         </div>
         {isBigOpponent && (

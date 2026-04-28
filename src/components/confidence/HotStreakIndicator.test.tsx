@@ -50,17 +50,17 @@ describe('HotStreakIndicator — sm variant', () => {
     expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'Warm — boost 3 GWs ago');
   });
 
-  it('does not render a pulse ring (sm is dot-only)', () => {
+  it('does not animate the icon in sm variant', () => {
     const { container } = render(<HotStreakIndicator level="red_hot" size="sm" />);
-    // sm variant has no element with animate-ping
-    expect(container.querySelector('.animate-ping')).toBeNull();
+    // sm variant has no animate-pulse
+    expect(container.querySelector('.animate-pulse')).toBeNull();
   });
 
   it('defaults to sm when size is omitted', () => {
     render(<HotStreakIndicator level="red_hot" />);
     const img = screen.getByRole('img');
     expect(img).toBeInTheDocument();
-    expect(img.closest('[class*="animate-ping"]')).toBeNull();
+    expect(img.querySelector('.animate-pulse')).toBeNull();
   });
 
   it('passes extra className to the wrapper span', () => {
@@ -83,19 +83,19 @@ describe('HotStreakIndicator — lg variant', () => {
     expect(screen.getByRole('img')).toBeInTheDocument();
   });
 
-  it('renders a pulse ring for red_hot', () => {
+  it('animates the flame icon for red_hot (lg)', () => {
     const { container } = render(<HotStreakIndicator level="red_hot" size="lg" />);
-    expect(container.querySelector('.animate-ping')).not.toBeNull();
+    expect(container.querySelector('.animate-pulse')).not.toBeNull();
   });
 
-  it('does NOT render a pulse ring for med_hot', () => {
+  it('does NOT animate the flame for med_hot (lg)', () => {
     const { container } = render(<HotStreakIndicator level="med_hot" size="lg" />);
-    expect(container.querySelector('.animate-ping')).toBeNull();
+    expect(container.querySelector('.animate-pulse')).toBeNull();
   });
 
-  it('does NOT render a pulse ring for low_hot', () => {
+  it('does NOT animate the flame for low_hot (lg)', () => {
     const { container } = render(<HotStreakIndicator level="low_hot" size="lg" />);
-    expect(container.querySelector('.animate-ping')).toBeNull();
+    expect(container.querySelector('.animate-pulse')).toBeNull();
   });
 
   it('renders text label "Red hot" for red_hot', () => {

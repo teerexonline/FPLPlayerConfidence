@@ -39,9 +39,12 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
 
         {/* Name + team — muted text instead of opacity so content remains readable */}
         <div className="min-w-0 flex-1">
-          <p className="text-muted group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
-            {player.webName}
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-muted group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
+              {player.webName}
+            </p>
+            <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
+          </div>
           <p className="text-muted/60 font-sans text-[11px] leading-tight">
             {player.teamShortName} · {player.position}
           </p>
@@ -59,7 +62,6 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
 
         {/* Confidence — full opacity so the value is readable */}
         <div className="flex shrink-0 items-center gap-1">
-          <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
           <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
         </div>
       </Link>

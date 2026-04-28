@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
+import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
 import type { DashboardLeaderboard, DashboardPlayer } from './types';
@@ -81,9 +82,12 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
           className="h-7 w-7 shrink-0 object-contain"
         />
         <div className="min-w-0">
-          <p className="text-text group-hover:text-accent truncate font-sans text-[14px] leading-tight font-medium transition-colors">
-            {player.webName}
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-text group-hover:text-accent truncate font-sans text-[14px] leading-tight font-medium transition-colors">
+              {player.webName}
+            </p>
+            <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
+          </div>
           <p className="text-muted font-sans text-[11px] leading-tight">{player.teamShortName}</p>
         </div>
       </div>

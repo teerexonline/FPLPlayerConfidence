@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { getRepositories } from '@/lib/db/server';
 import { hotStreakFromGwsSince } from '@/lib/confidence/hotStreak';
 import { BiggestMoversCard } from './_components/BiggestMoversCard';
-import { HotPlayersCard } from './_components/HotPlayersCard';
+import { WatchlistCard } from './_components/WatchlistCard';
 import { LeaderboardPreview } from './_components/LeaderboardPreview';
 import { TeamConfidenceHero } from './_components/TeamConfidenceHero';
 import { DashboardEmptyState } from './_components/DashboardEmptyState';
@@ -26,7 +26,6 @@ function loadDashboard(): DashboardData {
       risers: [],
       fallers: [],
       leaderboard: emptyLeaderboard,
-      hotPlayers: [],
       isEmpty: true,
     };
   }
@@ -90,16 +89,6 @@ function loadDashboard(): DashboardData {
     .filter((p) => p.latestDelta < 0)
     .sort((a, b) => a.latestDelta - b.latestDelta);
 
-  const HOT_STREAK_ORDER: Record<string, number> = { red_hot: 0, med_hot: 1, low_hot: 2 };
-  const hotPlayers = players
-    .filter((p) => p.hotStreakLevel !== null)
-    .sort((a, b) => {
-      const aOrd = HOT_STREAK_ORDER[a.hotStreakLevel ?? ''] ?? 99;
-      const bOrd = HOT_STREAK_ORDER[b.hotStreakLevel ?? ''] ?? 99;
-      return aOrd !== bOrd ? aOrd - bOrd : b.confidence - a.confidence;
-    })
-    .slice(0, 5);
-
   return {
     currentGameweek,
     risers: byDeltaDesc.slice(0, 3),
@@ -111,7 +100,6 @@ function loadDashboard(): DashboardData {
       MID: byConfidenceDesc.filter((p) => p.position === 'MID').slice(0, 10),
       FWD: byConfidenceDesc.filter((p) => p.position === 'FWD').slice(0, 10),
     },
-    hotPlayers,
     isEmpty: false,
   };
 }
@@ -167,7 +155,7 @@ export default async function DashboardPage({
               variant="fallers"
               ariaLabel="Biggest confidence fallers this gameweek"
             />
-            <HotPlayersCard players={data.hotPlayers} />
+            <WatchlistCard />
             <TeamConfidenceHero />
           </div>
         </section>

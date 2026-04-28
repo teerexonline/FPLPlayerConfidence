@@ -72,9 +72,12 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
 
         {/* Name + team */}
         <div className="min-w-0 flex-1">
-          <p className="text-text group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
-            {player.webName}
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-text group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
+              {player.webName}
+            </p>
+            <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
+          </div>
           <p className="text-muted font-sans text-[11px] leading-tight">
             {player.teamShortName} · {player.position}
           </p>
@@ -92,7 +95,6 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
 
         {/* Confidence */}
         <div className="flex shrink-0 items-center gap-1">
-          <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
           <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
         </div>
       </Link>
