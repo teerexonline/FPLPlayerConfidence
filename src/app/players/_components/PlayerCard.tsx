@@ -3,9 +3,11 @@
 import type { JSX } from 'react';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
-import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
+import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
+import { cn } from '@/lib/utils';
+import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { PlayerWithConfidence } from './types';
 
 interface PlayerCardProps {
@@ -43,10 +45,21 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
       {/* Line 1: name | metric + indicators — role="cell" satisfies aria-required-children */}
       <div role="cell" className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1">
-          <span className="text-text min-w-0 truncate text-[15px] leading-tight font-semibold">
+          <span
+            className={cn(
+              'min-w-0 truncate text-[15px] leading-tight font-semibold',
+              getPlayerNameColorClass(status, recentAppearances),
+            )}
+          >
             {webName}
           </span>
-          <HotStreakIndicator level={hotStreakLevel} size="sm" currentGW={gameweek} />
+          <LivePlayerStreakIndicator
+            level={hotStreakLevel}
+            size="sm"
+            currentGW={gameweek}
+            status={status}
+            isStale={recentAppearances < 2}
+          />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />

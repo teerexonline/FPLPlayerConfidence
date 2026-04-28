@@ -1,11 +1,12 @@
 'use client';
 
 import type { JSX } from 'react';
-import { computeHotStreakAtGameweek } from '@/lib/confidence/hotStreak';
+import { computeHotStreakAtMatch } from '@/lib/confidence/hotStreak';
+import type { MatchBrief } from '@/lib/confidence/hotStreak';
 import { MatchHistoryCard } from './MatchHistoryCard';
 import { DgwMatchCard } from './DgwMatchCard';
 import { parseDgwReason } from './types';
-import type { SnapshotPoint } from './types';
+import type { DgwPart, SnapshotPoint } from './types';
 
 interface MatchHistoryStripProps {
   readonly snapshots: readonly SnapshotPoint[];
@@ -15,9 +16,60 @@ interface MatchHistoryStripProps {
   readonly onSelectGw?: (gw: number) => void;
 }
 
+// ── Pre-computed per-card metadata ────────────────────────────────────────────
+
+interface SingleCardMeta {
+  isDgw: false;
+  orderA: number;
+  orderB: null;
+}
+interface DgwCardMeta {
+  isDgw: true;
+  dgwParts: readonly DgwPart[];
+  orderA: number;
+  orderB: number;
+}
+type CardMeta = SingleCardMeta | DgwCardMeta;
+
+/**
+ * Builds a flat MatchBrief list and per-card metadata from the snapshot array.
+ * DGW snapshots produce two consecutive MatchBrief entries (one per sub-match),
+ * so the streak burns through sub-matches rather than gameweeks.
+ * Snapshots are sorted by gameweek first to ensure matchOrders are chronological.
+ */
+function buildMatchData(snapshots: readonly SnapshotPoint[]): {
+  matchBriefs: MatchBrief[];
+  cardMetas: CardMeta[];
+  sortedSnapshots: SnapshotPoint[];
+} {
+  const sortedSnapshots = [...snapshots].sort((a, b) => a.gameweek - b.gameweek);
+  const matchBriefs: MatchBrief[] = [];
+  const cardMetas: CardMeta[] = [];
+  let cursor = 0;
+
+  for (const s of sortedSnapshots) {
+    const dgwParts = parseDgwReason(s.reason);
+    if (dgwParts !== null && dgwParts.length >= 2) {
+      cardMetas.push({ isDgw: true, dgwParts, orderA: cursor, orderB: cursor + 1 });
+      for (const part of dgwParts) {
+        matchBriefs.push({ matchOrder: cursor, delta: part.delta });
+        cursor++;
+      }
+    } else {
+      cardMetas.push({ isDgw: false, orderA: cursor, orderB: null });
+      matchBriefs.push({ matchOrder: cursor, delta: s.delta });
+      cursor++;
+    }
+  }
+
+  return { matchBriefs, cardMetas, sortedSnapshots };
+}
+
 /**
  * Horizontal-scrolling strip of match history cards, oldest → newest (left → right).
  * Masked on both edges with a fade so the scroll affordance is clear.
+ * Streak levels are computed per-match (not per-GW) so DGW sub-matches each
+ * consume one streak step — correctly accelerating streak decay for DGW players.
  */
 export function MatchHistoryStrip({
   snapshots,
@@ -32,6 +84,8 @@ export function MatchHistoryStrip({
       </section>
     );
   }
+
+  const { matchBriefs, cardMetas, sortedSnapshots } = buildMatchData(snapshots);
 
   return (
     <section aria-label="Match history" className="mt-12">
@@ -53,10 +107,10 @@ export function MatchHistoryStrip({
           className="flex gap-2.5 overflow-x-auto pr-8 pb-4 pl-8"
           style={{ scrollbarWidth: 'none' }}
         >
-          {snapshots.map((snapshot) => {
-            const dgwParts = parseDgwReason(snapshot.reason);
+          {sortedSnapshots.map((snapshot, i) => {
+            const meta = cardMetas[i];
+            if (meta === undefined) return null;
             const isSelected = selectedGw === snapshot.gameweek;
-            const streakLevel = computeHotStreakAtGameweek(snapshots, snapshot.gameweek);
             const clickProps = onSelectGw
               ? {
                   onClick: () => {
@@ -64,11 +118,15 @@ export function MatchHistoryStrip({
                   },
                 }
               : {};
-            return dgwParts !== null ? (
+            const streakA = computeHotStreakAtMatch(matchBriefs, meta.orderA);
+
+            return meta.isDgw ? (
               <DgwMatchCard
                 key={snapshot.gameweek}
                 snapshot={snapshot}
-                parts={dgwParts}
+                parts={meta.dgwParts}
+                hotStreakLevelA={streakA}
+                hotStreakLevelB={computeHotStreakAtMatch(matchBriefs, meta.orderB)}
                 isSelected={isSelected}
                 {...clickProps}
               />
@@ -76,7 +134,7 @@ export function MatchHistoryStrip({
               <MatchHistoryCard
                 key={snapshot.gameweek}
                 snapshot={snapshot}
-                hotStreakLevel={streakLevel}
+                hotStreakLevel={streakA}
                 isSelected={isSelected}
                 {...clickProps}
               />

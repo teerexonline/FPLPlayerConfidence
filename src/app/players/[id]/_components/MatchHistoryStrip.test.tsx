@@ -116,6 +116,84 @@ describe('MatchHistoryStrip', () => {
   });
 });
 
+// ── DGW streak computation ────────────────────────────────────────────────────
+
+function makeSnap(overrides: Partial<SnapshotPoint>): SnapshotPoint {
+  return {
+    gameweek: 1,
+    confidenceAfter: 0,
+    delta: 0,
+    reason: 'MOTM vs FDR 3 opponent',
+    fatigueApplied: false,
+    motmCounter: 0,
+    defConCounter: 0,
+    saveConCounter: 0,
+    ...overrides,
+  };
+}
+
+describe('MatchHistoryStrip — DGW streak computation', () => {
+  it('shows fresh flame on DGW sub-match A and recent flame on sub-match B when part A is the boost', () => {
+    const snapshots: SnapshotPoint[] = [
+      makeSnap({ gameweek: 28, delta: 1 }),
+      {
+        gameweek: 29,
+        confidenceAfter: 2,
+        delta: 2,
+        reason: 'DGW: MOTM vs FDR 3 opponent (+3) + Blank vs FDR 2 opponent (-1)',
+        fatigueApplied: false,
+        motmCounter: 1,
+        defConCounter: 0,
+        saveConCounter: 0,
+      },
+    ];
+    render(<MatchHistoryStrip snapshots={snapshots} />);
+    expect(screen.getByRole('img', { name: 'Fresh streak · GW29' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Recent streak · GW29' })).toBeInTheDocument();
+  });
+
+  it('shows fading flame on the GW after a DGW boost (matchesSince=2)', () => {
+    const snapshots: SnapshotPoint[] = [
+      {
+        gameweek: 29,
+        confidenceAfter: 2,
+        delta: 2,
+        reason: 'DGW: MOTM vs FDR 3 opponent (+3) + Blank vs FDR 2 opponent (-1)',
+        fatigueApplied: false,
+        motmCounter: 1,
+        defConCounter: 0,
+        saveConCounter: 0,
+      },
+      makeSnap({ gameweek: 30, delta: -1 }), // matchOrder 2 → matchesSince=2 → fading
+    ];
+    render(<MatchHistoryStrip snapshots={snapshots} />);
+    expect(screen.getByRole('img', { name: 'Fading streak · GW30' })).toBeInTheDocument();
+  });
+
+  it('shows no flame three matches after a DGW boost (streak expired at matchesSince=3)', () => {
+    const snapshots: SnapshotPoint[] = [
+      {
+        gameweek: 29,
+        confidenceAfter: 2,
+        delta: 2,
+        reason: 'DGW: MOTM vs FDR 3 opponent (+3) + Blank vs FDR 2 opponent (-1)',
+        fatigueApplied: false,
+        motmCounter: 1,
+        defConCounter: 0,
+        saveConCounter: 0,
+      },
+      makeSnap({ gameweek: 30, delta: -1 }), // matchOrder 2 → fading
+      makeSnap({ gameweek: 31, delta: 0 }), // matchOrder 3 → expired
+    ];
+    render(<MatchHistoryStrip snapshots={snapshots} />);
+    // GW30 still shows fading
+    expect(screen.getByRole('img', { name: 'Fading streak · GW30' })).toBeInTheDocument();
+    // GW31 has no flame
+    expect(screen.queryByRole('img', { name: 'Fading streak · GW31' })).toBeNull();
+    expect(screen.queryByRole('img', { name: /streak.*GW31/i })).toBeNull();
+  });
+});
+
 // ── parseDgwReason unit tests ─────────────────────────────────────────────────
 
 describe('parseDgwReason', () => {

@@ -3,8 +3,10 @@
 import type { JSX } from 'react';
 import Link from 'next/link';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
-import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
+import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { cn } from '@/lib/utils';
+import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import { computeFormation } from './computeFormation';
 import type { SquadPlayerRow } from './types';
 
@@ -81,10 +83,21 @@ function StarterRow({
         {/* Name + team */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <p className="text-text group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
+            <p
+              className={cn(
+                'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
+                getPlayerNameColorClass(player.status, 99),
+              )}
+            >
               {player.webName}
             </p>
-            <HotStreakIndicator level={player.hotStreakLevel} size="sm" currentGW={currentGW} />
+            <LivePlayerStreakIndicator
+              level={player.hotStreakLevel}
+              size="sm"
+              currentGW={currentGW}
+              status={player.status}
+              isStale={false}
+            />
           </div>
           <p className="text-muted font-sans text-[11px] leading-tight">
             {player.teamShortName} · {player.position}

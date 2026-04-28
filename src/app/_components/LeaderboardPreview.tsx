@@ -6,9 +6,10 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
-import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
+import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
+import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { DashboardLeaderboard, DashboardPlayer } from './types';
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -83,13 +84,20 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
         />
         <div className="min-w-0">
           <div className="flex items-center gap-1">
-            <p className="text-text group-hover:text-accent truncate font-sans text-[14px] leading-tight font-medium transition-colors">
+            <p
+              className={cn(
+                'group-hover:text-accent truncate font-sans text-[14px] leading-tight font-medium transition-colors',
+                getPlayerNameColorClass(player.status, player.recentAppearances),
+              )}
+            >
               {player.webName}
             </p>
-            <HotStreakIndicator
+            <LivePlayerStreakIndicator
               level={player.hotStreakLevel}
               size="sm"
               currentGW={player.latestGameweek}
+              status={player.status}
+              isStale={player.recentAppearances < 2}
             />
           </div>
           <p className="text-muted font-sans text-[11px] leading-tight">{player.teamShortName}</p>

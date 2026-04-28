@@ -4,10 +4,11 @@ import { useRouter } from 'next/navigation';
 import type { JSX } from 'react';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
-import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
+import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
 import { cn } from '@/lib/utils';
+import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { PlayerWithConfidence } from './types';
 
 interface PlayerRowProps {
@@ -67,8 +68,21 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
           height={41}
           className="h-8 w-8 shrink-0 object-contain"
         />
-        <span className="text-text truncate text-[14px] font-medium">{webName}</span>
-        <HotStreakIndicator level={hotStreakLevel} size="sm" currentGW={gameweek} />
+        <span
+          className={cn(
+            'truncate text-[14px] font-medium',
+            getPlayerNameColorClass(status, recentAppearances),
+          )}
+        >
+          {webName}
+        </span>
+        <LivePlayerStreakIndicator
+          level={hotStreakLevel}
+          size="sm"
+          currentGW={gameweek}
+          status={status}
+          isStale={recentAppearances < 2}
+        />
         <button
           type="button"
           onClick={(e) => {

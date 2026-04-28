@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
-import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
+import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { PlayerDetailData } from './types';
 
 interface PlayerHeaderProps {
@@ -60,7 +61,7 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
       <div className="text-center sm:text-left">
         {/* The only Fraunces moment in the product — a nameplate, not decoration */}
         <h1
-          className="text-text leading-[1.1] tracking-[-0.01em]"
+          className={cn('leading-[1.1] tracking-[-0.01em]', getPlayerNameColorClass(status, 99))}
           style={{
             fontFamily: 'var(--font-fraunces), ui-serif, Georgia, serif',
             fontSize: 'clamp(32px, 5vw, 44px)',
@@ -85,10 +86,16 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
           </span>
           <span className="bg-border h-3.5 w-px" aria-hidden="true" />
           <span className="text-muted text-[14px] tabular-nums">{price}</span>
-          {hotStreakLevel !== null && (
+          {hotStreakLevel !== null && (status === 'a' || status === '') && (
             <>
               <span className="bg-border h-3.5 w-px" aria-hidden="true" />
-              <HotStreakIndicator level={hotStreakLevel} size="lg" currentGW={latestGameweek} />
+              <LivePlayerStreakIndicator
+                level={hotStreakLevel}
+                size="lg"
+                currentGW={latestGameweek}
+                status={status}
+                isStale={false}
+              />
             </>
           )}
           {status !== 'a' && (

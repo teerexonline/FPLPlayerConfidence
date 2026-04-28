@@ -3,8 +3,10 @@
 import type { JSX } from 'react';
 import Link from 'next/link';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
-import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
+import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { cn } from '@/lib/utils';
+import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { SquadPlayerRow } from './types';
 
 interface BenchSectionProps {
@@ -48,10 +50,23 @@ function BenchRow({
         {/* Name + team — muted text instead of opacity so content remains readable */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <p className="text-muted group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
+            <p
+              className={cn(
+                'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
+                player.status !== 'a' && player.status !== ''
+                  ? getPlayerNameColorClass(player.status, 99)
+                  : 'text-muted',
+              )}
+            >
               {player.webName}
             </p>
-            <HotStreakIndicator level={player.hotStreakLevel} size="sm" currentGW={currentGW} />
+            <LivePlayerStreakIndicator
+              level={player.hotStreakLevel}
+              size="sm"
+              currentGW={currentGW}
+              status={player.status}
+              isStale={false}
+            />
           </div>
           <p className="text-muted/60 font-sans text-[11px] leading-tight">
             {player.teamShortName} · {player.position}

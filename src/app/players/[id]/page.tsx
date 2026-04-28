@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { getRepositories } from '@/lib/db/server';
 import { playerId } from '@/lib/db';
 import { computeHotStreak } from '@/lib/confidence/hotStreak';
+import type { MatchBrief } from '@/lib/confidence/hotStreak';
 import { PlayerHeader } from './_components/PlayerHeader';
 import { PlayerDetailInteractive } from './_components/PlayerDetailInteractive';
 import { FdrBreakdown } from './_components/BigTeamBreakdown';
 import { ConfidenceChart } from '@/components/confidence/ConfidenceChart';
+import { parseDgwReason } from './_components/types';
 import type { PlayerDetailData, SnapshotPoint } from './_components/types';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +44,23 @@ function loadPlayer(rawId: string): PlayerDetailData {
   const latestReason = latest?.reason ?? '';
   const latestGameweek = latest?.gameweek ?? 0;
 
-  const hotStreakLevel = computeHotStreak(snapshots, latestGameweek);
+  // Build match briefs with DGW-awareness: each DGW sub-match gets its own matchOrder,
+  // so the live streak burns through sub-matches rather than gameweeks.
+  let matchCursor = 0;
+  const matchBriefs: MatchBrief[] = [];
+  for (const s of snapshots) {
+    const dgwParts = parseDgwReason(s.reason);
+    if (dgwParts !== null) {
+      for (const part of dgwParts) {
+        matchBriefs.push({ matchOrder: matchCursor, delta: part.delta });
+        matchCursor++;
+      }
+    } else {
+      matchBriefs.push({ matchOrder: matchCursor, delta: s.delta });
+      matchCursor++;
+    }
+  }
+  const hotStreakLevel = computeHotStreak(matchBriefs);
 
   return {
     id: player.id,
