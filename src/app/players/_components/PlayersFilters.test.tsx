@@ -1,4 +1,5 @@
 import { render, screen, within, fireEvent } from '@testing-library/react';
+import { useSearchParams } from 'next/navigation';
 import { describe, expect, it, vi } from 'vitest';
 import { parseFilters, filtersToParams, PlayersFilters } from './PlayersFilters';
 import { DEFAULT_FILTER_STATE } from './types';
@@ -66,6 +67,23 @@ describe('parseFilters', () => {
     const { maxConf } = parseFilters(new URLSearchParams('maxConf=99'));
     expect(maxConf).toBe(5);
   });
+
+  it('parses onlyEligible=true from params', () => {
+    expect(parseFilters(new URLSearchParams('onlyEligible=true')).onlyEligible).toBe(true);
+  });
+
+  it('returns onlyEligible: false when param is absent', () => {
+    expect(parseFilters(new URLSearchParams()).onlyEligible).toBe(false);
+  });
+
+  it('returns onlyEligible: false for any value other than "true"', () => {
+    expect(parseFilters(new URLSearchParams('onlyEligible=1')).onlyEligible).toBe(false);
+    expect(parseFilters(new URLSearchParams('onlyEligible=false')).onlyEligible).toBe(false);
+  });
+
+  it('parses delta as a valid sort key', () => {
+    expect(parseFilters(new URLSearchParams('sort=delta')).sortKey).toBe('delta');
+  });
 });
 
 // ── filtersToParams ───────────────────────────────────────────────────────────
@@ -121,6 +139,16 @@ describe('filtersToParams', () => {
     const params = filtersToParams({ ...DEFAULT_FILTER_STATE, minConf: -5, maxConf: 5 });
     expect(params.get('minConf')).toBeNull();
     expect(params.get('maxConf')).toBeNull();
+  });
+
+  it('serializes onlyEligible=true when active', () => {
+    const params = filtersToParams({ ...DEFAULT_FILTER_STATE, onlyEligible: true });
+    expect(params.get('onlyEligible')).toBe('true');
+  });
+
+  it('omits onlyEligible when false', () => {
+    const params = filtersToParams({ ...DEFAULT_FILTER_STATE, onlyEligible: false });
+    expect(params.get('onlyEligible')).toBeNull();
   });
 });
 
@@ -181,5 +209,34 @@ describe('PlayersFilters component', () => {
       expect.stringContaining('search=salah'),
       expect.anything(),
     );
+  });
+
+  it('renders delta sort button', () => {
+    render(<PlayersFilters />);
+    const sortGroup = screen.getByRole('group', { name: /sort players/i });
+    expect(within(sortGroup).getByRole('button', { name: /delta/i })).toBeInTheDocument();
+  });
+
+  it('does not render eligible movers chip when onlyEligible is false', () => {
+    render(<PlayersFilters />);
+    expect(screen.queryByText(/eligible movers only/i)).not.toBeInTheDocument();
+  });
+
+  it('renders eligible movers chip when onlyEligible param is set', () => {
+    vi.mocked(useSearchParams).mockReturnValueOnce(
+      new URLSearchParams('onlyEligible=true') as unknown as ReturnType<typeof useSearchParams>,
+    );
+    render(<PlayersFilters />);
+    expect(screen.getByText(/eligible movers only/i)).toBeInTheDocument();
+  });
+
+  it('clicking eligible movers chip dismiss button clears onlyEligible', () => {
+    mockPush.mockClear();
+    vi.mocked(useSearchParams).mockReturnValueOnce(
+      new URLSearchParams('onlyEligible=true') as unknown as ReturnType<typeof useSearchParams>,
+    );
+    render(<PlayersFilters />);
+    fireEvent.click(screen.getByRole('button', { name: /remove eligible movers filter/i }));
+    expect(mockPush).toHaveBeenCalledWith('/players', expect.anything());
   });
 });

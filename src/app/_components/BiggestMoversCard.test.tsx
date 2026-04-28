@@ -45,6 +45,7 @@ describe('BiggestMoversCard', () => {
         players={RISERS}
         variant="risers"
         ariaLabel="Biggest confidence risers"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
       />,
     );
     expect(screen.getByRole('heading', { name: /biggest risers/i })).toBeInTheDocument();
@@ -57,6 +58,7 @@ describe('BiggestMoversCard', () => {
         players={RISERS}
         variant="risers"
         ariaLabel="Biggest confidence risers"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
       />,
     );
     expect(screen.getAllByRole('listitem')).toHaveLength(RISERS.length);
@@ -69,6 +71,7 @@ describe('BiggestMoversCard', () => {
         players={RISERS}
         variant="risers"
         ariaLabel="Biggest confidence risers"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
       />,
     );
     expect(screen.getByText('1')).toBeInTheDocument();
@@ -82,6 +85,7 @@ describe('BiggestMoversCard', () => {
         players={RISERS}
         variant="risers"
         ariaLabel="Biggest confidence risers"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
       />,
     );
     expect(screen.getByText('Salah')).toBeInTheDocument();
@@ -95,6 +99,7 @@ describe('BiggestMoversCard', () => {
         players={[]}
         variant="fallers"
         ariaLabel="Biggest confidence fallers"
+        viewAllHref="/players?sort=delta&order=asc&onlyEligible=true"
       />,
     );
     expect(screen.getByText(/no players lost confidence/i)).toBeInTheDocument();
@@ -107,6 +112,7 @@ describe('BiggestMoversCard', () => {
         players={[]}
         variant="risers"
         ariaLabel="Biggest confidence risers"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
       />,
     );
     expect(screen.getByText(/no players gained confidence/i)).toBeInTheDocument();
@@ -119,9 +125,25 @@ describe('BiggestMoversCard', () => {
         players={RISERS}
         variant="risers"
         ariaLabel="Biggest confidence risers"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
       />,
     );
     expect(screen.getByRole('region', { name: /biggest confidence risers/i })).toBeInTheDocument();
+  });
+
+  it('renders "View all →" link pointing to the correct href', () => {
+    render(
+      <BiggestMoversCard
+        title="Biggest Risers"
+        players={RISERS}
+        variant="risers"
+        ariaLabel="Biggest confidence risers"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
+      />,
+    );
+    const link = screen.getByRole('link', { name: /view all/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/players?sort=delta&order=desc&onlyEligible=true');
   });
 
   it('has no accessibility violations with players (axe)', async () => {
@@ -131,6 +153,7 @@ describe('BiggestMoversCard', () => {
         players={RISERS}
         variant="risers"
         ariaLabel="Biggest confidence risers this gameweek"
+        viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
       />,
     );
     expect(await axe(container)).toHaveNoViolations();
@@ -143,6 +166,7 @@ describe('BiggestMoversCard', () => {
         players={[]}
         variant="fallers"
         ariaLabel="Biggest confidence fallers this gameweek"
+        viewAllHref="/players?sort=delta&order=asc&onlyEligible=true"
       />,
     );
     expect(await axe(container)).toHaveNoViolations();

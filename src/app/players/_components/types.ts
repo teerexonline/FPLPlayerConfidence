@@ -30,7 +30,7 @@ export interface PlayerWithConfidence {
   readonly hotStreakLevel: HotStreakLevel | null;
 }
 
-export type SortKey = 'confidence' | 'price' | 'name' | 'team';
+export type SortKey = 'confidence' | 'price' | 'name' | 'team' | 'delta';
 export type SortOrder = 'asc' | 'desc';
 
 export interface FilterState {
@@ -40,6 +40,8 @@ export interface FilterState {
   readonly sortOrder: SortOrder;
   readonly minConf: number;
   readonly maxConf: number;
+  /** When true, hides injured/doubtful/stale players — same eligibility rule as Risers/Fallers cards. */
+  readonly onlyEligible: boolean;
 }
 
 export const DEFAULT_FILTER_STATE: FilterState = {
@@ -49,4 +51,5 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   sortOrder: 'desc',
   minConf: -5,
   maxConf: 5,
+  onlyEligible: false,
 };

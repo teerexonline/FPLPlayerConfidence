@@ -100,8 +100,8 @@ function loadDashboard(): DashboardResult {
   return {
     data: {
       currentGameweek,
-      risers: selectRisers(players, 5),
-      fallers: selectFallers(players, 5),
+      risers: selectRisers(players, 3),
+      fallers: selectFallers(players, 3),
       leaderboard: {
         all: byConfidenceDesc.slice(0, 10),
         GK: byConfidenceDesc.filter((p) => p.position === 'GK').slice(0, 10),
@@ -159,12 +159,14 @@ export default async function DashboardPage({
               players={data.risers}
               variant="risers"
               ariaLabel="Biggest confidence risers this gameweek"
+              viewAllHref="/players?sort=delta&order=desc&onlyEligible=true"
             />
             <BiggestMoversCard
               title="Biggest Fallers"
               players={data.fallers}
               variant="fallers"
               ariaLabel="Biggest confidence fallers this gameweek"
+              viewAllHref="/players?sort=delta&order=asc&onlyEligible=true"
             />
             <WatchlistCard players={watchlistPlayers} />
             <TeamConfidenceHero />

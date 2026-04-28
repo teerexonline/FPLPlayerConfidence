@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 import type { JSX, KeyboardEvent } from 'react';
+import { isEligibleMover } from '@/app/_components/moversFilter';
 import { EmptyFilterState } from './EmptyFilterState';
 import { PlayerCard } from './PlayerCard';
 import { PlayerRow } from './PlayerRow';
@@ -185,6 +186,10 @@ function applyFilters(
 
   result = result.filter((p) => p.confidence >= filters.minConf && p.confidence <= filters.maxConf);
 
+  if (filters.onlyEligible) {
+    result = result.filter((p) => isEligibleMover(p));
+  }
+
   return sortPlayers(result, filters.sortKey, filters.sortOrder);
 }
 
@@ -207,6 +212,9 @@ function sortPlayers(
         break;
       case 'team':
         cmp = a.teamShortName.localeCompare(b.teamShortName);
+        break;
+      case 'delta':
+        cmp = (a.recentDeltas.at(-1) ?? 0) - (b.recentDeltas.at(-1) ?? 0);
         break;
     }
     return order === 'asc' ? cmp : -cmp;

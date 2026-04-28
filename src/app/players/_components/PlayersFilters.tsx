@@ -10,12 +10,13 @@ import { DEFAULT_FILTER_STATE } from './types';
 // ── URL codec ─────────────────────────────────────────────────────────────────
 
 const POSITIONS: readonly Position[] = ['GK', 'DEF', 'MID', 'FWD'];
-const SORT_KEYS: readonly SortKey[] = ['confidence', 'price', 'name', 'team'];
+const SORT_KEYS: readonly SortKey[] = ['confidence', 'price', 'name', 'team', 'delta'];
 const SORT_LABELS: Record<SortKey, string> = {
   confidence: 'Confidence',
   price: 'Price',
   name: 'Name',
   team: 'Team',
+  delta: 'Delta',
 };
 
 export function parseFilters(params: URLSearchParams): FilterState {
@@ -42,6 +43,7 @@ export function parseFilters(params: URLSearchParams): FilterState {
     sortOrder,
     minConf,
     maxConf,
+    onlyEligible: params.get('onlyEligible') === 'true',
   };
 }
 
@@ -61,6 +63,7 @@ export function filtersToParams(f: FilterState): URLSearchParams {
   }
   if (f.minConf !== DEFAULT_FILTER_STATE.minConf) p.set('minConf', f.minConf.toString());
   if (f.maxConf !== DEFAULT_FILTER_STATE.maxConf) p.set('maxConf', f.maxConf.toString());
+  if (f.onlyEligible) p.set('onlyEligible', 'true');
   return p;
 }
 
@@ -132,7 +135,8 @@ export function PlayersFilters(): JSX.Element {
     filters.sortKey !== DEFAULT_FILTER_STATE.sortKey ||
     filters.sortOrder !== DEFAULT_FILTER_STATE.sortOrder ||
     filters.minConf !== DEFAULT_FILTER_STATE.minConf ||
-    filters.maxConf !== DEFAULT_FILTER_STATE.maxConf;
+    filters.maxConf !== DEFAULT_FILTER_STATE.maxConf ||
+    filters.onlyEligible;
 
   return (
     <div className="border-border bg-bg/90 sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-3 backdrop-blur-sm">
@@ -204,6 +208,32 @@ export function PlayersFilters(): JSX.Element {
           );
         })}
       </div>
+
+      {/* Eligible movers chip — shown when onlyEligible is active */}
+      {filters.onlyEligible && (
+        <div className="border-accent/40 bg-accent/8 flex items-center gap-1 rounded-full border px-2.5 py-1">
+          <span className="text-accent font-sans text-[11px] font-medium">
+            Eligible movers only
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              push({ ...filters, onlyEligible: false });
+            }}
+            aria-label="Remove eligible movers filter"
+            className="text-accent/70 hover:text-accent focus-visible:ring-accent ml-0.5 rounded-full transition-colors focus-visible:ring-1 focus-visible:outline-none"
+          >
+            <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true">
+              <path
+                d="M2 2l6 6M8 2l-6 6"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Spacer */}
       <div className="flex-1" />

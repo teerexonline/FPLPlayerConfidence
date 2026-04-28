@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlayersTable } from './PlayersTable';
-import { SMOKE_PLAYERS } from './__fixtures__/players';
+import { makePlayer, SMOKE_PLAYERS } from './__fixtures__/players';
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -132,6 +132,43 @@ describe('PlayersTable', () => {
     expect(unique.indexOf('B. Saka')).toBeLessThan(unique.indexOf('E. Haaland'));
     // 'E. Haaland' < 'J. Pickford'
     expect(unique.indexOf('E. Haaland')).toBeLessThan(unique.indexOf('J. Pickford'));
+  });
+
+  it('sorts by delta descending — highest latest delta first', () => {
+    mockSearchParams.set('sort', 'delta');
+    mockSearchParams.set('order', 'desc');
+    renderTable();
+    // SALAH recentDeltas[-1]=2, SAKA recentDeltas[-1]=1 — Salah must precede Saka
+    const names = screen
+      .getAllByText(/Pickford|van Dijk|Saka|Haaland|Salah/)
+      .map((el) => el.textContent);
+    const unique = [...new Set(names)];
+    expect(unique.indexOf('M. Salah')).toBeLessThan(unique.indexOf('B. Saka'));
+    expect(unique.indexOf('B. Saka')).toBeLessThan(unique.indexOf('J. Pickford'));
+  });
+
+  it('sorts by delta ascending — lowest latest delta first', () => {
+    mockSearchParams.set('sort', 'delta');
+    mockSearchParams.set('order', 'asc');
+    renderTable();
+    // PICKFORD recentDeltas[-1]=-1 < SALAH recentDeltas[-1]=2
+    const names = screen
+      .getAllByText(/Pickford|van Dijk|Saka|Haaland|Salah/)
+      .map((el) => el.textContent);
+    const unique = [...new Set(names)];
+    expect(unique.indexOf('J. Pickford')).toBeLessThan(unique.indexOf('B. Saka'));
+    expect(unique.indexOf('B. Saka')).toBeLessThan(unique.indexOf('M. Salah'));
+  });
+
+  it('filters with onlyEligible — excludes injured and stale players', () => {
+    mockSearchParams.set('onlyEligible', 'true');
+    const injured = makePlayer({ webName: 'Injured Player', status: 'i', recentAppearances: 3 });
+    const stale = makePlayer({ webName: 'Stale Player', status: 'a', recentAppearances: 1 });
+    renderTable([...SMOKE_PLAYERS, injured, stale]);
+    expect(screen.queryByText('Injured Player')).not.toBeInTheDocument();
+    expect(screen.queryByText('Stale Player')).not.toBeInTheDocument();
+    // All SMOKE_PLAYERS are status='a' and recentAppearances=3 — they pass
+    expect(screen.getAllByText('M. Salah').length).toBeGreaterThanOrEqual(1);
   });
 
   it('has no accessibility violations (axe)', async () => {

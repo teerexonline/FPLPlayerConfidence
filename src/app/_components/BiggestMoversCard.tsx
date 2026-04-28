@@ -13,6 +13,8 @@ interface BiggestMoversCardProps {
   readonly variant: 'risers' | 'fallers';
   /** Aria label describing the card purpose */
   readonly ariaLabel: string;
+  /** URL for the "View all →" link in the card header */
+  readonly viewAllHref: string;
 }
 
 interface MoverRowProps {
@@ -127,6 +129,7 @@ export function BiggestMoversCard({
   players,
   variant,
   ariaLabel,
+  viewAllHref,
 }: BiggestMoversCardProps): JSX.Element {
   return (
     <section
@@ -134,9 +137,17 @@ export function BiggestMoversCard({
       aria-label={ariaLabel}
     >
       {/* Card header */}
-      <h2 className="text-muted mb-4 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
-        {title}
-      </h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-muted font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
+          {title}
+        </h2>
+        <Link
+          href={viewAllHref}
+          className="text-muted hover:text-accent focus-visible:ring-accent shrink-0 rounded font-sans text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        >
+          View all →
+        </Link>
+      </div>
 
       {/* Player list */}
       {players.length === 0 ? (
