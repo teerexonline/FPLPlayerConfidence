@@ -31,6 +31,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     news,
     recentAppearances,
     hotStreakLevel,
+    gameweek,
   } = player;
   const price = `£${(nowCost / 10).toFixed(1)}m`;
 
@@ -45,7 +46,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
           <span className="text-text min-w-0 truncate text-[15px] leading-tight font-semibold">
             {webName}
           </span>
-          <HotStreakIndicator level={hotStreakLevel} size="sm" />
+          <HotStreakIndicator level={hotStreakLevel} size="sm" currentGW={gameweek} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />

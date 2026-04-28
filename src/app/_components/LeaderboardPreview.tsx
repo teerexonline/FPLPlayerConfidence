@@ -86,7 +86,11 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
             <p className="text-text group-hover:text-accent truncate font-sans text-[14px] leading-tight font-medium transition-colors">
               {player.webName}
             </p>
-            <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
+            <HotStreakIndicator
+              level={player.hotStreakLevel}
+              size="sm"
+              currentGW={player.latestGameweek}
+            />
           </div>
           <p className="text-muted font-sans text-[11px] leading-tight">{player.teamShortName}</p>
         </div>

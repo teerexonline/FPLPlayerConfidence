@@ -10,6 +10,8 @@ import type { SquadPlayerRow } from './types';
 
 interface StartingXIListProps {
   readonly starters: readonly SquadPlayerRow[];
+  /** The gameweek context being displayed — forwarded to HotStreakIndicator so the GW label reflects the viewed GW, not always the live GW. */
+  readonly currentGW: number;
 }
 
 function CaptainBadge({
@@ -44,7 +46,13 @@ function CaptainBadge({
   return <span className="w-5 shrink-0" aria-hidden="true" />;
 }
 
-function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
+function StarterRow({
+  player,
+  currentGW,
+}: {
+  player: SquadPlayerRow;
+  currentGW: number;
+}): JSX.Element {
   return (
     <li role="listitem">
       <Link
@@ -76,7 +84,7 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
             <p className="text-text group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
               {player.webName}
             </p>
-            <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
+            <HotStreakIndicator level={player.hotStreakLevel} size="sm" currentGW={currentGW} />
           </div>
           <p className="text-muted font-sans text-[11px] leading-tight">
             {player.teamShortName} · {player.position}
@@ -107,7 +115,7 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
  * Each row links to the player's detail page. Includes the formation label
  * derived from the actual squad positions.
  */
-export function StartingXIList({ starters }: StartingXIListProps): JSX.Element {
+export function StartingXIList({ starters, currentGW }: StartingXIListProps): JSX.Element {
   const formation = computeFormation(starters);
 
   return (
@@ -128,7 +136,7 @@ export function StartingXIList({ starters }: StartingXIListProps): JSX.Element {
       <div className="border-border bg-surface rounded-[8px] border px-4">
         <ul role="list">
           {starters.map((player) => (
-            <StarterRow key={player.playerId} player={player} />
+            <StarterRow key={player.playerId} player={player} currentGW={currentGW} />
           ))}
         </ul>
       </div>

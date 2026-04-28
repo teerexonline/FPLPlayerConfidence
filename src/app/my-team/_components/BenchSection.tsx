@@ -9,9 +9,17 @@ import type { SquadPlayerRow } from './types';
 
 interface BenchSectionProps {
   readonly bench: readonly SquadPlayerRow[];
+  /** The gameweek context being displayed — forwarded to HotStreakIndicator. */
+  readonly currentGW: number;
 }
 
-function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
+function BenchRow({
+  player,
+  currentGW,
+}: {
+  player: SquadPlayerRow;
+  currentGW: number;
+}): JSX.Element {
   return (
     <li role="listitem">
       <Link
@@ -43,7 +51,7 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
             <p className="text-muted group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors">
               {player.webName}
             </p>
-            <HotStreakIndicator level={player.hotStreakLevel} size="sm" />
+            <HotStreakIndicator level={player.hotStreakLevel} size="sm" currentGW={currentGW} />
           </div>
           <p className="text-muted/60 font-sans text-[11px] leading-tight">
             {player.teamShortName} · {player.position}
@@ -73,7 +81,7 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
  * Renders the 4 bench players (squad positions 12–15) at reduced opacity
  * to signal their exclusion from Team Confidence.
  */
-export function BenchSection({ bench }: BenchSectionProps): JSX.Element {
+export function BenchSection({ bench, currentGW }: BenchSectionProps): JSX.Element {
   return (
     <section aria-label="Bench" className="mb-8">
       <h2 className="text-muted mb-1 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
@@ -82,7 +90,7 @@ export function BenchSection({ bench }: BenchSectionProps): JSX.Element {
       <div className="border-border bg-surface rounded-[8px] border px-4">
         <ul role="list">
           {bench.map((player) => (
-            <BenchRow key={player.playerId} player={player} />
+            <BenchRow key={player.playerId} player={player} currentGW={currentGW} />
           ))}
         </ul>
       </div>

@@ -31,6 +31,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     news,
     recentAppearances,
     hotStreakLevel,
+    gameweek,
   } = player;
   const router = useRouter();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
@@ -67,7 +68,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
           className="h-8 w-8 shrink-0 object-contain"
         />
         <span className="text-text truncate text-[14px] font-medium">{webName}</span>
-        <HotStreakIndicator level={hotStreakLevel} size="sm" />
+        <HotStreakIndicator level={hotStreakLevel} size="sm" currentGW={gameweek} />
         <button
           type="button"
           onClick={(e) => {

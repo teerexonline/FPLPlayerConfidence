@@ -5,25 +5,25 @@ import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const LEVEL_META: Record<HotStreakLevel, { label: string; colorClass: string }> = {
+const LEVEL_META: Record<
+  HotStreakLevel,
+  { label: string; streakLabel: string; colorClass: string }
+> = {
   red_hot: {
-    label: 'Red hot — boost in last 1 GW',
+    label: 'Fresh',
+    streakLabel: 'Fresh streak',
     colorClass: 'text-[#f43f5e]',
   },
   med_hot: {
-    label: 'Hot — boost 2 GWs ago',
+    label: 'Recent',
+    streakLabel: 'Recent streak',
     colorClass: 'text-[#fb923c]',
   },
   low_hot: {
-    label: 'Warm — boost 3 GWs ago',
+    label: 'Fading',
+    streakLabel: 'Fading streak',
     colorClass: 'text-[#f59e0b]',
   },
-};
-
-const LEVEL_TEXT: Record<HotStreakLevel, string> = {
-  red_hot: 'Red hot',
-  med_hot: 'Hot',
-  low_hot: 'Warm',
 };
 
 // ── Props ───────────────────────────────────────────────────────────────────
@@ -31,8 +31,15 @@ const LEVEL_TEXT: Record<HotStreakLevel, string> = {
 export interface HotStreakIndicatorProps {
   readonly level: HotStreakLevel | null;
   /**
-   * 'sm' — 12px flame icon only; used inline in player list rows.
-   * 'lg' — 16px flame + text label; red_hot adds animate-pulse; used in headers.
+   * The gameweek whose streak state this indicator represents.
+   * Used in the GW label (lg) and tooltip (sm) so the user always knows
+   * which gameweek context they are looking at — especially important
+   * when scrubbing historical GWs on the My Team page.
+   */
+  readonly currentGW: number;
+  /**
+   * 'sm' — 12px flame icon + hover tooltip; used inline in player list rows.
+   * 'lg' — 16px flame + stacked text label + GW sublabel; used in headers.
    */
   readonly size?: 'sm' | 'lg';
   readonly className?: string;
@@ -44,26 +51,29 @@ export interface HotStreakIndicatorProps {
  * Thermal signal indicator for a player's hot streak level.
  *
  * Renders a Flame icon whose color encodes heat intensity. At `lg` size,
- * red_hot adds animate-pulse so the signal is never color-only: animation
- * presence/absence provides a second axis.
+ * red_hot adds animate-pulse and a stacked GW sublabel so the signal is
+ * contextual and never color-only.
  *
  * Returns null when level is null (player is cold).
  */
 export function HotStreakIndicator({
   level,
+  currentGW,
   size = 'sm',
   className,
 }: HotStreakIndicatorProps): JSX.Element | null {
   if (level === null) return null;
 
   const meta = LEVEL_META[level];
-  const label = meta.label;
+  const gwText = `GW${currentGW.toString()}`;
+  const ariaLabel = `${meta.streakLabel} · ${gwText}`;
 
   if (size === 'sm') {
     return (
       <span
         role="img"
-        aria-label={label}
+        aria-label={ariaLabel}
+        title={ariaLabel}
         className={cn('inline-flex shrink-0 items-center', className)}
       >
         <Flame aria-hidden="true" className={cn('h-3 w-3', meta.colorClass)} />
@@ -77,7 +87,7 @@ export function HotStreakIndicator({
   return (
     <span
       role="img"
-      aria-label={label}
+      aria-label={ariaLabel}
       className={cn('inline-flex shrink-0 items-center gap-1.5', className)}
     >
       <Flame
@@ -85,13 +95,12 @@ export function HotStreakIndicator({
         className={cn('h-4 w-4', meta.colorClass, isPulsing && 'animate-pulse')}
       />
 
-      {/* Text label */}
-      <span
-        aria-hidden="true"
-        className="font-mono text-[10px] font-semibold tracking-[0.06em] uppercase"
-        style={{ color: 'currentColor' }}
-      >
-        {LEVEL_TEXT[level]}
+      {/* Stacked label: level name + GW context */}
+      <span aria-hidden="true" className="flex flex-col items-start">
+        <span className="font-mono text-[10px] font-semibold tracking-[0.06em] uppercase">
+          {meta.label}
+        </span>
+        <span className="text-muted font-mono text-[9px] leading-none font-medium">{gwText}</span>
       </span>
     </span>
   );

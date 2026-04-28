@@ -27,6 +27,7 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
     chanceOfPlaying,
     news,
     hotStreakLevel,
+    latestGameweek,
   } = player;
   const price = `£${(nowCost / 10).toFixed(1)}m`;
   const jerseyUrl = `/api/jerseys/${teamCode.toString()}?size=110`;
@@ -87,7 +88,7 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
           {hotStreakLevel !== null && (
             <>
               <span className="bg-border h-3.5 w-px" aria-hidden="true" />
-              <HotStreakIndicator level={hotStreakLevel} size="lg" />
+              <HotStreakIndicator level={hotStreakLevel} size="lg" currentGW={latestGameweek} />
             </>
           )}
           {status !== 'a' && (

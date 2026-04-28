@@ -90,10 +90,10 @@ function LoadedView({
           attackCount={attackCount}
         />
 
-        <StartingXIList starters={starters} />
+        <StartingXIList starters={starters} currentGW={data.gameweek} />
 
         <div className="mt-6">
-          <BenchSection bench={data.bench} />
+          <BenchSection bench={data.bench} currentGW={data.gameweek} />
         </div>
 
         <TeamSyncFooter
