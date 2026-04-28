@@ -86,6 +86,49 @@ describe('TeamConfidenceHero', () => {
     expect(screen.getByText(/Test FC/)).toBeInTheDocument();
   });
 
+  it('renders all three positional breakdown values', async () => {
+    localStorageMock.setItem('fpl-team-id', '12345');
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(MOCK_DATA), { status: 200 }));
+
+    render(<TeamConfidenceHero />);
+
+    await waitFor(() => screen.getByText('72.5%'));
+
+    // MOCK_DATA: defencePercent=70, midfieldPercent=60, attackPercent=68
+    expect(screen.getByText('70.0%')).toBeInTheDocument();
+    expect(screen.getByText('60.0%')).toBeInTheDocument();
+    expect(screen.getByText('68.0%')).toBeInTheDocument();
+  });
+
+  it('renders Def, Mid, Att position labels', async () => {
+    localStorageMock.setItem('fpl-team-id', '12345');
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(MOCK_DATA), { status: 200 }));
+
+    render(<TeamConfidenceHero />);
+
+    await waitFor(() => screen.getByText('72.5%'));
+
+    expect(screen.getByText('Def')).toBeInTheDocument();
+    expect(screen.getByText('Mid')).toBeInTheDocument();
+    expect(screen.getByText('Att')).toBeInTheDocument();
+  });
+
+  it('positional pills are all present in the same card as the main number', async () => {
+    localStorageMock.setItem('fpl-team-id', '12345');
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(MOCK_DATA), { status: 200 }));
+
+    render(<TeamConfidenceHero />);
+
+    await waitFor(() => screen.getByText('72.5%'));
+
+    // All four values are siblings inside the same link card — none are conditionally hidden.
+    const card = screen.getByRole('link', { name: /my team confidence/i });
+    expect(card).toContainElement(screen.getByText('70.0%'));
+    expect(card).toContainElement(screen.getByText('60.0%'));
+    expect(card).toContainElement(screen.getByText('68.0%'));
+    expect(card).toContainElement(screen.getByText('72.5%'));
+  });
+
   it('renders the CTA card when fetch fails', async () => {
     localStorageMock.setItem('fpl-team-id', '12345');
     vi.mocked(fetch).mockResolvedValue(

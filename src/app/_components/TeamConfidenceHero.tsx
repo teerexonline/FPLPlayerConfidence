@@ -63,27 +63,25 @@ function LoadedCard({ data }: { data: MyTeamData }): JSX.Element {
         My Team
       </h2>
 
-      <div className="flex items-end justify-between gap-4">
-        {/* Big number */}
-        <div className="flex flex-col">
-          <span
-            className="font-mono text-[40px] leading-none font-semibold tabular-nums"
-            style={{ color: accentColor }}
-          >
-            {data.teamConfidencePercent.toFixed(1)}%
-          </span>
-          <span className="text-muted mt-1 font-sans text-[12px]">Team Confidence</span>
-        </div>
-
-        {/* Positional pills */}
-        <div className="mb-1 flex gap-4">
-          <StatPill label="Def" pct={data.defencePercent} />
-          <StatPill label="Mid" pct={data.midfieldPercent} />
-          <StatPill label="Att" pct={data.attackPercent} />
-        </div>
+      {/* Big number */}
+      <div className="flex flex-col">
+        <span
+          className="font-mono text-[40px] leading-none font-semibold tabular-nums"
+          style={{ color: accentColor }}
+        >
+          {data.teamConfidencePercent.toFixed(1)}%
+        </span>
+        <span className="text-muted mt-1 font-sans text-[12px]">Team Confidence</span>
       </div>
 
-      <p className="text-muted mt-3 font-sans text-[11px]">
+      {/* Positional pills — full card width, no overflow risk */}
+      <div className="mt-3 flex justify-between">
+        <StatPill label="Def" pct={data.defencePercent} />
+        <StatPill label="Mid" pct={data.midfieldPercent} />
+        <StatPill label="Att" pct={data.attackPercent} />
+      </div>
+
+      <p className="text-muted mt-2 font-sans text-[11px]">
         {data.teamName} · GW{data.gameweek.toString()}
       </p>
     </Link>
