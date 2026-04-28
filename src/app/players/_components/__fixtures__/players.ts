@@ -18,6 +18,7 @@ export function makePlayer(overrides: Partial<PlayerWithConfidence> = {}): Playe
     news: '',
     recentAppearances: 3,
     hotStreakLevel: null,
+    totalPoints: 100,
     ...overrides,
   };
 }

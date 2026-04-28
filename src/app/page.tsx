@@ -91,12 +91,16 @@ function loadDashboard(): DashboardResult {
         news: player.news,
         recentAppearances: recentAppearancesMap.get(numericId) ?? 0,
         hotStreakLevel,
+        totalPoints: player.total_points,
       },
     ];
   });
 
   // Sort variants — all tracked players are now shown; stale ones display a flag.
-  const byConfidenceDesc = [...players].sort((a, b) => b.confidence - a.confidence);
+  const byConfidenceDesc = [...players].sort((a, b) => {
+    const primary = b.confidence - a.confidence;
+    return primary !== 0 ? primary : b.totalPoints - a.totalPoints;
+  });
 
   const watchlistPlayers = players.filter((p) => watchlistIds.has(p.id));
 

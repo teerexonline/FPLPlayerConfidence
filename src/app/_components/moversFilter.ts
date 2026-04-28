@@ -27,7 +27,10 @@ export function selectRisers(
 ): readonly DashboardPlayer[] {
   return [...players]
     .filter((p) => isEligibleMover(p) && p.latestDelta > 0)
-    .sort((a, b) => b.latestDelta - a.latestDelta)
+    .sort((a, b) => {
+      const primary = b.latestDelta - a.latestDelta;
+      return primary !== 0 ? primary : b.totalPoints - a.totalPoints;
+    })
     .slice(0, count);
 }
 
@@ -38,6 +41,9 @@ export function selectFallers(
 ): readonly DashboardPlayer[] {
   return [...players]
     .filter((p) => isEligibleMover(p) && p.latestDelta < 0)
-    .sort((a, b) => a.latestDelta - b.latestDelta)
+    .sort((a, b) => {
+      const primary = a.latestDelta - b.latestDelta;
+      return primary !== 0 ? primary : b.totalPoints - a.totalPoints;
+    })
     .slice(0, count);
 }

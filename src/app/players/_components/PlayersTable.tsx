@@ -199,24 +199,27 @@ function sortPlayers(
   order: 'asc' | 'desc',
 ): readonly PlayerWithConfidence[] {
   return [...players].sort((a, b) => {
-    let cmp: number;
+    let primary: number;
     switch (key) {
       case 'confidence':
-        cmp = a.confidence - b.confidence;
+        primary = a.confidence - b.confidence;
         break;
       case 'price':
-        cmp = a.nowCost - b.nowCost;
+        primary = a.nowCost - b.nowCost;
         break;
       case 'name':
-        cmp = a.webName.localeCompare(b.webName);
-        break;
+        // Name sort is already deterministic — no numeric tiebreaker needed.
+        return a.webName.localeCompare(b.webName) * (order === 'asc' ? 1 : -1);
       case 'team':
-        cmp = a.teamShortName.localeCompare(b.teamShortName);
+        primary = a.teamShortName.localeCompare(b.teamShortName);
         break;
       case 'delta':
-        cmp = (a.recentDeltas.at(-1) ?? 0) - (b.recentDeltas.at(-1) ?? 0);
+        primary = (a.recentDeltas.at(-1) ?? 0) - (b.recentDeltas.at(-1) ?? 0);
         break;
     }
-    return order === 'asc' ? cmp : -cmp;
+    const oriented = order === 'asc' ? primary : -primary;
+    if (oriented !== 0) return oriented;
+    // Tiebreaker: higher total season points first (independent of sort direction).
+    return b.totalPoints - a.totalPoints;
   });
 }

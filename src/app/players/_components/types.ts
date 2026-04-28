@@ -28,6 +28,8 @@ export interface PlayerWithConfidence {
   /** Snapshot count in the window [currentGW-2, currentGW]. 0–3. */
   readonly recentAppearances: number;
   readonly hotStreakLevel: HotStreakLevel | null;
+  /** Season total FPL points — used as a tiebreaker when primary sort values are equal. */
+  readonly totalPoints: number;
 }
 
 export type SortKey = 'confidence' | 'price' | 'name' | 'team' | 'delta';

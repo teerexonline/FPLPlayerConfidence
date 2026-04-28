@@ -171,6 +171,34 @@ describe('PlayersTable', () => {
     expect(screen.getAllByText('M. Salah').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('sorts by confidence desc — tied players ordered by totalPoints descending', () => {
+    // Both players have confidence=3; higher totalPoints should appear first.
+    const players = [
+      makePlayer({ webName: 'Low Points', confidence: 3, totalPoints: 50 }),
+      makePlayer({ webName: 'High Points', confidence: 3, totalPoints: 200 }),
+    ];
+    mockSearchParams.set('sort', 'confidence');
+    mockSearchParams.set('order', 'desc');
+    renderTable(players);
+    const names = screen.getAllByText(/Low Points|High Points/).map((el) => el.textContent);
+    const unique = [...new Set(names)];
+    expect(unique.indexOf('High Points')).toBeLessThan(unique.indexOf('Low Points'));
+  });
+
+  it('name sort — tiebreaker NOT applied; order is purely alphabetical', () => {
+    // Even if totalPoints differ, name sort is alphabetical only.
+    const players = [
+      makePlayer({ webName: 'Alpha', totalPoints: 50 }),
+      makePlayer({ webName: 'Beta', totalPoints: 200 }),
+    ];
+    mockSearchParams.set('sort', 'name');
+    mockSearchParams.set('order', 'asc');
+    renderTable(players);
+    const names = screen.getAllByText(/Alpha|Beta/).map((el) => el.textContent);
+    const unique = [...new Set(names)];
+    expect(unique.indexOf('Alpha')).toBeLessThan(unique.indexOf('Beta'));
+  });
+
   it('has no accessibility violations (axe)', async () => {
     const { container } = renderTable();
     expect(await axe(container)).toHaveNoViolations();

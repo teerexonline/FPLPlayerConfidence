@@ -30,6 +30,7 @@ function makePlayer(id: number, position: DashboardPlayer['position']): Dashboar
     news: '',
     recentAppearances: 3,
     hotStreakLevel: null,
+    totalPoints: 100,
   };
 }
 

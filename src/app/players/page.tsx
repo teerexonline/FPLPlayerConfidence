@@ -68,6 +68,7 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
         news: player.news,
         recentAppearances: recentAppearancesMap.get(pid) ?? 0,
         hotStreakLevel,
+        totalPoints: player.total_points,
       },
     ];
   });

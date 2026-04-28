@@ -18,6 +18,7 @@ function makePlayer(overrides: Partial<DashboardPlayer> = {}): DashboardPlayer {
     news: '',
     recentAppearances: 3,
     hotStreakLevel: null,
+    totalPoints: 100,
     ...overrides,
   };
 }
@@ -142,6 +143,16 @@ describe('selectRisers', () => {
   });
 });
 
+it('breaks ties on equal delta by totalPoints descending — higher points player first', () => {
+  const players = [
+    makePlayer({ id: 1, latestDelta: 3, totalPoints: 80 }),
+    makePlayer({ id: 2, latestDelta: 3, totalPoints: 200 }),
+    makePlayer({ id: 3, latestDelta: 3, totalPoints: 150 }),
+  ];
+  const result = selectRisers(players, 5);
+  expect(result.map((p) => p.id)).toEqual([2, 3, 1]);
+});
+
 // ── selectFallers ─────────────────────────────────────────────────────────────
 
 describe('selectFallers', () => {
@@ -215,5 +226,15 @@ describe('selectFallers', () => {
       makePlayer({ id: 2, latestDelta: -2, recentAppearances: 0 }),
     ];
     expect(selectFallers(players, 5)).toHaveLength(0);
+  });
+
+  it('breaks ties on equal delta by totalPoints descending — higher points player first', () => {
+    const players = [
+      makePlayer({ id: 1, latestDelta: -3, totalPoints: 80 }),
+      makePlayer({ id: 2, latestDelta: -3, totalPoints: 200 }),
+      makePlayer({ id: 3, latestDelta: -3, totalPoints: 150 }),
+    ];
+    const result = selectFallers(players, 5);
+    expect(result.map((p) => p.id)).toEqual([2, 3, 1]);
   });
 });

@@ -16,6 +16,8 @@ export interface DashboardPlayer {
   readonly news: string;
   readonly recentAppearances: number;
   readonly hotStreakLevel: HotStreakLevel | null;
+  /** Season total FPL points — used as a tiebreaker when primary sort values are equal. */
+  readonly totalPoints: number;
 }
 
 /** Pre-computed top-10 slices by position, for the leaderboard tabs. */
