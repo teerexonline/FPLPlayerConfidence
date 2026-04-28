@@ -1,12 +1,14 @@
 import type { JSX } from 'react';
-import { Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { confidenceToPercent } from '@/lib/utils/math';
+import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
+import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
 import { classifyReason } from './types';
 import type { ReasonKind, SnapshotPoint } from './types';
 
 export interface MatchHistoryCardProps {
   readonly snapshot: SnapshotPoint;
+  readonly hotStreakLevel?: HotStreakLevel | null;
   readonly isSelected?: boolean;
   readonly onClick?: () => void;
 }
@@ -227,6 +229,7 @@ export function formatDelta(delta: number): string {
  */
 export function MatchHistoryCard({
   snapshot,
+  hotStreakLevel = null,
   isSelected = false,
   onClick,
 }: MatchHistoryCardProps): JSX.Element {
@@ -236,7 +239,7 @@ export function MatchHistoryCard({
 
   const hasFatigueClause = fatigueApplied || reason.toLowerCase().includes('fatigue');
   const isBigOpponent = reason.includes('vs BIG opponent');
-  const isBoostMatch = delta >= 3;
+  const isBoostMatch = hotStreakLevel === 'red_hot';
 
   const deltaColor = delta > 0 ? 'text-positive' : delta < 0 ? 'text-negative' : 'text-neutral';
 
@@ -271,7 +274,7 @@ export function MatchHistoryCard({
           : undefined
       }
     >
-      {/* Header: GW label + optional boost dot + optional BIG badge
+      {/* Header: GW label (left) | streak flame + optional BIG badge (right)
           Interactive (onClick provided): split into child spans so getNodeText="" — avoids
           conflicting with hero text when getByText(/GWxx/) is queried in tests.
           Non-interactive: direct text nodes so getByText('GW1') works in strip-only tests. */}
@@ -287,20 +290,20 @@ export function MatchHistoryCard({
               GW{gameweek.toString()}
             </span>
           )}
-          {isBoostMatch && (
-            <span role="img" aria-label="boost match" className="inline-flex shrink-0 items-center">
-              <Flame aria-hidden="true" className="h-3 w-3 text-[#f59e0b]" />
+        </div>
+        <div className="flex items-center gap-1">
+          {hotStreakLevel != null && (
+            <HotStreakIndicator level={hotStreakLevel} size="sm" currentGW={gameweek} />
+          )}
+          {isBigOpponent && (
+            <span
+              className="bg-accent/15 text-accent rounded-sm px-[3px] py-px text-[7px] leading-none font-bold tracking-[0.06em] uppercase"
+              aria-label="big team opponent"
+            >
+              BIG
             </span>
           )}
         </div>
-        {isBigOpponent && (
-          <span
-            className="bg-accent/15 text-accent rounded-sm px-[3px] py-px text-[7px] leading-none font-bold tracking-[0.06em] uppercase"
-            aria-label="big team opponent"
-          >
-            BIG
-          </span>
-        )}
       </div>
 
       {/* Event icon */}

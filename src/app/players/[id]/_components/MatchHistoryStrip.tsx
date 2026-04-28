@@ -1,6 +1,7 @@
 'use client';
 
 import type { JSX } from 'react';
+import { computeHotStreakAtGameweek } from '@/lib/confidence/hotStreak';
 import { MatchHistoryCard } from './MatchHistoryCard';
 import { DgwMatchCard } from './DgwMatchCard';
 import { parseDgwReason } from './types';
@@ -55,6 +56,7 @@ export function MatchHistoryStrip({
           {snapshots.map((snapshot) => {
             const dgwParts = parseDgwReason(snapshot.reason);
             const isSelected = selectedGw === snapshot.gameweek;
+            const streakLevel = computeHotStreakAtGameweek(snapshots, snapshot.gameweek);
             const clickProps = onSelectGw
               ? {
                   onClick: () => {
@@ -74,6 +76,7 @@ export function MatchHistoryStrip({
               <MatchHistoryCard
                 key={snapshot.gameweek}
                 snapshot={snapshot}
+                hotStreakLevel={streakLevel}
                 isSelected={isSelected}
                 {...clickProps}
               />

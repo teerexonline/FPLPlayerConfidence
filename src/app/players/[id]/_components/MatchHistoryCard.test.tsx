@@ -166,42 +166,90 @@ describe('MatchHistoryCard', () => {
     expect(results).toHaveNoViolations();
   });
 
-  // ── Boost-match visual emphasis ────────────────────────────────────────────
+  // ── Streak and boost visual emphasis ─────────────────────────────────────
 
-  it('renders a boost dot when delta >= 3', () => {
-    render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 3 })} />);
-    expect(screen.getByRole('img', { name: 'boost match' })).toBeInTheDocument();
+  it('renders a fresh-streak (red_hot) flame on the boost GW', () => {
+    render(
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ gameweek: 31, delta: 5 })}
+        hotStreakLevel="red_hot"
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Fresh streak · GW31' })).toBeInTheDocument();
   });
 
-  it('renders a boost dot when delta > 3', () => {
+  it('renders a recent-streak (med_hot) flame on the GW after the boost', () => {
+    render(
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ gameweek: 32, delta: -1 })}
+        hotStreakLevel="med_hot"
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Recent streak · GW32' })).toBeInTheDocument();
+  });
+
+  it('renders a fading-streak (low_hot) flame two GWs after the boost', () => {
+    render(
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ gameweek: 33, delta: 1 })}
+        hotStreakLevel="low_hot"
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Fading streak · GW33' })).toBeInTheDocument();
+  });
+
+  it('renders no streak flame when hotStreakLevel is null', () => {
+    render(
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ gameweek: 34, delta: 2 })}
+        hotStreakLevel={null}
+      />,
+    );
+    expect(screen.queryByRole('img', { name: /streak/i })).toBeNull();
+  });
+
+  it('renders no streak flame when hotStreakLevel is not provided (cold card)', () => {
     render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 5 })} />);
-    expect(screen.getByRole('img', { name: 'boost match' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /streak/i })).toBeNull();
   });
 
-  it('does NOT render a boost dot when delta === 2', () => {
-    render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 2 })} />);
-    expect(screen.queryByRole('img', { name: 'boost match' })).toBeNull();
-  });
-
-  it('does NOT render a boost dot when delta is negative', () => {
-    render(<MatchHistoryCard snapshot={makeSnapshot({ delta: -1 })} />);
-    expect(screen.queryByRole('img', { name: 'boost match' })).toBeNull();
-  });
-
-  it('sets data-boost="true" on the card container when delta >= 3', () => {
-    const { container } = render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 3 })} />);
+  it('sets data-boost="true" when hotStreakLevel is red_hot', () => {
+    const { container } = render(
+      <MatchHistoryCard snapshot={makeSnapshot({ delta: 5 })} hotStreakLevel="red_hot" />,
+    );
     expect(container.firstChild).toHaveAttribute('data-boost', 'true');
   });
 
-  it('does not set data-boost on the card container when delta < 3', () => {
-    const { container } = render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 2 })} />);
+  it('does not set data-boost when hotStreakLevel is med_hot', () => {
+    const { container } = render(
+      <MatchHistoryCard snapshot={makeSnapshot({ delta: -1 })} hotStreakLevel="med_hot" />,
+    );
     expect(container.firstChild).not.toHaveAttribute('data-boost');
   });
 
-  it('has no axe violations on a boost-match card', async () => {
+  it('does not set data-boost when hotStreakLevel is null (even for high delta)', () => {
+    const { container } = render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 5 })} />);
+    expect(container.firstChild).not.toHaveAttribute('data-boost');
+  });
+
+  it('renders both streak flame and BIG badge together', () => {
+    render(
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ gameweek: 31, reason: 'MOTM vs BIG opponent', delta: 5 })}
+        hotStreakLevel="red_hot"
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Fresh streak · GW31' })).toBeInTheDocument();
+    expect(screen.getByText('BIG')).toBeInTheDocument();
+  });
+
+  it('has no axe violations on a streak-match card', async () => {
     const { container } = render(
       <ul role="list">
-        <MatchHistoryCard snapshot={makeSnapshot({ delta: 4 })} />
+        <MatchHistoryCard
+          snapshot={makeSnapshot({ gameweek: 31, delta: 5 })}
+          hotStreakLevel="red_hot"
+        />
       </ul>,
     );
     expect(await axe(container)).toHaveNoViolations();

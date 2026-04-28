@@ -46,8 +46,8 @@ function loadDashboard(): DashboardData {
     repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
   // Hot streak: find the most recent GW where each player had delta ≥ 3.
-  // Look back 4 GWs — anything older cannot produce a streak level.
-  const minBoostGw = Math.max(1, currentGameweek - 3);
+  // Look back 3 GWs — anything older cannot produce a streak level (window: 0, 1, 2 GWs since boost).
+  const minBoostGw = Math.max(1, currentGameweek - 2);
   const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(minBoostGw);
 
   const players: DashboardPlayer[] = currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {

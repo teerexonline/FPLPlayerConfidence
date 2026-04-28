@@ -256,8 +256,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? calcResult.value.positional
     : { defence: 0, midfield: 0, attack: 0 };
 
-  // Hot streak: one aggregation query across the 4-GW look-back window.
-  const minBoostGw = Math.max(1, currentGw - 3);
+  // Hot streak: one aggregation query across the 3-GW look-back window (0, 1, 2 GWs since boost).
+  const minBoostGw = Math.max(1, currentGw - 2);
   const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(minBoostGw);
 
   // Build squad player rows.
