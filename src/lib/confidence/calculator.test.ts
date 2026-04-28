@@ -42,7 +42,7 @@ describe('roundAwayFromZero', () => {
 describe('calculateConfidence', () => {
   // ── MID / FWD scoring ──────────────────────────────────────────────────
 
-  it('EX-01: MOTM vs FDR 5 — base +2 × 1.5 = 3.0 → +3 (MID)', () => {
+  it('EX-01: MOTM vs FDR 5 — base +2 × 2.5 = 5.0 → +5 (MID)', () => {
     const input: CalculatorInput = {
       position: 'MID',
       matches: [aMatch({ goals: 2, opponentFdr: 5 })],
@@ -50,12 +50,12 @@ describe('calculateConfidence', () => {
 
     const result = calculateConfidence(input);
 
-    expect(result.finalConfidence).toBe(3);
+    expect(result.finalConfidence).toBe(5);
     expect(result.history[0]).toMatchObject({
-      delta: 3,
+      delta: 5,
       reason: 'MOTM vs FDR 5 opponent',
       fatigueApplied: false,
-      confidenceAfter: 3,
+      confidenceAfter: 5,
       motmCounterAfter: 1,
     });
   });
@@ -78,7 +78,7 @@ describe('calculateConfidence', () => {
     });
   });
 
-  it('EX-02b: Performance vs FDR 5 — base +1 × 1.5 = 1.5 → +2 (MID)', () => {
+  it('EX-02b: Performance vs FDR 5 — base +1 × 2.5 = 2.5 → +3, reclassified MOTM (MID)', () => {
     const input: CalculatorInput = {
       position: 'MID',
       matches: [aMatch({ assists: 1, opponentFdr: 5 })],
@@ -86,13 +86,13 @@ describe('calculateConfidence', () => {
 
     const result = calculateConfidence(input);
 
-    expect(result.finalConfidence).toBe(2);
+    expect(result.finalConfidence).toBe(3);
     expect(result.history[0]).toMatchObject({
-      delta: 2,
-      reason: 'Performance vs FDR 5 opponent',
+      delta: 3,
+      reason: 'MOTM vs FDR 5 opponent',
       fatigueApplied: false,
-      confidenceAfter: 2,
-      motmCounterAfter: 0,
+      confidenceAfter: 3,
+      motmCounterAfter: 1,
     });
   });
 
@@ -152,7 +152,7 @@ describe('calculateConfidence', () => {
     });
   });
 
-  it('EX-05: DEF assist vs FDR 5 — base +2 × 1.5 = 3.0 → +3 (MOTM)', () => {
+  it('EX-05: DEF assist vs FDR 5 — base +2 × 2.5 = 5.0 → +5 (MOTM)', () => {
     const input: CalculatorInput = {
       position: 'DEF',
       matches: [aMatch({ assists: 1, opponentFdr: 5 })],
@@ -160,12 +160,12 @@ describe('calculateConfidence', () => {
 
     const result = calculateConfidence(input);
 
-    expect(result.finalConfidence).toBe(3);
+    expect(result.finalConfidence).toBe(5);
     expect(result.history[0]).toMatchObject({
-      delta: 3,
+      delta: 5,
       reason: 'Assist vs FDR 5 opponent (MOTM)',
       fatigueApplied: false,
-      confidenceAfter: 3,
+      confidenceAfter: 5,
       motmCounterAfter: 1,
     });
   });
@@ -206,7 +206,8 @@ describe('calculateConfidence', () => {
     });
   });
 
-  it('EX-11: GK CS vs FDR 5 — base +1 × 1.5 = 1.5 → +2', () => {
+  it('EX-11: GK CS vs FDR 5 — flat recovery point, always +1 regardless of FDR', () => {
+    // CS is flat +1 — no FDR multiplier, no big-team override.
     const input: CalculatorInput = {
       position: 'GK',
       matches: [aMatch({ opponentFdr: 5, cleanSheet: true })],
@@ -214,12 +215,12 @@ describe('calculateConfidence', () => {
 
     const result = calculateConfidence(input);
 
-    expect(result.finalConfidence).toBe(2);
+    expect(result.finalConfidence).toBe(1);
     expect(result.history[0]).toMatchObject({
-      delta: 2,
+      delta: 1,
       reason: 'Clean sheet vs FDR 5 opponent',
       fatigueApplied: false,
-      confidenceAfter: 2,
+      confidenceAfter: 1,
       motmCounterAfter: 0,
     });
   });
@@ -444,8 +445,8 @@ describe('calculateConfidence', () => {
     });
   });
 
-  it('EX-18: MID Performance + DefCon vs FDR 5 — Performance fires, DefCon silent', () => {
-    // Performance: base +1 × 1.5 = 1.5 → +2
+  it('EX-18: MID Performance + DefCon vs FDR 5 — reclassified MOTM (+3), DefCon silent', () => {
+    // Performance: base +1 × 2.5 = 2.5 → +3 → reclassified as MOTM; DefCon silent
     const input: CalculatorInput = {
       position: 'MID',
       matches: [aMatch({ assists: 1, opponentFdr: 5, defensiveContribution: 12 })],
@@ -453,17 +454,17 @@ describe('calculateConfidence', () => {
 
     const result = calculateConfidence(input);
 
-    expect(result.finalConfidence).toBe(2);
+    expect(result.finalConfidence).toBe(3);
     expect(result.history[0]).toMatchObject({
-      delta: 2,
-      reason: 'Performance vs FDR 5 opponent',
+      delta: 3,
+      reason: 'MOTM vs FDR 5 opponent',
       fatigueApplied: false,
-      confidenceAfter: 2,
-      motmCounterAfter: 0,
+      confidenceAfter: 3,
+      motmCounterAfter: 1,
     });
   });
 
-  it('EX-19: DEF CS + DefCon vs FDR 2 — CS fires (+0.75 → +1), DefCon silent', () => {
+  it('EX-19: DEF CS + DefCon vs FDR 2 — CS fires (flat +1), DefCon silent', () => {
     const input: CalculatorInput = {
       position: 'DEF',
       matches: [aMatch({ cleanSheet: true, defensiveContribution: 10, opponentFdr: 2 })],
@@ -641,7 +642,7 @@ describe('calculateConfidence', () => {
     });
   });
 
-  it('EX-27: GK CS vs FDR 5 — hardest fixture: base +1 × 1.5 = 1.5 → +2', () => {
+  it('EX-27: GK CS vs FDR 5 — flat recovery point, always +1 regardless of FDR', () => {
     const input: CalculatorInput = {
       position: 'GK',
       matches: [aMatch({ cleanSheet: true, opponentFdr: 5 })],
@@ -649,11 +650,11 @@ describe('calculateConfidence', () => {
 
     const result = calculateConfidence(input);
 
-    expect(result.finalConfidence).toBe(2);
+    expect(result.finalConfidence).toBe(1);
     expect(result.history[0]).toMatchObject({
-      delta: 2,
+      delta: 1,
       reason: 'Clean sheet vs FDR 5 opponent',
-      confidenceAfter: 2,
+      confidenceAfter: 1,
       motmCounterAfter: 0,
     });
   });
@@ -1167,7 +1168,7 @@ describe('calculateConfidence', () => {
 
   // ── Rounding via calculator path ───────────────────────────────────────
 
-  it('rounding: MOTM MID vs FDR 4 — base +2 × 1.25 = +2.5 → rounds away from zero → +3', () => {
+  it('rounding: MOTM MID vs FDR 4 — base +2 × 1.5 = +3.0 → +3', () => {
     const input: CalculatorInput = {
       position: 'MID',
       matches: [aMatch({ goals: 1, opponentFdr: 4 })],
@@ -1179,6 +1180,128 @@ describe('calculateConfidence', () => {
     expect(result.history[0]).toMatchObject({ delta: 3, reason: 'MOTM vs FDR 4 opponent' });
   });
 
+  // ── Split FDR multiplier table (EX-48 through EX-53) ─────────────────────
+
+  it('EX-48: MID Performance vs FDR 4 — base +1 × 1.5 = 1.5 → +2, NOT reclassified', () => {
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [aMatch({ assists: 1, opponentFdr: 4 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(2);
+    expect(result.history[0]).toMatchObject({
+      delta: 2,
+      reason: 'Performance vs FDR 4 opponent',
+      fatigueApplied: false,
+      confidenceAfter: 2,
+      motmCounterAfter: 0,
+    });
+  });
+
+  it('EX-49: MID Performance vs FDR 5 — base +1 × 2.5 = 2.5 → +3, reclassified MOTM', () => {
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [aMatch({ assists: 1, opponentFdr: 5 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(3);
+    expect(result.history[0]).toMatchObject({
+      delta: 3,
+      reason: 'MOTM vs FDR 5 opponent',
+      fatigueApplied: false,
+      confidenceAfter: 3,
+      motmCounterAfter: 1,
+    });
+  });
+
+  it('EX-50: FWD MOTM (1 goal) vs FDR 5 — base +2 × 2.5 = 5.0 → +5', () => {
+    const input: CalculatorInput = {
+      position: 'FWD',
+      matches: [aMatch({ goals: 1, opponentFdr: 5 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(5);
+    expect(result.history[0]).toMatchObject({
+      delta: 5,
+      reason: 'MOTM vs FDR 5 opponent',
+      fatigueApplied: false,
+      confidenceAfter: 5,
+      motmCounterAfter: 1,
+    });
+  });
+
+  it('EX-51: DEF CS-only vs FDR 5 — flat recovery point, always +1 (no FDR multiplier)', () => {
+    // CS is a flat +1 regardless of FDR — the OTHER_POSITIVE table does not exist.
+    const input: CalculatorInput = {
+      position: 'DEF',
+      matches: [aMatch({ cleanSheet: true, opponentFdr: 5 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(1);
+    expect(result.history[0]).toMatchObject({
+      delta: 1,
+      reason: 'Clean sheet vs FDR 5 opponent',
+      fatigueApplied: false,
+      confidenceAfter: 1,
+      motmCounterAfter: 0,
+    });
+  });
+
+  it('EX-52: MID blank vs FDR 5 — blank multiplier unchanged: base −1 × 0.5 = −0.5 → −1', () => {
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [aMatch({ opponentFdr: 5 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(-1);
+    expect(result.history[0]).toMatchObject({
+      delta: -1,
+      reason: 'Blank vs FDR 5 opponent',
+      fatigueApplied: false,
+      confidenceAfter: -1,
+      motmCounterAfter: 0,
+    });
+  });
+
+  it('EX-53: 3× Performance FDR 5 reclassifications trigger MOTM fatigue', () => {
+    // Each Performance at FDR 5 → +3, reclassified as MOTM.
+    // GW1: raw=+3 → conf=3, motm=1
+    // GW2: raw=+3 → clamp(3+3)=5, motm=2, delta=2
+    // GW3: raw=+3 → clamp(5+3)=5; motm=3 → fatigue; hypothetical=5−2=3>0 → applied
+    //      conf=3, delta=−2, fatigueApplied=true, motm=0
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1, assists: 1, opponentFdr: 5 }),
+        aMatch({ gameweek: 2, assists: 1, opponentFdr: 5 }),
+        aMatch({ gameweek: 3, assists: 1, opponentFdr: 5 }),
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(3);
+    expect(result.history[0]).toMatchObject({ confidenceAfter: 3, motmCounterAfter: 1 });
+    expect(result.history[1]).toMatchObject({ confidenceAfter: 5, motmCounterAfter: 2 });
+    expect(result.history[2]).toMatchObject({
+      confidenceAfter: 3,
+      delta: -2,
+      reason: 'MOTM vs FDR 5 opponent + Fatigue −2',
+      fatigueApplied: true,
+      motmCounterAfter: 0,
+    });
+  });
+
   it('rounding: DEF blank vs FDR 1 — base −1 × 1.5 = −1.5 → rounds away from zero → −2', () => {
     // Covered by EX-26 above; explicit here as a labeled rounding test.
     const result = calculateConfidence({
@@ -1186,6 +1309,181 @@ describe('calculateConfidence', () => {
       matches: [aMatch({ opponentFdr: 1 })],
     });
     expect(result.history[0]).toMatchObject({ delta: -2 });
+  });
+
+  // ── Big team FDR override (EX-54 through EX-62) ───────────────────────
+
+  it('EX-54: MID MOTM vs Liverpool (id=12, FPL FDR=3) → effective FDR 5 → +5, reason "BIG"', () => {
+    // Liverpool is a big team — opponentTeamId=12 overrides FPL FDR to effective 5.
+    // 2 × GOAL_ASSIST[5] = 2 × 2.5 = 5.0 → +5
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [aMatch({ goals: 1, opponentTeamId: 12, opponentFdr: 3 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(5);
+    expect(result.history[0]).toMatchObject({
+      delta: 5,
+      reason: 'MOTM vs BIG opponent',
+      confidenceAfter: 5,
+      motmCounterAfter: 1,
+    });
+  });
+
+  it('EX-55: MID Performance vs Man City (id=13, FPL FDR=4) → effective FDR 5 → +3, reclassified MOTM', () => {
+    // Man City (id=13) overrides FDR to 5. Performance: 1 × 2.5 = 2.5 → +3 → MOTM.
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [aMatch({ assists: 1, opponentTeamId: 13, opponentFdr: 4 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(3);
+    expect(result.history[0]).toMatchObject({
+      delta: 3,
+      reason: 'MOTM vs BIG opponent',
+      confidenceAfter: 3,
+      motmCounterAfter: 1,
+    });
+  });
+
+  it('EX-56: DEF CS vs Chelsea (id=7, FPL FDR=3) → flat +1, reason uses actual FDR not BIG', () => {
+    // CS is a flat recovery point — big-team override does NOT apply.
+    // Delta is +1 and the reason shows the actual FPL FDR (3), not "BIG".
+    const input: CalculatorInput = {
+      position: 'DEF',
+      matches: [aMatch({ cleanSheet: true, opponentTeamId: 7, opponentFdr: 3 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(1);
+    expect(result.history[0]).toMatchObject({
+      delta: 1,
+      reason: 'Clean sheet vs FDR 3 opponent',
+      confidenceAfter: 1,
+      motmCounterAfter: 0,
+    });
+  });
+
+  it('EX-57: MID blank vs Man Utd (id=14, FPL FDR=3) → effective FDR 5 → blank multiplier ×0.5 → −1', () => {
+    // Man Utd (id=14) overrides FDR to 5. Blank: −1 × FDR_BLANK[5]=0.5 → −0.5 → −1.
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [aMatch({ opponentTeamId: 14, opponentFdr: 3 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(-1);
+    expect(result.history[0]).toMatchObject({
+      delta: -1,
+      reason: 'Blank vs BIG opponent',
+      confidenceAfter: -1,
+      motmCounterAfter: 0,
+    });
+  });
+
+  it('EX-58: FWD MOTM vs Newcastle (id=15, FPL FDR=5) → NOT a big team → reason "FDR 5"', () => {
+    // Newcastle (id=15) is not in BIG_TEAM_IDS — FDR 5 from FPL is used as-is.
+    const input: CalculatorInput = {
+      position: 'FWD',
+      matches: [aMatch({ goals: 1, opponentTeamId: 15, opponentFdr: 5 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(5);
+    expect(result.history[0]).toMatchObject({
+      delta: 5,
+      reason: 'MOTM vs FDR 5 opponent',
+      motmCounterAfter: 1,
+    });
+  });
+
+  it('EX-59: DEF DefCon vs Liverpool (id=12, FPL FDR=3) → flat +1, reason uses actual FDR (no BIG label)', () => {
+    // DefCon is a flat recovery point — override does not apply. Reason uses actual FPL FDR, not "BIG".
+    const input: CalculatorInput = {
+      position: 'DEF',
+      matches: [aMatch({ defensiveContribution: 10, opponentTeamId: 12, opponentFdr: 3 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(1);
+    expect(result.history[0]).toMatchObject({
+      delta: 1,
+      reason: 'DefCon vs FDR 3 opponent',
+      confidenceAfter: 1,
+      motmCounterAfter: 0,
+    });
+  });
+
+  it('EX-60: GK SaveCon vs Man City (id=13, FPL FDR=2) → flat +1, reason uses actual FDR (no BIG label)', () => {
+    // SaveCon is a flat recovery point — override does not apply. Reason uses actual FPL FDR, not "BIG".
+    const input: CalculatorInput = {
+      position: 'GK',
+      matches: [aMatch({ saves: 5, opponentTeamId: 13, opponentFdr: 2 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(1);
+    expect(result.history[0]).toMatchObject({
+      delta: 1,
+      reason: 'SaveCon vs FDR 2 opponent',
+      confidenceAfter: 1,
+      motmCounterAfter: 0,
+    });
+  });
+
+  it('EX-61: DEF assist vs Liverpool (id=12) → effective FDR 5 → Assist: 2 × 2.5 = +5, MOTM', () => {
+    const input: CalculatorInput = {
+      position: 'DEF',
+      matches: [aMatch({ assists: 1, opponentTeamId: 12, opponentFdr: 3 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(5);
+    expect(result.history[0]).toMatchObject({
+      delta: 5,
+      reason: 'Assist vs BIG opponent (MOTM)',
+      confidenceAfter: 5,
+      motmCounterAfter: 1,
+    });
+  });
+
+  it('EX-62: 3× MOTM vs Liverpool (id=12) triggers fatigue — all reasons say "BIG"', () => {
+    // GW1: MOTM → +5 → conf=5, motm=1
+    // GW2: MOTM → clamp(5+5)=5, motm=2, delta=0
+    // GW3: MOTM → clamp(5+5)=5; fatigue: 5−2=3>0 → applied → conf=3, delta=−2, motm=0
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1, goals: 1, opponentTeamId: 12, opponentFdr: 3 }),
+        aMatch({ gameweek: 2, goals: 1, opponentTeamId: 12, opponentFdr: 3 }),
+        aMatch({ gameweek: 3, goals: 1, opponentTeamId: 12, opponentFdr: 3 }),
+      ],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(3);
+    expect(result.history[0]).toMatchObject({
+      reason: 'MOTM vs BIG opponent',
+      motmCounterAfter: 1,
+    });
+    expect(result.history[2]).toMatchObject({
+      confidenceAfter: 3,
+      delta: -2,
+      reason: 'MOTM vs BIG opponent + Fatigue −2',
+      fatigueApplied: true,
+      motmCounterAfter: 0,
+    });
   });
 
   // ── Property tests ─────────────────────────────────────────────────────

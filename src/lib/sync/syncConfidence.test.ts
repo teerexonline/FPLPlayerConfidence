@@ -592,12 +592,12 @@ describe('syncConfidence', () => {
     expect(snaps[0]?.reason).toMatch(/^DGW:/);
   });
 
-  it('Haaland GW33 regression: GW1 blank (−1) then DGW33 two MOTMs → collapsed delta=+5, confidence_after=+4', async () => {
+  it('Haaland GW33 regression: GW1 blank (−1) then DGW33 two MOTMs → collapsed delta=+6, confidence_after=+5', async () => {
     // Player: Haaland, FWD, team 2 (Man City).
     // GW1:   blank vs unknown opponent 99 at home → FDR 3 fallback → −1 × 1.0 = −1 → confidence=−1
-    // GW33a: goal vs Arsenal (team 1) away → FDR 5 → MOTM +3 → confidence=+2, motm=1
-    // GW33b: goal vs unknown opponent 99 at home → FDR 3 fallback → MOTM +2 → confidence=+4, motm=2
-    // Collapse GW33 → delta=+5, confidence_after=+4
+    // GW33a: goal vs Arsenal (team 1) away → FDR 5 → MOTM +5 → confidence=+4, motm=1
+    // GW33b: goal vs unknown opponent 99 at home → FDR 3 fallback → MOTM +2 → confidence=clamp(6)=+5, motm=2
+    // Collapse GW33 → delta=+6, confidence_after=+5
     const bootstrapHaaland: BootstrapStatic = {
       teams: [{ id: 1, code: 3, name: 'Arsenal', short_name: 'ARS' }],
       elements: [
@@ -701,8 +701,8 @@ describe('syncConfidence', () => {
     expect(gw1?.confidence_after).toBe(-1);
 
     const gw33 = snaps[1];
-    expect(gw33?.delta).toBe(5); // +3 (MOTM vs FDR 5) + +2 (MOTM vs FDR 3)
-    expect(gw33?.confidence_after).toBe(4); // −1 + 5 = +4
+    expect(gw33?.delta).toBe(6); // +5 (MOTM vs FDR 5) + +1 (MOTM vs FDR 3, clamped to ceiling)
+    expect(gw33?.confidence_after).toBe(5); // −1 + 6 = +5 (clamped)
     expect(gw33?.reason).toMatch(/^DGW:/);
   });
 

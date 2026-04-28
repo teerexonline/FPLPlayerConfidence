@@ -38,7 +38,7 @@ describe('FdrBreakdown', () => {
     render(<FdrBreakdown snapshots={MIXED} />);
     expect(screen.getByText('FDR 1–2')).toBeInTheDocument();
     expect(screen.getByText('FDR 3')).toBeInTheDocument();
-    expect(screen.getByText('FDR 4–5')).toBeInTheDocument();
+    expect(screen.getByText('FDR 4–5 · BIG')).toBeInTheDocument();
   });
 
   it('computes correct tough average — GW1 (+3), GW2 (−1) → +1.0', () => {
@@ -119,5 +119,34 @@ describe('FdrBreakdown', () => {
     const { container } = render(<FdrBreakdown snapshots={MIXED} />);
     const results = await axe(container);
     expect(results).toHaveNoViolations();
+  });
+
+  // ── Big team ("BIG") reason strings ──────────────────────────────────────
+
+  it('classifies "vs BIG opponent" reason into the Tough bucket', () => {
+    const bigSnap = makeSnap(1, 5, 'MOTM vs BIG opponent');
+    render(<FdrBreakdown snapshots={[bigSnap]} />);
+    // Tough bucket has 1 match; neutral and favorable are empty
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+    const empties = screen.getAllByText('No matches');
+    expect(empties).toHaveLength(2);
+  });
+
+  it('mixes BIG and FDR 4-5 reasons into the same Tough bucket', () => {
+    const snaps = [
+      makeSnap(1, 5, 'MOTM vs BIG opponent'),
+      makeSnap(2, -1, 'Blank vs FDR 4 opponent'),
+      makeSnap(3, 3, 'MOTM vs FDR 5 opponent'),
+    ];
+    render(<FdrBreakdown snapshots={snaps} />);
+    expect(screen.getByText('3 matches')).toBeInTheDocument();
+  });
+
+  it('BIG reasons in a DGW compound string classify into Tough', () => {
+    const dgwBig = makeSnap(10, 3, 'DGW: MOTM vs BIG opponent (+5) + Blank vs FDR 3 opponent (-1)');
+    render(<FdrBreakdown snapshots={[dgwBig]} />);
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+    const empties = screen.getAllByText('No matches');
+    expect(empties).toHaveLength(2);
   });
 });

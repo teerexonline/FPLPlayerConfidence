@@ -17,14 +17,35 @@ const DEFCON_THRESHOLD: Record<Position, number | null> = {
   FWD: 12,
 };
 
-/** Multiplier applied to positive events (MOTM, Performance, CS, Assist-MOTM). */
-const FDR_POSITIVE_MULTIPLIER: Record<number, number> = {
+/**
+ * Multiplier for goal/assist-driven events (MOTM, Performance).
+ * FDR 4 and 5 are boosted relative to the old single table to reward
+ * genuine attacking returns against tough opposition more aggressively.
+ */
+const GOAL_ASSIST_FDR_MULTIPLIERS: Record<number, number> = {
   1: 0.5,
   2: 0.75,
   3: 1.0,
-  4: 1.25,
-  5: 1.5,
+  4: 1.5,
+  5: 2.5,
 };
+
+/**
+ * Opponents whose team ID causes their opponents to be treated as effective FDR 5,
+ * regardless of the difficulty value FPL assigns to a given fixture.
+ *
+ * IDs are stable FPL team IDs verified against the teams table:
+ *   7 = Chelsea, 12 = Liverpool, 13 = Man City, 14 = Man Utd
+ */
+const BIG_TEAM_IDS: ReadonlySet<number> = new Set([7, 12, 13, 14]);
+
+/** Returns the effective FDR and reason label for the opponent, applying the big team override. */
+function getOpponentLabel(match: MatchEvent): { fdr: number; label: string } {
+  if (BIG_TEAM_IDS.has(match.opponentTeamId)) {
+    return { fdr: 5, label: 'BIG' };
+  }
+  return { fdr: match.opponentFdr, label: `FDR ${match.opponentFdr.toString()}` };
+}
 
 /** Multiplier applied to blank penalties. Inverse relationship to positive multiplier. */
 const FDR_BLANK_MULTIPLIER: Record<number, number> = {
@@ -58,14 +79,16 @@ interface MatchAdjustment {
 }
 
 function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
-  const fdr = match.opponentFdr;
-  const posMul = FDR_POSITIVE_MULTIPLIER[fdr] ?? 1;
+  // getOpponentLabel applies the big-team override for goal/assist and blank events only.
+  // DefCon is a flat recovery point — no override, uses FPL's actual FDR in the label.
+  const { fdr, label } = getOpponentLabel(match);
+  const gaMul = GOAL_ASSIST_FDR_MULTIPLIERS[fdr] ?? 1;
   const blkMul = FDR_BLANK_MULTIPLIER[fdr] ?? 1;
 
   if (match.goals >= 1 || match.assists >= 2) {
     return {
-      raw: roundAwayFromZero(2 * posMul),
-      reasons: [`MOTM vs FDR ${fdr.toString()} opponent`],
+      raw: roundAwayFromZero(2 * gaMul),
+      reasons: [`MOTM vs ${label} opponent`],
       isMotm: true,
       isDefCon: false,
       isSaveCon: false,
@@ -73,19 +96,25 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
   }
 
   if (match.assists === 1) {
+    const raw = roundAwayFromZero(1 * gaMul);
+    // A Performance that rounds to +3 or more against a tough opponent is
+    // reclassified as MOTM. The delta is not recalculated — only the label
+    // and fatigue-counter eligibility change.
+    const reclassified = raw >= 3;
     return {
-      raw: roundAwayFromZero(1 * posMul),
-      reasons: [`Performance vs FDR ${fdr.toString()} opponent`],
-      isMotm: false,
+      raw,
+      reasons: [reclassified ? `MOTM vs ${label} opponent` : `Performance vs ${label} opponent`],
+      isMotm: reclassified,
       isDefCon: false,
       isSaveCon: false,
     };
   }
 
   if (defconHit) {
+    // Flat +1 recovery point — FDR and big-team status do not affect the delta or label.
     return {
       raw: 1,
-      reasons: [`DefCon vs FDR ${fdr.toString()} opponent`],
+      reasons: [`DefCon vs FDR ${match.opponentFdr.toString()} opponent`],
       isMotm: false,
       isDefCon: true,
       isSaveCon: false,
@@ -94,7 +123,7 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
 
   return {
     raw: roundAwayFromZero(-1 * blkMul),
-    reasons: [`Blank vs FDR ${fdr.toString()} opponent`],
+    reasons: [`Blank vs ${label} opponent`],
     isMotm: false,
     isDefCon: false,
     isSaveCon: false,
@@ -106,27 +135,31 @@ function resolveGkDef(
   position: 'GK' | 'DEF',
   defconHit: boolean,
 ): MatchAdjustment {
-  const fdr = match.opponentFdr;
-  const posMul = FDR_POSITIVE_MULTIPLIER[fdr] ?? 1;
+  // getOpponentLabel applies the big-team override for goal/assist and blank events only.
+  // Clean Sheet, DefCon, and SaveCon are flat recovery points — +1 regardless of FDR
+  // or big-team status. Their reason strings use FPL's actual FDR for display accuracy.
+  const { fdr, label } = getOpponentLabel(match);
+  const gaMul = GOAL_ASSIST_FDR_MULTIPLIERS[fdr] ?? 1;
   const blkMul = FDR_BLANK_MULTIPLIER[fdr] ?? 1;
+  const actualFdr = match.opponentFdr;
   const defContrib = position === 'DEF' && defconHit;
   let rawFloat = 0;
   const reasons: string[] = [];
   let isMotm = false;
 
   if (match.assists >= 1) {
-    rawFloat += 2 * posMul;
-    reasons.push(`Assist vs FDR ${fdr.toString()} opponent (MOTM)`);
+    rawFloat += 2 * gaMul;
+    reasons.push(`Assist vs ${label} opponent (MOTM)`);
     isMotm = true;
   } else if (match.goals >= 1) {
-    rawFloat += 2 * posMul;
-    reasons.push(`MOTM vs FDR ${fdr.toString()} opponent`);
+    rawFloat += 2 * gaMul;
+    reasons.push(`MOTM vs ${label} opponent`);
     isMotm = true;
   }
 
   if (match.cleanSheet) {
-    rawFloat += 1 * posMul;
-    reasons.push(`Clean sheet vs FDR ${fdr.toString()} opponent`);
+    rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
+    reasons.push(`Clean sheet vs FDR ${actualFdr.toString()} opponent`);
   }
 
   // SaveCon/DefCon fire only when no positive event has already fired (Blank substitutes).
@@ -135,20 +168,27 @@ function resolveGkDef(
   let isSaveCon = false;
   if (!isMotm && !match.cleanSheet) {
     if (defContrib) {
-      rawFloat += 1; // flat, no FDR
-      reasons.push(`DefCon vs FDR ${fdr.toString()} opponent`);
+      rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
+      reasons.push(`DefCon vs FDR ${actualFdr.toString()} opponent`);
       isDefCon = true;
     } else if (position === 'GK' && match.saves >= SAVECON_THRESHOLD) {
-      rawFloat += 1; // flat, no FDR
-      reasons.push(`SaveCon vs FDR ${fdr.toString()} opponent`);
+      rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
+      reasons.push(`SaveCon vs FDR ${actualFdr.toString()} opponent`);
       isSaveCon = true;
     } else {
       rawFloat += -1 * blkMul;
-      reasons.push(`Blank vs FDR ${fdr.toString()} opponent`);
+      reasons.push(`Blank vs ${label} opponent`);
     }
   }
 
-  return { raw: roundAwayFromZero(rawFloat), reasons, isMotm, isDefCon, isSaveCon };
+  const raw = roundAwayFromZero(rawFloat);
+  // Safety guard: a non-MOTM stacking result that rounds to ≥+3 is reclassified.
+  // With CS flat at +1, this cannot fire with current event values — retained as
+  // a defensive invariant check in case future events introduce larger flat bonuses.
+  if (raw >= 3 && !isMotm) {
+    isMotm = true;
+  }
+  return { raw, reasons, isMotm, isDefCon, isSaveCon };
 }
 
 export function calculateConfidence(input: CalculatorInput): CalculatorOutput {

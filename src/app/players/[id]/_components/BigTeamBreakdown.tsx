@@ -9,6 +9,7 @@ interface FdrBreakdownProps {
 type FdrTier = 'favorable' | 'neutral' | 'tough';
 
 function extractFdr(reason: string): number | null {
+  if (reason.includes('vs BIG opponent')) return 5; // big team → effective FDR 5 → Tough bucket
   const match = /vs FDR (\d) opponent/.exec(reason);
   return match?.[1] !== undefined ? parseInt(match[1], 10) : null;
 }
@@ -37,7 +38,7 @@ const TIER_CONFIG: Record<
   },
   tough: {
     label: 'Tough',
-    range: 'FDR 4–5',
+    range: 'FDR 4–5 · BIG',
     dotClass: 'bg-negative',
     labelClass: 'text-negative',
   },

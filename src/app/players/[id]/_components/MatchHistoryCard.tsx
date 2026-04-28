@@ -234,6 +234,7 @@ export function MatchHistoryCard({
   const { label, icon: Icon, bgClass, iconClass } = getPresentation(kind, delta);
 
   const hasFatigueClause = fatigueApplied || reason.toLowerCase().includes('fatigue');
+  const isBigOpponent = reason.includes('vs BIG opponent');
 
   const deltaColor = delta > 0 ? 'text-positive' : delta < 0 ? 'text-negative' : 'text-neutral';
 
@@ -266,7 +267,7 @@ export function MatchHistoryCard({
           : undefined
       }
     >
-      {/* Header: GW label
+      {/* Header: GW label + optional BIG badge
           Interactive (onClick provided): split into child spans so getNodeText="" — avoids
           conflicting with hero text when getByText(/GWxx/) is queried in tests.
           Non-interactive: direct text nodes so getByText('GW1') works in strip-only tests. */}
@@ -279,6 +280,14 @@ export function MatchHistoryCard({
         ) : (
           <span className="text-muted font-mono text-[10px] font-medium tracking-[0.04em] uppercase">
             GW{gameweek.toString()}
+          </span>
+        )}
+        {isBigOpponent && (
+          <span
+            className="bg-accent/15 text-accent rounded-sm px-[3px] py-px text-[7px] leading-none font-bold tracking-[0.06em] uppercase"
+            aria-label="big team opponent"
+          >
+            BIG
           </span>
         )}
       </div>

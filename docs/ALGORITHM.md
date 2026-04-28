@@ -70,7 +70,7 @@ If preconditions are violated, behavior is undefined. The caller (the sync pipel
 | Term                 | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Performance**      | exactly 1 assist AND 0 goals                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **MOTM performance** | (1+ goals) OR (2+ assists)                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **MOTM performance** | (1+ goals) OR (2+ assists) OR a Performance whose computed delta ≥ +3 (reclassification — see §4.2)                                                                                                                                                                                                                                                                                                                                                                            |
 | **Blank**            | 0 goals AND 0 assists                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **DefCon**           | `defensive_contribution` field from FPL match history meets or exceeds the position-specific threshold (DEF: 10, MID: 12, FWD: 12). Not applicable to GK. Applies only as a **Blank substitute**: if any other positive event (goal, assist, clean sheet) fired in the same match, DefCon is silent.                                                                                                                                                                           |
 | **FDR**              | Fixture Difficulty Rating — a 1–5 integer per match, sourced from FPL's fixtures endpoint. FDR 1 = easiest fixture, FDR 5 = hardest. Determines the multiplier applied to base event values.                                                                                                                                                                                                                                                                                   |
@@ -101,21 +101,40 @@ These are the raw values before FDR scaling. All positive events share a single 
 | SaveCon (GK only, Blank substitute — **flat, no FDR multiplier**) | +1         |
 | Blank                                                             | −1         |
 
-### 4.2 FDR multiplier table
+### 4.2 FDR multiplier tables
 
-| FDR         | Multiplier — positive events | Multiplier — blank penalty |
-| ----------- | ---------------------------- | -------------------------- |
-| 5 (hardest) | ×1.5                         | ×0.5                       |
-| 4           | ×1.25                        | ×0.75                      |
-| 3 (neutral) | ×1.0                         | ×1.0                       |
-| 2           | ×0.75                        | ×1.25                      |
-| 1 (easiest) | ×0.5                         | ×1.5                       |
+Only two multiplier tables exist. Goal/assist-driven events (MOTM, Performance) use the `GOAL_ASSIST` table, which is boosted at FDR 4–5 to reward genuine attacking returns against tough opposition more aggressively. Blank events use the `BLANK` table (inverse relationship). Clean sheets, DefCon, and SaveCon are **flat recovery points** — always exactly **+1** with no FDR multiplier and no big-team override.
 
-**Design rationale:** Positive events against tougher opponents deserve a larger reward; blank penalties against tougher opponents are softened because the player faced a harder challenge. Against easy opponents, the reward for a goal is discounted (the bar was lower) and a blank is penalised more harshly (the player was expected to contribute).
+| FDR         | Multiplier — goal/assist events (MOTM, Performance) | Multiplier — blank penalty |
+| ----------- | --------------------------------------------------- | -------------------------- |
+| 5 (hardest) | ×2.5                                                | ×0.5                       |
+| 4           | ×1.5                                                | ×0.75                      |
+| 3 (neutral) | ×1.0                                                | ×1.0                       |
+| 2           | ×0.75                                               | ×1.25                      |
+| 1 (easiest) | ×0.5                                                | ×1.5                       |
 
-**DefCon exception:** DefCon is always flat **+1** with no FDR multiplier. DefCon measures whether a player hit an absolute defensive action count; that threshold does not get easier or harder based on opponent quality. It is a structural safety net against an unfair blank penalty, not a performance reward.
+**MOTM reclassification:** After computing the Performance delta (`round(1 × GOAL_ASSIST[fdr])`), if the result is ≥ +3, the event is reclassified as MOTM. The delta value is not recalculated — only the label and MOTM fatigue counter eligibility change. This can only fire at FDR 5 (or big-team effective FDR 5), where `round(1 × 2.5) = +3`. At FDR 4, `round(1 × 1.5) = +2 < 3`, so no reclassification.
 
-### 4.3 Rounding rule
+**Design rationale:** Goal and assist events against harder opponents deserve a larger reward than the old single table provided. FDR 5 (e.g., scoring against Man City) is genuinely exceptional and should move the needle substantially. Clean sheets are flat — a defensive shutout does not carry the same "beating the odds" signal as a goal or assist against an elite backline, and FDR-scaling CS rewards creates perverse incentives for defensive players facing easy opponents. The MOTM reclassification prevents a Performance at FDR 5 from lingering below the MOTM category when its delta is indistinguishable from a genuine MOTM.
+
+**DefCon/SaveCon:** Both are always flat **+1** with no FDR multiplier and no big-team override.
+
+### 4.3 Big-team FDR override
+
+Four clubs are treated as effective FDR 5 for the purpose of MOTM, Performance, and Blank events, regardless of the FDR value FPL assigns to the fixture:
+
+| Club      | FPL Team ID |
+| --------- | ----------- |
+| Chelsea   | 7           |
+| Liverpool | 12          |
+| Man City  | 13          |
+| Man Utd   | 14          |
+
+The override applies to `GOAL_ASSIST_FDR_MULTIPLIERS` (for MOTM/Performance) and `FDR_BLANK_MULTIPLIER` (for Blank). When the override fires, the reason string displays `"vs BIG opponent"` instead of `"vs FDR X opponent"`.
+
+**The override does NOT apply to flat recovery points.** Clean sheet, DefCon, and SaveCon are always flat +1 regardless of big-team status. Their reason strings use the actual FPL-assigned FDR: `"Clean sheet vs FDR X opponent"`, `"DefCon vs FDR X opponent"`, `"SaveCon vs FDR X opponent"`. The "BIG" label never appears in reason strings for these events.
+
+### 4.4 Rounding rule
 
 After computing the floating-point raw delta (sum of all components' `base × multiplier`), apply **round half away from zero** to produce an integer delta. This is _not_ JavaScript's `Math.round`, which rounds `.5` toward positive infinity for negative halves. The safe implementation:
 
@@ -129,7 +148,7 @@ Reference values: `+0.5 → +1`, `−0.5 → −1`, `+1.5 → +2`, `−1.5 → �
 
 For the GK/DEF stacking path, sum all floating-point components first, then call `roundAwayFromZero` **once** on the total. Do not round intermediate per-component values.
 
-### 4.4 Fatigue modifiers
+### 4.5 Fatigue modifiers
 
 Three independent fatigue mechanisms can apply a −2 penalty on top of the event score. All three share the same threshold, penalty, and waiver rule.
 
@@ -149,8 +168,8 @@ The penalty is applied to the clamped post-event confidence (intermediate-clamp 
 
 Apply exactly one of, in order:
 
-1. **MOTM performance** (1+ goals OR 2+ assists): base +2 × `FDR_POSITIVE_MULTIPLIER[fdr]` → round. DefCon is silent.
-2. **Performance** (1 assist, 0 goals): base +1 × `FDR_POSITIVE_MULTIPLIER[fdr]` → round. DefCon is silent.
+1. **MOTM performance** (1+ goals OR 2+ assists): base +2 × `GOAL_ASSIST_FDR_MULTIPLIERS[fdr]` → round. DefCon is silent.
+2. **Performance** (1 assist, 0 goals): base +1 × `GOAL_ASSIST_FDR_MULTIPLIERS[fdr]` → round. DefCon is silent. If the result is ≥ +3, reclassify as MOTM (label and counter only — no delta recalculation).
 3. **DefCon-only** (0 goals, 0 assists, threshold met): flat **+1** (no FDR multiplier). Prevents the blank penalty entirely.
 4. **True blank** (0 goals, 0 assists, DefCon not met): base −1 × `FDR_BLANK_MULTIPLIER[fdr]` → round.
 
@@ -160,9 +179,9 @@ A midfielder who scores AND assists once: that's MOTM (1+ goals). Single rule fi
 
 Accumulate floating-point contributions from all applicable sub-rules, then call `roundAwayFromZero` **once** on the total, then clamp:
 
-1. **Assist?** Add `2 × FDR_POSITIVE_MULTIPLIER[fdr]` to raw float. This **also satisfies the MOTM branch** — do not double-count by also firing step 2. DefCon and SaveCon are silent.
-2. **Goal (and didn't already trigger step 1)?** Add `2 × FDR_POSITIVE_MULTIPLIER[fdr]`. MOTM. DefCon and SaveCon are silent.
-3. **Clean sheet?** Add `1 × FDR_POSITIVE_MULTIPLIER[fdr]`. Stacks independently of steps 1–2. SaveCon is silent.
+1. **Assist?** Add `2 × GOAL_ASSIST_FDR_MULTIPLIERS[fdr]` to raw float. This **also satisfies the MOTM branch** — do not double-count by also firing step 2. DefCon and SaveCon are silent.
+2. **Goal (and didn't already trigger step 1)?** Add `2 × GOAL_ASSIST_FDR_MULTIPLIERS[fdr]`. MOTM. DefCon and SaveCon are silent.
+3. **Clean sheet?** Add flat **+1** (no FDR multiplier, no big-team override). Stacks independently of steps 1–2. SaveCon is silent.
 4. **Steps 1–3 all skipped — DEF only — DefCon threshold met?** Add flat **+1** (no FDR). Blank prevented.
 5. **Steps 1–3 all skipped — GK only — `saves >= 4` (SaveCon threshold)?** Add flat **+1** (no FDR). Blank prevented. SaveCon is mutually exclusive with DefCon and with Blank — only one of steps 4/5/6 executes.
 6. **Steps 1–5 all skipped?** Add `−1 × FDR_BLANK_MULTIPLIER[fdr]`. Blank.
@@ -171,11 +190,12 @@ After accumulating, call `roundAwayFromZero(rawFloat)`, then clamp to `[-4, +5]`
 
 ### 5.1 Inline resolution examples (FDR 5)
 
-- A defender with 1 goal + CS: float = (2 × 1.5) + (1 × 1.5) = 3.0 + 1.5 = 4.5 → round → **+5** raw, clamp to +5.
-- A defender with 1 assist + CS + DefCon: float = (2 × 1.5) + (1 × 1.5) = 4.5 → round → **+5** raw. DefCon silent (MOTM fired).
-- A defender with 0 G/A + CS: float = 1 × 1.5 = 1.5 → round → **+2** raw.
+- A defender with 1 goal + CS: float = (2 × 2.5) + 1 = 5.0 + 1.0 = 6.0 → round → **+6** raw, clamp to **+5**. (CS is flat +1.)
+- A defender with 1 assist + CS + DefCon: float = (2 × 2.5) + 1 = 6.0 → round → **+6** raw, clamp to **+5**. DefCon silent (MOTM fired).
+- A defender with 0 G/A + CS: flat **+1** raw. (CS is always flat regardless of FDR.)
 - A defender with 0 G/A, no CS, DefCon threshold met (DEF only): flat **+1**. Not a blank.
 - A defender with 0 G/A, no CS, no DefCon: float = −1 × 0.5 = −0.5 → round → **−1** raw.
+- A midfielder with 1 assist (Performance): base +1 × 2.5 = 2.5 → round → **+3**, reclassified as MOTM.
 - GK with any defensive_contribution, no positive events: DefCon never fires; blank applies normally.
 
 ### 5.2 Why FDR replaced the binary big-team flag
@@ -269,8 +289,8 @@ Each example is a required `it(...)` block in `calculator.test.ts`. Use the exac
 ```
 position: MID
 match: { goals: 2, assists: 0, opponentFdr: 5, cleanSheet: false, minutesPlayed: 90 }
-resolution: MOTM (1+ goals) → base +2 × 1.5 = +3.0 → round → +3
-expected: delta=+3, reason="MOTM vs FDR 5 opponent", confidenceAfter=+3, motmCounterAfter=1
+resolution: MOTM (1+ goals) → base +2 × 2.5 = +5.0 → round → +5
+expected: delta=+5, reason="MOTM vs FDR 5 opponent", confidenceAfter=+5, motmCounterAfter=1
 ```
 
 ### EX-02 — Performance vs FDR 1 (MID)
@@ -305,8 +325,8 @@ expected: delta=+1, reason="Clean sheet vs FDR 2 opponent", confidenceAfter=+1, 
 ```
 position: DEF
 match: { goals: 0, assists: 1, opponentFdr: 5, cleanSheet: false, minutesPlayed: 90 }
-resolution: Assist (MOTM) → base +2 × 1.5 = +3.0 → round → +3
-expected: delta=+3, reason="Assist vs FDR 5 opponent (MOTM)", confidenceAfter=+3, motmCounterAfter=1
+resolution: Assist (MOTM) → base +2 × 2.5 = +5.0 → round → +5
+expected: delta=+5, reason="Assist vs FDR 5 opponent (MOTM)", confidenceAfter=+5, motmCounterAfter=1
 ```
 
 ### EX-06 — Defender goal + CS vs FDR 5
@@ -315,9 +335,9 @@ expected: delta=+3, reason="Assist vs FDR 5 opponent (MOTM)", confidenceAfter=+3
 position: DEF
 match: { goals: 1, assists: 0, opponentFdr: 5, cleanSheet: true, minutesPlayed: 90 }
 resolution:
-  Goal (MOTM):  +2 × 1.5 = +3.0
-  CS:           +1 × 1.5 = +1.5
-  raw float:    +4.5 → round half away from zero → +5
+  Goal (MOTM):  +2 × 2.5 = +5.0   (GOAL_ASSIST table)
+  CS:           +1.0               (flat recovery point — no FDR multiplier)
+  raw float:    +6.0 → round half away from zero → +6 → clamp to +5
 expected: delta=+5, reason="MOTM vs FDR 5 opponent + Clean sheet vs FDR 5 opponent", confidenceAfter=+5, motmCounterAfter=1
 ```
 
@@ -345,7 +365,7 @@ Player at +4, MOTM vs FDR 5:
 ```
 position: MID
 preceding state: confidence=+4
-match: { goals: 1, opponentFdr: 5, … } → MOTM base +2 × 1.5 = +3.0 → +3 → would be +7 → clamp to +5
+match: { goals: 1, opponentFdr: 5, … } → MOTM base +2 × 2.5 = +5.0 → +5 → would be +9 → clamp to +5
 expected: confidenceAfter=+5, delta=+1 (clamped)
 ```
 
@@ -373,8 +393,8 @@ expected: finalConfidence=0, history=[]
 ```
 position: GK
 match: { goals: 0, assists: 0, opponentFdr: 5, cleanSheet: true, minutesPlayed: 90 }
-resolution: CS → base +1 × 1.5 = +1.5 → round half away from zero → +2
-expected: delta=+2, reason="Clean sheet vs FDR 5 opponent", confidenceAfter=+2
+resolution: CS → flat recovery point → +1 (no FDR multiplier, no big-team override)
+expected: delta=+1, reason="Clean sheet vs FDR 5 opponent", confidenceAfter=+1
 ```
 
 ### EX-12 — MID with 2 assists qualifies as MOTM (FDR 3)
@@ -419,8 +439,8 @@ Player at +5 with motmCount=2 (so this match's MOTM is the 3rd), MOTM vs FDR 5:
 
 ```
 preceding state: confidence=+5, motmCount=2
-match: MOTM vs FDR 5 → base +2 × 1.5 = +3.0 → motmRaw=+3
-confidenceAfterMotm = clamp(+5 + 3) = clamp(8) = +5   (ceiling holds)
+match: MOTM vs FDR 5 → base +2 × 2.5 = +5.0 → motmRaw=+5
+confidenceAfterMotm = clamp(+5 + 5) = clamp(10) = +5   (ceiling holds)
 counter = 3 → fatigue evaluates
 hypotheticalPostFatigue = +5 + (−2) = +3   → +3 > 0, penalty applied
 expected: confidenceAfter=+3, delta=−2, fatigueApplied=true, motmCounterAfter=0
@@ -459,13 +479,14 @@ resolution: threshold not met (8 < 12), no goals, no assists → Blank → base 
 expected: delta=-1, reason="Blank vs FDR 3 opponent", confidenceAfter=-1, motmCounterAfter=0
 ```
 
-### EX-18 — MID Performance + DefCon vs FDR 5 (DefCon silent)
+### EX-18 — MID Performance + DefCon vs FDR 5 (reclassified MOTM; DefCon silent)
 
 ```
 position: MID
 match: { goals: 0, assists: 1, defensiveContribution: 12, opponentFdr: 5, minutesPlayed: 90 }
-resolution: Performance fires (1 assist) → base +1 × 1.5 = +1.5 → round half away → +2; DefCon silent
-expected: delta=+2, reason="Performance vs FDR 5 opponent", confidenceAfter=+2, motmCounterAfter=0
+resolution: Performance fires (1 assist) → base +1 × 2.5 = +2.5 → round half away → +3
+            delta ≥ 3 → reclassified as MOTM; DefCon silent
+expected: delta=+3, reason="MOTM vs FDR 5 opponent", confidenceAfter=+3, motmCounterAfter=1
 ```
 
 ### EX-19 — DEF clean sheet + DefCon vs FDR 2 (DefCon silent)
@@ -473,7 +494,7 @@ expected: delta=+2, reason="Performance vs FDR 5 opponent", confidenceAfter=+2, 
 ```
 position: DEF
 match: { goals: 0, assists: 0, cleanSheet: true, defensiveContribution: 10, opponentFdr: 2, minutesPlayed: 90 }
-resolution: CS fires → base +1 × 0.75 = +0.75 → round → +1; DefCon silent (positive event fired)
+resolution: CS fires → flat recovery point → +1 (no FDR multiplier); DefCon silent (positive event fired)
 expected: delta=+1, reason="Clean sheet vs FDR 2 opponent", confidenceAfter=+1, motmCounterAfter=0
 ```
 
@@ -933,16 +954,16 @@ const DEFCON_THRESHOLD: Record<Position, number | null> = {
   FWD: 12,
 };
 
-/** Multiplier applied to positive events (MOTM, Performance, CS, Assist-MOTM). */
-const FDR_POSITIVE_MULTIPLIER: Record<number, number> = {
+/** Multiplier for goal/assist-driven events (MOTM, Performance). Boosted at FDR 4-5. */
+const GOAL_ASSIST_FDR_MULTIPLIERS: Record<number, number> = {
   1: 0.5,
   2: 0.75,
   3: 1.0,
-  4: 1.25,
-  5: 1.5,
+  4: 1.5,
+  5: 2.5,
 };
 
-/** Multiplier applied to blank penalties. Inverse of FDR_POSITIVE_MULTIPLIER. */
+/** Multiplier applied to blank penalties. Inverse relationship to GOAL_ASSIST table. */
 const FDR_BLANK_MULTIPLIER: Record<number, number> = {
   1: 1.5,
   2: 1.25,
@@ -950,6 +971,20 @@ const FDR_BLANK_MULTIPLIER: Record<number, number> = {
   4: 0.75,
   5: 0.5,
 };
+
+/**
+ * Opponents whose team ID triggers effective FDR 5 for MOTM/Performance/Blank events,
+ * regardless of the FDR value FPL assigns.
+ *   7 = Chelsea, 12 = Liverpool, 13 = Man City, 14 = Man Utd
+ */
+const BIG_TEAM_IDS: ReadonlySet<number> = new Set([7, 12, 13, 14]);
+
+function getOpponentLabel(match: MatchEvent): { fdr: number; label: string } {
+  if (BIG_TEAM_IDS.has(match.opponentTeamId)) {
+    return { fdr: 5, label: 'BIG' };
+  }
+  return { fdr: match.opponentFdr, label: `FDR ${match.opponentFdr.toString()}` };
+}
 
 /**
  * Rounds x to the nearest integer, breaking ties away from zero.
@@ -974,33 +1009,35 @@ interface MatchAdjustment {
 }
 
 function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
-  const fdr = match.opponentFdr;
-  const posMul = FDR_POSITIVE_MULTIPLIER[fdr] ?? 1;
+  const { fdr, label } = getOpponentLabel(match);
+  const gaMul = GOAL_ASSIST_FDR_MULTIPLIERS[fdr] ?? 1;
   const blkMul = FDR_BLANK_MULTIPLIER[fdr] ?? 1;
 
   if (match.goals >= 1 || match.assists >= 2) {
     return {
-      raw: roundAwayFromZero(2 * posMul),
-      reasons: [`MOTM vs FDR ${fdr.toString()} opponent`],
+      raw: roundAwayFromZero(2 * gaMul),
+      reasons: [`MOTM vs ${label} opponent`],
       isMotm: true,
       isDefCon: false,
       isSaveCon: false,
     };
   }
   if (match.assists === 1) {
+    const raw = roundAwayFromZero(1 * gaMul);
+    const reclassified = raw >= 3;
     return {
-      raw: roundAwayFromZero(1 * posMul),
-      reasons: [`Performance vs FDR ${fdr.toString()} opponent`],
-      isMotm: false,
+      raw,
+      reasons: [reclassified ? `MOTM vs ${label} opponent` : `Performance vs ${label} opponent`],
+      isMotm: reclassified,
       isDefCon: false,
       isSaveCon: false,
     };
   }
   if (defconHit) {
-    // DefCon: flat +1, no FDR multiplier.
+    // Flat recovery point — FDR and big-team status do not affect the delta or label.
     return {
       raw: 1,
-      reasons: [`DefCon vs FDR ${fdr.toString()} opponent`],
+      reasons: [`DefCon vs FDR ${match.opponentFdr.toString()} opponent`],
       isMotm: false,
       isDefCon: true,
       isSaveCon: false,
@@ -1008,7 +1045,7 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
   }
   return {
     raw: roundAwayFromZero(-1 * blkMul),
-    reasons: [`Blank vs FDR ${fdr.toString()} opponent`],
+    reasons: [`Blank vs ${label} opponent`],
     isMotm: false,
     isDefCon: false,
     isSaveCon: false,
@@ -1020,27 +1057,28 @@ function resolveGkDef(
   position: 'GK' | 'DEF',
   defconHit: boolean,
 ): MatchAdjustment {
-  const fdr = match.opponentFdr;
-  const posMul = FDR_POSITIVE_MULTIPLIER[fdr] ?? 1;
+  const { fdr, label } = getOpponentLabel(match);
+  const gaMul = GOAL_ASSIST_FDR_MULTIPLIERS[fdr] ?? 1;
   const blkMul = FDR_BLANK_MULTIPLIER[fdr] ?? 1;
+  const actualFdr = match.opponentFdr;
   const defContrib = position === 'DEF' && defconHit;
   let rawFloat = 0;
   const reasons: string[] = [];
   let isMotm = false;
 
   if (match.assists >= 1) {
-    rawFloat += 2 * posMul;
-    reasons.push(`Assist vs FDR ${fdr.toString()} opponent (MOTM)`);
+    rawFloat += 2 * gaMul;
+    reasons.push(`Assist vs ${label} opponent (MOTM)`);
     isMotm = true;
   } else if (match.goals >= 1) {
-    rawFloat += 2 * posMul;
-    reasons.push(`MOTM vs FDR ${fdr.toString()} opponent`);
+    rawFloat += 2 * gaMul;
+    reasons.push(`MOTM vs ${label} opponent`);
     isMotm = true;
   }
 
   if (match.cleanSheet) {
-    rawFloat += 1 * posMul;
-    reasons.push(`Clean sheet vs FDR ${fdr.toString()} opponent`);
+    rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
+    reasons.push(`Clean sheet vs FDR ${actualFdr.toString()} opponent`);
   }
 
   // SaveCon/DefCon fire only when no positive event has already fired (Blank substitutes).
@@ -1049,20 +1087,26 @@ function resolveGkDef(
   let isSaveCon = false;
   if (!isMotm && !match.cleanSheet) {
     if (defContrib) {
-      rawFloat += 1; // flat, no FDR
-      reasons.push(`DefCon vs FDR ${fdr.toString()} opponent`);
+      rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
+      reasons.push(`DefCon vs FDR ${actualFdr.toString()} opponent`);
       isDefCon = true;
     } else if (position === 'GK' && match.saves >= SAVECON_THRESHOLD) {
-      rawFloat += 1; // flat, no FDR
-      reasons.push(`SaveCon vs FDR ${fdr.toString()} opponent`);
+      rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
+      reasons.push(`SaveCon vs FDR ${actualFdr.toString()} opponent`);
       isSaveCon = true;
     } else {
       rawFloat += -1 * blkMul;
-      reasons.push(`Blank vs FDR ${fdr.toString()} opponent`);
+      reasons.push(`Blank vs ${label} opponent`);
     }
   }
 
-  return { raw: roundAwayFromZero(rawFloat), reasons, isMotm, isDefCon, isSaveCon };
+  const raw = roundAwayFromZero(rawFloat);
+  // Safety guard: a non-MOTM stacking result ≥ +3 is reclassified. With CS flat at +1,
+  // this cannot fire with current event values — retained as a defensive invariant check.
+  if (raw >= 3 && !isMotm) {
+    isMotm = true;
+  }
+  return { raw, reasons, isMotm, isDefCon, isSaveCon };
 }
 
 export function calculateConfidence(input: CalculatorInput): CalculatorOutput {

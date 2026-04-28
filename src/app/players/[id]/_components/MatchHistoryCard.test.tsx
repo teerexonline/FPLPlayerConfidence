@@ -130,6 +130,27 @@ describe('MatchHistoryCard', () => {
     expect(screen.getByText(/fatigue/i)).toBeInTheDocument();
   });
 
+  it('shows BIG badge when reason contains "vs BIG opponent"', () => {
+    render(
+      <MatchHistoryCard snapshot={makeSnapshot({ reason: 'MOTM vs BIG opponent', delta: 5 })} />,
+    );
+    expect(screen.getByText('BIG')).toBeInTheDocument();
+  });
+
+  it('does not show BIG badge for standard FDR reason strings', () => {
+    render(
+      <MatchHistoryCard snapshot={makeSnapshot({ reason: 'MOTM vs FDR 5 opponent', delta: 5 })} />,
+    );
+    expect(screen.queryByText('BIG')).toBeNull();
+  });
+
+  it('BIG badge has aria-label for accessibility', () => {
+    render(
+      <MatchHistoryCard snapshot={makeSnapshot({ reason: 'Blank vs BIG opponent', delta: -1 })} />,
+    );
+    expect(screen.getByLabelText('big team opponent')).toBeInTheDocument();
+  });
+
   it('has role=listitem', () => {
     const { container } = render(<MatchHistoryCard snapshot={makeSnapshot()} />);
     expect(container.firstChild).toHaveAttribute('role', 'listitem');
