@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import Link from 'next/link';
 import { getRepositories } from '@/lib/db/server';
 import { playerId } from '@/lib/db';
+import { computeHotStreak } from '@/lib/confidence/hotStreak';
 import { PlayerHeader } from './_components/PlayerHeader';
 import { PlayerDetailInteractive } from './_components/PlayerDetailInteractive';
 import { FdrBreakdown } from './_components/BigTeamBreakdown';
@@ -41,6 +42,8 @@ function loadPlayer(rawId: string): PlayerDetailData {
   const latestReason = latest?.reason ?? '';
   const latestGameweek = latest?.gameweek ?? 0;
 
+  const hotStreakLevel = computeHotStreak(snapshots, latestGameweek);
+
   return {
     id: player.id,
     webName: player.web_name,
@@ -57,6 +60,7 @@ function loadPlayer(rawId: string): PlayerDetailData {
     status: player.status,
     chanceOfPlaying: player.chance_of_playing_next_round,
     news: player.news,
+    hotStreakLevel,
   };
 }
 

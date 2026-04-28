@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
+import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import type { PlayerDetailData } from './types';
 
@@ -25,6 +26,7 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
     status,
     chanceOfPlaying,
     news,
+    hotStreakLevel,
   } = player;
   const price = `£${(nowCost / 10).toFixed(1)}m`;
   const jerseyUrl = `/api/jerseys/${teamCode.toString()}?size=110`;
@@ -82,6 +84,12 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
           </span>
           <span className="bg-border h-3.5 w-px" aria-hidden="true" />
           <span className="text-muted text-[14px] tabular-nums">{price}</span>
+          {hotStreakLevel !== null && (
+            <>
+              <span className="bg-border h-3.5 w-px" aria-hidden="true" />
+              <HotStreakIndicator level={hotStreakLevel} size="lg" />
+            </>
+          )}
           {status !== 'a' && (
             <>
               <span className="bg-border h-3.5 w-px" aria-hidden="true" />
