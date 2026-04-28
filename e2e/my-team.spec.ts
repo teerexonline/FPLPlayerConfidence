@@ -25,8 +25,6 @@ function makePlayer(
     isCaptain,
     isViceCaptain,
     confidence: n % 5,
-    pGoal: 0.1,
-    pAssist: 0.08,
     status: 'a',
     chanceOfPlaying: null,
     news: '',

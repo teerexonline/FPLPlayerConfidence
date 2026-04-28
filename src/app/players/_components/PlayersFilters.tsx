@@ -3,8 +3,6 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import type { JSX } from 'react';
-import { MetricToggle } from '@/components/metric/MetricToggle';
-import { useMetricMode } from '@/components/metric/useMetricMode';
 import { cn } from '@/lib/utils';
 import type { FilterState, Position, SortKey, SortOrder } from './types';
 import { DEFAULT_FILTER_STATE } from './types';
@@ -12,21 +10,12 @@ import { DEFAULT_FILTER_STATE } from './types';
 // ── URL codec ─────────────────────────────────────────────────────────────────
 
 const POSITIONS: readonly Position[] = ['GK', 'DEF', 'MID', 'FWD'];
-const SORT_KEYS: readonly SortKey[] = ['confidence', 'pGoal', 'pAssist', 'price', 'name', 'team'];
+const SORT_KEYS: readonly SortKey[] = ['confidence', 'price', 'name', 'team'];
 const SORT_LABELS: Record<SortKey, string> = {
   confidence: 'Confidence',
-  pGoal: 'P(Goal)',
-  pAssist: 'P(Assist)',
   price: 'Price',
   name: 'Name',
   team: 'Team',
-};
-
-// Metric → default sort key mapping used for auto-sort on toggle
-const METRIC_DEFAULT_SORT: Record<string, SortKey> = {
-  c: 'confidence',
-  g: 'pGoal',
-  a: 'pAssist',
 };
 
 export function parseFilters(params: URLSearchParams): FilterState {
@@ -81,25 +70,7 @@ export function PlayersFilters(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const filters = parseFilters(searchParams);
-  const { mode } = useMetricMode();
   const searchRef = useRef<HTMLInputElement>(null);
-  const prevModeRef = useRef(mode);
-
-  // Auto-sort when the metric toggle changes AND the user is on the default sort
-  // for the previous mode (i.e. they haven't manually overridden the sort).
-  useEffect(() => {
-    const prevMode = prevModeRef.current;
-    if (mode === prevMode) return;
-    prevModeRef.current = mode;
-
-    const prevDefaultSort = METRIC_DEFAULT_SORT[prevMode] ?? 'confidence';
-    const isOnDefaultSort = filters.sortKey === prevDefaultSort && filters.sortOrder === 'desc';
-    if (!isOnDefaultSort) return;
-
-    const nextSort = METRIC_DEFAULT_SORT[mode] ?? 'confidence';
-    push({ ...filters, sortKey: nextSort, sortOrder: 'desc' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
 
   // Focus the search input on `/` or Cmd/Ctrl+K, unless an input is already focused.
   useEffect(() => {
@@ -165,11 +136,6 @@ export function PlayersFilters(): JSX.Element {
 
   return (
     <div className="border-border bg-bg/90 sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-3 backdrop-blur-sm">
-      {/* Metric toggle */}
-      <MetricToggle />
-
-      <div className="bg-border mx-1 h-5 w-px shrink-0" aria-hidden="true" />
-
       {/* Position chips */}
       <div className="flex gap-1.5" role="group" aria-label="Filter by position">
         {POSITIONS.map((pos) => {

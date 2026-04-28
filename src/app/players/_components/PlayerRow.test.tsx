@@ -8,8 +8,6 @@ const mockPush = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
-  usePathname: vi.fn(() => '/players'),
-  useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
 describe('PlayerRow', () => {

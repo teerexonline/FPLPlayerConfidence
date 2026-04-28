@@ -2,10 +2,8 @@
 
 import type { JSX } from 'react';
 import Link from 'next/link';
-import { CalibrationCaveat } from '@/components/confidence/CalibrationCaveat';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
-import { useMetricMode } from '@/components/metric/useMetricMode';
 import type { SquadPlayerRow } from './types';
 
 interface BenchSectionProps {
@@ -13,9 +11,6 @@ interface BenchSectionProps {
 }
 
 function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
-  const { mode } = useMetricMode();
-  const metricValue =
-    mode === 'g' ? player.pGoal : mode === 'a' ? player.pAssist : player.confidence;
   return (
     <li role="listitem">
       <Link
@@ -61,10 +56,9 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
           news={player.news}
         />
 
-        {/* Active metric — full opacity so the value is readable */}
+        {/* Confidence — full opacity so the value is readable */}
         <div className="flex shrink-0 items-center gap-1">
-          <ConfidenceNumber value={metricValue} mode={mode} size="sm" animated={false} />
-          {mode === 'g' && player.position === 'FWD' && <CalibrationCaveat />}
+          <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
         </div>
       </Link>
     </li>

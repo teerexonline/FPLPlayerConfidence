@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
-import { MetricToggle } from '@/components/metric/MetricToggle';
 import { ConnectTeamForm } from './ConnectTeamForm';
 import { GwTimeline } from './GwTimeline';
 import { ManagerHeader } from './ManagerHeader';
@@ -67,11 +66,6 @@ function LoadedView({
           isGw1FreeHit={data.isGw1FreeHit}
           preDeadlineFallback={data.preDeadlineFallback}
         />
-
-        {/* Metric toggle — aligned right, same row as the GW scrubber area */}
-        <div className="flex items-center justify-end py-2">
-          <MetricToggle />
-        </div>
 
         <GwTimeline
           currentGameweek={data.currentGameweek}

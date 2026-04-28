@@ -2,12 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import type { JSX } from 'react';
-import { CalibrationCaveat } from '@/components/confidence/CalibrationCaveat';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
-import { useMetricMode } from '@/components/metric/useMetricMode';
 import { cn } from '@/lib/utils';
 import type { PlayerWithConfidence } from './types';
 
@@ -25,8 +23,6 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     position,
     nowCost,
     confidence,
-    pGoal,
-    pAssist,
     recentDeltas,
     id,
     status,
@@ -35,7 +31,6 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     recentAppearances,
   } = player;
   const router = useRouter();
-  const { mode } = useMetricMode();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
   const lastDelta = recentDeltas.at(-1) ?? 0;
   const arrow = lastDelta > 0 ? '↑' : lastDelta < 0 ? '↓' : '→';
@@ -45,8 +40,6 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
   function handleClick(): void {
     router.push(`/players/${id.toString()}`);
   }
-
-  const metricValue = mode === 'g' ? pGoal : mode === 'a' ? pAssist : confidence;
 
   return (
     <div
@@ -102,10 +95,9 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
         {price}
       </span>
 
-      {/* Active metric + status/stale indicators */}
+      {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex items-center gap-1.5">
-        <ConfidenceNumber value={metricValue} mode={mode} size="sm" animated={false} />
-        {mode === 'g' && position === 'FWD' && <CalibrationCaveat />}
+        <ConfidenceNumber value={confidence} mode="c" size="sm" animated={false} />
         <StaleDataIndicator recentAppearances={recentAppearances} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
       </div>

@@ -6,8 +6,6 @@ import { SALAH, PICKFORD, HAALAND } from './__fixtures__/players';
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
-  usePathname: vi.fn(() => '/players'),
-  useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
 describe('PlayerCard', () => {

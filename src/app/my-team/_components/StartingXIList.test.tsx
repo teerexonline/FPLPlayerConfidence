@@ -5,8 +5,6 @@ import { StartingXIList } from './StartingXIList';
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
-  usePathname: vi.fn(() => '/my-team'),
-  useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 import type { SquadPlayerRow } from './types';
 
@@ -21,8 +19,6 @@ function makePlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRow {
     isCaptain: false,
     isViceCaptain: false,
     confidence: 3,
-    pGoal: 0.1,
-    pAssist: 0.08,
     status: 'a',
     chanceOfPlaying: null,
     news: '',

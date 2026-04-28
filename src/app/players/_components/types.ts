@@ -26,13 +26,9 @@ export interface PlayerWithConfidence {
   readonly news: string;
   /** Snapshot count in the window [currentGW-2, currentGW]. 0–3. */
   readonly recentAppearances: number;
-  /** P(Goal) for the next fixture in [0, 1]. 0 when no data available. */
-  readonly pGoal: number;
-  /** P(Assist) for the next fixture in [0, 1]. 0 when no data available. */
-  readonly pAssist: number;
 }
 
-export type SortKey = 'confidence' | 'price' | 'name' | 'team' | 'pGoal' | 'pAssist';
+export type SortKey = 'confidence' | 'price' | 'name' | 'team';
 export type SortOrder = 'asc' | 'desc';
 
 export interface FilterState {

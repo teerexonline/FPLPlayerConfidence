@@ -1,12 +1,10 @@
 'use client';
 
 import type { JSX } from 'react';
-import { CalibrationCaveat } from '@/components/confidence/CalibrationCaveat';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
-import { useMetricMode } from '@/components/metric/useMetricMode';
 import type { PlayerWithConfidence } from './types';
 
 interface PlayerCardProps {
@@ -26,17 +24,13 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     position,
     nowCost,
     confidence,
-    pGoal,
-    pAssist,
     recentDeltas,
     status,
     chanceOfPlaying,
     news,
     recentAppearances,
   } = player;
-  const { mode } = useMetricMode();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
-  const metricValue = mode === 'g' ? pGoal : mode === 'a' ? pAssist : confidence;
 
   return (
     <div
@@ -49,8 +43,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
           {webName}
         </span>
         <div className="flex shrink-0 items-center gap-1.5">
-          <ConfidenceNumber value={metricValue} mode={mode} size="md" animated={false} />
-          {mode === 'g' && position === 'FWD' && <CalibrationCaveat />}
+          <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />
           <StaleDataIndicator recentAppearances={recentAppearances} />
           <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
         </div>

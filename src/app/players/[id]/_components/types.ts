@@ -51,12 +51,6 @@ export interface PlayerDetailData {
   readonly status: string;
   readonly chanceOfPlaying: number | null;
   readonly news: string;
-  /** Predicted goal probability [0, 1]. null when ICT data unavailable. */
-  readonly pGoal: number | null;
-  /** Predicted assist probability [0, 1]. null when ICT data unavailable. */
-  readonly pAssist: number | null;
-  /** Next fixture difficulty (1–5). null when no upcoming fixture scheduled. */
-  readonly nextFixtureFdr: number | null;
 }
 
 // ── DGW reason parsing ────────────────────────────────────────────────────────
