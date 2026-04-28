@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { JSX } from 'react';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
+import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { DashboardPlayer } from './types';
@@ -101,6 +102,9 @@ function MoverRow({ player, variant, rank }: MoverRowProps): JSX.Element {
       <div className="w-8 shrink-0 text-right">
         <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
       </div>
+
+      {/* Watchlist star */}
+      <StarButton playerId={player.id} playerName={player.webName} size="sm" />
     </Link>
   );
 }

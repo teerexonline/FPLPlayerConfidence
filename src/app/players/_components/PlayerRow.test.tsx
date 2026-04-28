@@ -10,6 +10,10 @@ vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
 }));
 
+vi.mock('@/components/watchlist/WatchlistContext', () => ({
+  useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
+}));
+
 describe('PlayerRow', () => {
   it('renders the player name', () => {
     render(<PlayerRow player={SALAH} />);
@@ -76,11 +80,11 @@ describe('PlayerRow', () => {
     expect(img).toHaveAttribute('src', '/api/jerseys/14');
   });
 
-  it('pin button click does not trigger row navigation', () => {
+  it('star button click does not trigger row navigation', () => {
     mockPush.mockClear();
     render(<PlayerRow player={SALAH} />);
-    const pin = screen.getByRole('button', { name: /pin m. salah/i });
-    fireEvent.click(pin);
+    const star = screen.getByRole('button', { name: /watchlist/i });
+    fireEvent.click(star);
     expect(mockPush).not.toHaveBeenCalled();
   });
 

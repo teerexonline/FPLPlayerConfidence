@@ -17,6 +17,10 @@ vi.mock('@tanstack/react-virtual', () => ({
   })),
 }));
 
+vi.mock('@/components/watchlist/WatchlistContext', () => ({
+  useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
+}));
+
 describe('PlayersShell', () => {
   it('renders without throwing', () => {
     render(<PlayersShell players={SMOKE_PLAYERS} />);

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import { computeFormation } from './computeFormation';
@@ -118,6 +119,9 @@ function StarterRow({
         <div className="flex shrink-0 items-center gap-1">
           <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
         </div>
+
+        {/* Watchlist star */}
+        <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
       </Link>
     </li>
   );

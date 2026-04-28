@@ -7,6 +7,7 @@ import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
+import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { PlayerWithConfidence } from './types';
@@ -51,7 +52,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       tabIndex={focused ? 0 : -1}
       onClick={handleClick}
       className={cn(
-        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_72px_96px] items-center border-b px-4 last:border-0 hover:border-l-2',
+        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_72px_96px_36px] items-center border-b px-4 last:border-0 hover:border-l-2',
         focused && 'ring-accent/60 ring-2 outline-none ring-inset',
       )}
       aria-label={`${webName}, ${teamShortName}, ${position}, ${price}, confidence ${confidence.toString()}`}
@@ -83,16 +84,6 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
           status={status}
           isStale={recentAppearances < 2}
         />
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-          className="border-border bg-bg text-muted hover:border-accent hover:text-accent focus-visible:ring-accent absolute right-4 hidden h-7 items-center rounded-[4px] border px-2 text-[11px] font-medium transition-colors group-hover:flex focus-visible:ring-2 focus-visible:outline-none"
-          aria-label={`Pin ${webName} to watchlist`}
-        >
-          Pin
-        </button>
       </div>
 
       {/* Team */}
@@ -127,6 +118,17 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
           {arrow}
         </span>
       </div>
+
+      {/* Watchlist star */}
+      <span
+        role="cell"
+        className="flex items-center justify-center"
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        <StarButton playerId={id} playerName={webName} size="sm" />
+      </span>
     </div>
   );
 }

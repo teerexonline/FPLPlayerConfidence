@@ -27,6 +27,10 @@ vi.mock('@tanstack/react-virtual', () => ({
   })),
 }));
 
+vi.mock('@/components/watchlist/WatchlistContext', () => ({
+  useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
+}));
+
 afterEach(() => {
   mockSearchParams.forEach((_, k) => {
     mockSearchParams.delete(k);

@@ -24,6 +24,13 @@ export const SQL_MIGRATIONS: readonly string[] = [
   `ALTER TABLE players ADD COLUMN minutes INTEGER NOT NULL DEFAULT 0`,
   // Difficulty of the player's next scheduled fixture (1–5). 3 = neutral fallback.
   `ALTER TABLE players ADD COLUMN next_fixture_fdr INTEGER NOT NULL DEFAULT 3`,
+  // Watchlist: per-user player bookmarks. Phase 1 uses SYSTEM_USER_ID = 1.
+  `CREATE TABLE IF NOT EXISTS watchlist (
+    user_id    INTEGER NOT NULL,
+    player_id  INTEGER NOT NULL,
+    added_at   INTEGER NOT NULL,
+    PRIMARY KEY (user_id, player_id)
+  )`,
 ];
 
 export const SQL_SCHEMA = `

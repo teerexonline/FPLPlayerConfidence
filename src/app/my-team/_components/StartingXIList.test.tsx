@@ -6,6 +6,10 @@ import { StartingXIList } from './StartingXIList';
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
 }));
+
+vi.mock('@/components/watchlist/WatchlistContext', () => ({
+  useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
+}));
 import type { SquadPlayerRow } from './types';
 
 function makePlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRow {

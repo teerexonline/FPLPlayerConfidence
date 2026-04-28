@@ -13,6 +13,7 @@ import type {
   SyncMetaRepository,
   TeamRepository,
   UserRepository,
+  WatchlistRepository,
 } from '@/lib/db';
 import { playerId } from '@/lib/db';
 import type { PlayerId } from '@/lib/db/types';
@@ -199,6 +200,21 @@ class FakeUserRepository implements UserRepository {
   }
 }
 
+class FakeWatchlistRepository implements WatchlistRepository {
+  findByUser(_userId: number): readonly number[] {
+    return [];
+  }
+  add(_userId: number, _playerId: number): void {
+    // no-op
+  }
+  remove(_userId: number, _playerId: number): void {
+    // no-op
+  }
+  contains(_userId: number, _playerId: number): boolean {
+    return false;
+  }
+}
+
 function makeRepos(): {
   repos: Repositories;
   players: FakePlayerRepository;
@@ -211,6 +227,7 @@ function makeRepos(): {
   const syncMeta = new FakeSyncMetaRepository();
   const managerSquads = new FakeManagerSquadRepository();
   const users = new FakeUserRepository();
+  const watchlist = new FakeWatchlistRepository();
   const repos: Repositories = {
     players,
     teams,
@@ -218,6 +235,7 @@ function makeRepos(): {
     syncMeta,
     managerSquads,
     users,
+    watchlist,
   };
   return { repos, players, confidenceSnapshots, syncMeta };
 }

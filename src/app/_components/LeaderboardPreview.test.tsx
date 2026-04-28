@@ -10,6 +10,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
 }));
 
+vi.mock('@/components/watchlist/WatchlistContext', () => ({
+  useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
+}));
+
 function makePlayer(id: number, position: DashboardPlayer['position']): DashboardPlayer {
   return {
     id,

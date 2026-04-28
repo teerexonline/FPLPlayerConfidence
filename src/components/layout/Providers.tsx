@@ -2,15 +2,16 @@
 
 import { ThemeProvider } from 'next-themes';
 import type { ReactNode } from 'react';
+import { WatchlistProvider } from '@/components/watchlist/WatchlistContext';
 
 export interface ProvidersProps {
   readonly children: ReactNode;
 }
 
 /**
- * Root client-side providers. Wraps the app in next-themes so any descendant
- * can read and set the current theme. `attribute="data-theme"` sets
- * data-theme="light|dark" on <html>, which our Tailwind dark: variant targets.
+ * Root client-side providers. Order matters: ThemeProvider first (controls
+ * CSS variables read by WatchlistProvider descendants), then WatchlistProvider
+ * (fetches watchlist IDs once per app load for all StarButton components).
  */
 export function Providers({ children }: ProvidersProps) {
   return (
@@ -20,7 +21,7 @@ export function Providers({ children }: ProvidersProps) {
       enableSystem
       disableTransitionOnChange
     >
-      {children}
+      <WatchlistProvider>{children}</WatchlistProvider>
     </ThemeProvider>
   );
 }

@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
+import { StarButton } from '@/components/watchlist/StarButton';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { PlayerDetailData } from './types';
 
@@ -108,6 +109,8 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
               />
             </>
           )}
+          <span className="bg-border h-3.5 w-px" aria-hidden="true" />
+          <StarButton playerId={player.id} playerName={webName} size="lg" />
         </div>
 
         {/* Team short + GW badge */}

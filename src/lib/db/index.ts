@@ -5,12 +5,14 @@ import type { PlayerRepository } from './repositories/PlayerRepository';
 import type { SyncMetaRepository } from './repositories/SyncMetaRepository';
 import type { TeamRepository } from './repositories/TeamRepository';
 import type { UserRepository } from './repositories/UserRepository';
+import type { WatchlistRepository } from './repositories/WatchlistRepository';
 import { SqliteConfidenceSnapshotRepository } from './repositories/sqlite/SqliteConfidenceSnapshotRepository';
 import { SqliteManagerSquadRepository } from './repositories/sqlite/SqliteManagerSquadRepository';
 import { SqlitePlayerRepository } from './repositories/sqlite/SqlitePlayerRepository';
 import { SqliteSyncMetaRepository } from './repositories/sqlite/SqliteSyncMetaRepository';
 import { SqliteTeamRepository } from './repositories/sqlite/SqliteTeamRepository';
 import { SqliteUserRepository } from './repositories/sqlite/SqliteUserRepository';
+import { SqliteWatchlistRepository } from './repositories/sqlite/SqliteWatchlistRepository';
 
 export { createDb } from './client';
 export { SYSTEM_USER_ID } from './constants';
@@ -33,6 +35,7 @@ export type { ConfidenceSnapshotRepository } from './repositories/ConfidenceSnap
 export type { SyncMetaRepository } from './repositories/SyncMetaRepository';
 export type { ManagerSquadRepository } from './repositories/ManagerSquadRepository';
 export type { UserRepository } from './repositories/UserRepository';
+export type { WatchlistRepository } from './repositories/WatchlistRepository';
 
 export interface Repositories {
   readonly players: PlayerRepository;
@@ -41,6 +44,7 @@ export interface Repositories {
   readonly syncMeta: SyncMetaRepository;
   readonly managerSquads: ManagerSquadRepository;
   readonly users: UserRepository;
+  readonly watchlist: WatchlistRepository;
 }
 
 /** Returns concrete repository instances backed by the provided database. */
@@ -52,5 +56,6 @@ export function createRepositories(db: Database.Database): Repositories {
     syncMeta: new SqliteSyncMetaRepository(db),
     managerSquads: new SqliteManagerSquadRepository(db),
     users: new SqliteUserRepository(db),
+    watchlist: new SqliteWatchlistRepository(db),
   };
 }

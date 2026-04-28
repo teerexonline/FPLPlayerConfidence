@@ -6,6 +6,7 @@ import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
+import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { PlayerWithConfidence } from './types';
@@ -65,6 +66,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
           <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />
           <StaleDataIndicator recentAppearances={recentAppearances} />
           <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
+          <StarButton playerId={player.id} playerName={webName} size="sm" />
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { JSX } from 'react';
 import { getRepositories } from '@/lib/db/server';
+import { SYSTEM_USER_ID } from '@/lib/db/constants';
 import { hotStreakFromGwsSince } from '@/lib/confidence/hotStreak';
 import { BiggestMoversCard } from './_components/BiggestMoversCard';
 import { WatchlistCard } from './_components/WatchlistCard';
@@ -11,7 +12,12 @@ import type { DashboardData, DashboardPlayer } from './_components/types';
 
 export const dynamic = 'force-dynamic';
 
-function loadDashboard(): DashboardData {
+interface DashboardResult {
+  data: DashboardData;
+  watchlistPlayers: readonly DashboardPlayer[];
+}
+
+function loadDashboard(): DashboardResult {
   const repos = getRepositories();
 
   const allPlayers = repos.players.listAll();
@@ -19,14 +25,19 @@ function loadDashboard(): DashboardData {
   const currentSnapshots = repos.confidenceSnapshots.currentForAllPlayers();
   const last5 = repos.confidenceSnapshots.listLast5ForAllPlayers();
 
+  const watchlistIds = new Set(repos.watchlist.findByUser(SYSTEM_USER_ID));
+
   if (currentSnapshots.length === 0) {
     const emptyLeaderboard = { all: [], GK: [], DEF: [], MID: [], FWD: [] };
     return {
-      currentGameweek: 0,
-      risers: [],
-      fallers: [],
-      leaderboard: emptyLeaderboard,
-      isEmpty: true,
+      data: {
+        currentGameweek: 0,
+        risers: [],
+        fallers: [],
+        leaderboard: emptyLeaderboard,
+        isEmpty: true,
+      },
+      watchlistPlayers: [],
     };
   }
 
@@ -89,18 +100,23 @@ function loadDashboard(): DashboardData {
     .filter((p) => p.latestDelta < 0)
     .sort((a, b) => a.latestDelta - b.latestDelta);
 
+  const watchlistPlayers = players.filter((p) => watchlistIds.has(p.id));
+
   return {
-    currentGameweek,
-    risers: byDeltaDesc.slice(0, 3),
-    fallers: byDeltaAsc.slice(0, 3),
-    leaderboard: {
-      all: byConfidenceDesc.slice(0, 10),
-      GK: byConfidenceDesc.filter((p) => p.position === 'GK').slice(0, 10),
-      DEF: byConfidenceDesc.filter((p) => p.position === 'DEF').slice(0, 10),
-      MID: byConfidenceDesc.filter((p) => p.position === 'MID').slice(0, 10),
-      FWD: byConfidenceDesc.filter((p) => p.position === 'FWD').slice(0, 10),
+    data: {
+      currentGameweek,
+      risers: byDeltaDesc.slice(0, 3),
+      fallers: byDeltaAsc.slice(0, 3),
+      leaderboard: {
+        all: byConfidenceDesc.slice(0, 10),
+        GK: byConfidenceDesc.filter((p) => p.position === 'GK').slice(0, 10),
+        DEF: byConfidenceDesc.filter((p) => p.position === 'DEF').slice(0, 10),
+        MID: byConfidenceDesc.filter((p) => p.position === 'MID').slice(0, 10),
+        FWD: byConfidenceDesc.filter((p) => p.position === 'FWD').slice(0, 10),
+      },
+      isEmpty: false,
     },
-    isEmpty: false,
+    watchlistPlayers,
   };
 }
 
@@ -109,10 +125,10 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<JSX.Element> {
-  const params = await searchParams;
-  const data = loadDashboard();
+  const resolved = await searchParams;
+  const { data, watchlistPlayers } = loadDashboard();
 
-  const rawTab = params['leaderboard'];
+  const rawTab = resolved['leaderboard'];
   const initialTab = typeof rawTab === 'string' ? rawTab : 'all';
 
   if (data.isEmpty) {
@@ -140,7 +156,7 @@ export default async function DashboardPage({
           )}
         </div>
 
-        {/* Hero strip — Risers, Fallers, Hot Players, My Team */}
+        {/* Hero strip — Risers, Fallers, Watchlist, My Team */}
         <section aria-label="Hero overview" className="mb-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <BiggestMoversCard
@@ -155,7 +171,7 @@ export default async function DashboardPage({
               variant="fallers"
               ariaLabel="Biggest confidence fallers this gameweek"
             />
-            <WatchlistCard />
+            <WatchlistCard players={watchlistPlayers} />
             <TeamConfidenceHero />
           </div>
         </section>

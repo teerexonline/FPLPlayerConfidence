@@ -9,6 +9,7 @@ import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
+import { StarButton } from '@/components/watchlist/StarButton';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import type { DashboardLeaderboard, DashboardPlayer } from './types';
 
@@ -130,6 +131,17 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
           news={player.news}
         />
       </div>
+
+      {/* Watchlist star */}
+      <span
+        role="cell"
+        className="flex shrink-0 items-center"
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        <StarButton playerId={player.id} playerName={player.webName} size="sm" />
+      </span>
     </div>
   );
 }
