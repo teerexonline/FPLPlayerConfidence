@@ -8,6 +8,7 @@ import { WatchlistCard } from './_components/WatchlistCard';
 import { LeaderboardPreview } from './_components/LeaderboardPreview';
 import { TeamConfidenceHero } from './_components/TeamConfidenceHero';
 import { DashboardEmptyState } from './_components/DashboardEmptyState';
+import { selectRisers, selectFallers } from './_components/moversFilter';
 import type { DashboardData, DashboardPlayer } from './_components/types';
 
 export const dynamic = 'force-dynamic';
@@ -93,20 +94,14 @@ function loadDashboard(): DashboardResult {
 
   // Sort variants — all tracked players are now shown; stale ones display a flag.
   const byConfidenceDesc = [...players].sort((a, b) => b.confidence - a.confidence);
-  const byDeltaDesc = [...players]
-    .filter((p) => p.latestDelta > 0)
-    .sort((a, b) => b.latestDelta - a.latestDelta);
-  const byDeltaAsc = [...players]
-    .filter((p) => p.latestDelta < 0)
-    .sort((a, b) => a.latestDelta - b.latestDelta);
 
   const watchlistPlayers = players.filter((p) => watchlistIds.has(p.id));
 
   return {
     data: {
       currentGameweek,
-      risers: byDeltaDesc.slice(0, 3),
-      fallers: byDeltaAsc.slice(0, 3),
+      risers: selectRisers(players, 5),
+      fallers: selectFallers(players, 5),
       leaderboard: {
         all: byConfidenceDesc.slice(0, 10),
         GK: byConfidenceDesc.filter((p) => p.position === 'GK').slice(0, 10),

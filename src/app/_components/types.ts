@@ -29,9 +29,9 @@ export interface DashboardLeaderboard {
 
 export interface DashboardData {
   readonly currentGameweek: number;
-  /** Top 3 by positive delta this GW, delta descending */
+  /** Top 5 eligible risers this GW (status 'a', not stale), delta descending */
   readonly risers: readonly DashboardPlayer[];
-  /** Top 3 by negative delta this GW, delta ascending */
+  /** Top 5 eligible fallers this GW (status 'a', not stale), delta ascending */
   readonly fallers: readonly DashboardPlayer[];
   /** Top 10 slices by position (and overall), confidence descending */
   readonly leaderboard: DashboardLeaderboard;
