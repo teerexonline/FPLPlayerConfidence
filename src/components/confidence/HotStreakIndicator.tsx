@@ -22,7 +22,7 @@ const LEVEL_META: Record<
   low_hot: {
     label: 'Fading',
     streakLabel: 'Fading streak',
-    colorClass: 'text-[#f59e0b]',
+    colorClass: 'text-[#94a3b8]',
   },
 };
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { HotStreakIndicator } from './HotStreakIndicator';
+import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
 
 // ── null level ───────────────────────────────────────────────────────────────
 
@@ -162,6 +163,36 @@ describe('HotStreakIndicator — lg variant', () => {
 
     rerender(<HotStreakIndicator level="low_hot" size="lg" currentGW={22} />);
     expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'Fading streak · GW22');
+  });
+});
+
+// ── Color class / temperature decay ──────────────────────────────────────────
+
+describe('HotStreakIndicator — color classes (temperature decay)', () => {
+  function flameClass(level: HotStreakLevel): string {
+    const { container } = render(<HotStreakIndicator level={level} size="sm" currentGW={1} />);
+    return container.querySelector('svg')?.getAttribute('class') ?? '';
+  }
+
+  it('red_hot flame carries the warm red-pink color (#f43f5e)', () => {
+    expect(flameClass('red_hot')).toContain('#f43f5e');
+  });
+
+  it('med_hot flame carries the mid orange color (#fb923c)', () => {
+    expect(flameClass('med_hot')).toContain('#fb923c');
+  });
+
+  it('low_hot flame carries the cool slate color (#94a3b8)', () => {
+    expect(flameClass('low_hot')).toContain('#94a3b8');
+  });
+
+  it('all three levels produce visually distinct color classes', () => {
+    const fresh = flameClass('red_hot');
+    const recent = flameClass('med_hot');
+    const fading = flameClass('low_hot');
+    expect(fresh).not.toEqual(recent);
+    expect(recent).not.toEqual(fading);
+    expect(fresh).not.toEqual(fading);
   });
 });
 
