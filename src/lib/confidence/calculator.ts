@@ -61,9 +61,9 @@ const CS_FDR_MULTIPLIERS: Record<number, number> = {
  * regardless of the difficulty value FPL assigns to a given fixture.
  *
  * IDs are stable FPL team IDs verified against the teams table:
- *   7 = Chelsea, 12 = Liverpool, 13 = Man City, 14 = Man Utd
+ *   1 = Arsenal, 7 = Chelsea, 12 = Liverpool, 13 = Man City, 14 = Man Utd
  */
-const BIG_TEAM_IDS: ReadonlySet<number> = new Set([7, 12, 13, 14]);
+const BIG_TEAM_IDS: ReadonlySet<number> = new Set([1, 7, 12, 13, 14]);
 
 /** Returns the effective FDR and reason label for the opponent, applying the big team override. */
 function getOpponentLabel(match: MatchEvent): { fdr: number; label: string } {

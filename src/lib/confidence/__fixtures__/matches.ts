@@ -2,7 +2,7 @@ import type { MatchEvent } from '../types';
 
 export const aMatch = (overrides: Partial<MatchEvent> = {}): MatchEvent => ({
   gameweek: 1,
-  opponentTeamId: 1,
+  opponentTeamId: 6, // Brighton (BHA) — non-BIG, stable mid-table control
   opponentFdr: 3, // neutral — FDR 3 multiplier is ×1.0 on both sides
   minutesPlayed: 90,
   goals: 0,

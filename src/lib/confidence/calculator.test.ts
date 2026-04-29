@@ -1564,6 +1564,26 @@ describe('calculateConfidence', () => {
     });
   });
 
+  it('EX-63: FWD MOTM vs Arsenal (id=1, FPL FDR=4) → effective FDR 5 → +5, reason "BIG"', () => {
+    // Arsenal (id=1) is a BIG team (v1.7.1) — opponentTeamId=1 overrides FPL FDR to effective 5.
+    // 2 × MOTM_FDR_MULTIPLIERS[5] = 2 × 2.5 = 5.0 → +5
+    const input: CalculatorInput = {
+      position: 'FWD',
+      matches: [aMatch({ goals: 1, opponentTeamId: 1, opponentFdr: 4 })],
+    };
+
+    const result = calculateConfidence(input);
+
+    expect(result.finalConfidence).toBe(5);
+    expect(result.history[0]).toMatchObject({
+      delta: 5,
+      rawDelta: 5,
+      reason: 'MOTM vs BIG opponent',
+      confidenceAfter: 5,
+      motmCounterAfter: 1,
+    });
+  });
+
   // ── Property tests ─────────────────────────────────────────────────────
 
   describe('property tests', () => {

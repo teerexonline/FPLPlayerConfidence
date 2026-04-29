@@ -8,6 +8,7 @@ This document is the **complete specification** for how Confidence is calculated
 
 | Version | Summary                                                                                                                                                                                                                                                                                                                                                         |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.7.1  | Added Arsenal (ID 1) to the BIG team override list. Per the spotlight-effect rationale, Arsenal qualifies as a headliner team alongside the existing four. Any opponent player facing Arsenal now uses effective FDR 5 for goal/assist and Blank events.                                                                                                        |
 | v1.7    | Split `GOAL_ASSIST_FDR_MULTIPLIERS` into `MOTM_FDR_MULTIPLIERS`, `PERFORMANCE_FDR_MULTIPLIERS`, and `CS_FDR_MULTIPLIERS`. GK/DEF single assists now use the Performance path (no MOTM reclassification). CS suppressed when MOTM fires. Added `rawDelta` to `MatchDelta` and `confidence_snapshots.raw_delta`. Hot Streak trigger and level now use `rawDelta`. |
 | v1.6    | Asymmetric confidence range `[-4, +5]`; three independent fatigue mechanisms (MOTM, DC, SC); intermediate-clamp fatigue rule; SaveCon for GK; FDR-replaced big-team binary flag.                                                                                                                                                                                |
 
@@ -172,10 +173,11 @@ Three separate multiplier tables exist for positive events, each calibrated to i
 
 ### 4.3 Big-team FDR override
 
-Four clubs are treated as effective FDR 5 for the purpose of MOTM, Performance, and Blank events, regardless of the FDR value FPL assigns to the fixture:
+Five clubs are treated as effective FDR 5 for the purpose of MOTM, Performance, and Blank events, regardless of the FDR value FPL assigns to the fixture:
 
 | Club      | FPL Team ID |
 | --------- | ----------- |
+| Arsenal   | 1           |
 | Chelsea   | 7           |
 | Liverpool | 12          |
 | Man City  | 13          |
@@ -1136,9 +1138,9 @@ const FDR_BLANK_MULTIPLIER: Record<number, number> = {
 /**
  * Opponents whose team ID triggers effective FDR 5 for MOTM/Performance/Blank events.
  * Does NOT apply to CS, DefCon, or SaveCon.
- *   7 = Chelsea, 12 = Liverpool, 13 = Man City, 14 = Man Utd
+ *   1 = Arsenal, 7 = Chelsea, 12 = Liverpool, 13 = Man City, 14 = Man Utd
  */
-const BIG_TEAM_IDS: ReadonlySet<number> = new Set([7, 12, 13, 14]);
+const BIG_TEAM_IDS: ReadonlySet<number> = new Set([1, 7, 12, 13, 14]);
 
 function getOpponentLabel(match: MatchEvent): { fdr: number; label: string } {
   if (BIG_TEAM_IDS.has(match.opponentTeamId)) {
