@@ -5,7 +5,7 @@ import type { JSX } from 'react';
 export const dynamic = 'force-dynamic';
 import { getRepositories } from '@/lib/db/server';
 import { teamId as brandTeamId } from '@/lib/db';
-import { hotStreakFromGwsSince } from '@/lib/confidence/hotStreak';
+import { buildMatchBriefs, computeHotStreak } from '@/lib/confidence/hotStreak';
 import { PlayersShell } from './_components/PlayersShell';
 import type { PlayerWithConfidence } from './_components/types';
 
@@ -35,11 +35,9 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
   const recentAppearancesMap =
     repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
-  const minBoostGw = Math.max(1, currentGameweek - 2);
-  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(
-    minBoostGw,
-    currentGameweek,
-  );
+  const minStreakGw = Math.max(1, currentGameweek - 2);
+  const recentSnapshotsMap =
+    repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
 
   return currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const player = playerMap.get(pid);
@@ -47,9 +45,8 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
     if (!player || !team) return [];
 
     const numericPid = Number(pid);
-    const boostGw = boostGwMap.get(numericPid);
-    const hotStreakLevel =
-      boostGw !== undefined ? hotStreakFromGwsSince(currentGameweek - boostGw) : null;
+    const recentSnaps = recentSnapshotsMap.get(numericPid) ?? [];
+    const hotStreakLevel = computeHotStreak(buildMatchBriefs(recentSnaps));
 
     return [
       {

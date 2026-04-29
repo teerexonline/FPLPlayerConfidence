@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildMatchBriefs,
   computeHotStreak,
   computeHotStreakAtMatch,
   hotStreakAtGw,
@@ -299,5 +300,86 @@ describe('computeHotStreak', () => {
       { matchOrder: 2, delta: -1 },
     ];
     expect(computeHotStreak(briefs)).toBe('med_hot');
+  });
+});
+
+// ── buildMatchBriefs ─────────────────────────────────────────────────────────
+
+describe('buildMatchBriefs', () => {
+  it('single non-DGW snapshot produces one brief with the snapshot delta', () => {
+    const result = buildMatchBriefs([{ delta: 2, reason: 'Blank vs FDR 3 opponent' }]);
+    expect(result).toEqual([{ matchOrder: 0, delta: 2 }]);
+  });
+
+  it('multiple non-DGW snapshots produce consecutive matchOrders', () => {
+    const result = buildMatchBriefs([
+      { delta: 1, reason: 'Performance vs FDR 3 opponent' },
+      { delta: 3, reason: 'MOTM vs FDR 5 opponent' },
+      { delta: -1, reason: 'Blank vs FDR 3 opponent' },
+    ]);
+    expect(result).toEqual([
+      { matchOrder: 0, delta: 1 },
+      { matchOrder: 1, delta: 3 },
+      { matchOrder: 2, delta: -1 },
+    ]);
+  });
+
+  it('DGW snapshot expands into two consecutive briefs with per-sub-match deltas', () => {
+    const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
+    const result = buildMatchBriefs([{ delta: 2, reason }]);
+    expect(result).toEqual([
+      { matchOrder: 0, delta: 3 },
+      { matchOrder: 1, delta: -1 },
+    ]);
+  });
+
+  it('DGW boost in sub-match B (most recent) → computeHotStreak returns red_hot — the live-indicator DGW bug', () => {
+    // The bug: combined DGW delta = +1+3 = 4. With GW-based: gwsSince=0 → 'fresh' at currentGW.
+    // At currentGW+1, gwsSince=1 → 'recent'. But sub-match B (matchOrder=1) WAS the most recent
+    // match, and the boost was there — matchesSinceBoost=0 → should be 'fresh'.
+    const reason = 'DGW: Blank vs FDR 3 opponent (+1) + MOTM vs FDR 5 opponent (+3)';
+    const result = computeHotStreak(buildMatchBriefs([{ delta: 4, reason }]));
+    expect(result).toBe('red_hot');
+  });
+
+  it('DGW combined delta < 3 but sub-match A delta ≥ 3 → boost detected via per-sub-match parsing', () => {
+    // Combined = +3 + (−1) = +2. SQL WHERE delta>=3 misses this. buildMatchBriefs finds it.
+    const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
+    const briefs = buildMatchBriefs([{ delta: 2, reason }]);
+    expect(briefs[0]).toMatchObject({ delta: 3 });
+    expect(briefs[1]).toMatchObject({ delta: -1 });
+    // After the DGW (sub-match B is the latest), matchesSinceBoost = 1 → 'recent'.
+    expect(computeHotStreak(briefs)).toBe('med_hot');
+  });
+
+  it('mixed sequence: non-DGW then DGW assigns matchOrders correctly', () => {
+    const result = buildMatchBriefs([
+      { delta: 1, reason: 'Performance vs FDR 3 opponent' },
+      {
+        delta: 2,
+        reason: 'DGW: Performance vs FDR 4 opponent (+3) + Blank vs FDR 2 opponent (-1)',
+      },
+    ]);
+    expect(result).toEqual([
+      { matchOrder: 0, delta: 1 },
+      { matchOrder: 1, delta: 3 },
+      { matchOrder: 2, delta: -1 },
+    ]);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(buildMatchBriefs([])).toEqual([]);
+  });
+
+  it('DGW reason with fatigue-modified sub-match parses correctly', () => {
+    // Real format: "Performance + Fatigue" is the sub-match reason text with no inline delta;
+    // the combined entry delta (+2) appears only at the end. The signed-delta regex finds
+    // exactly one delta per sub-match entry — no false positives.
+    const reason =
+      'DGW: Performance vs FDR 3 opponent + Fatigue (+2) + Blank vs FDR 2 opponent (-1)';
+    const briefs = buildMatchBriefs([{ delta: 1, reason }]);
+    expect(briefs).toHaveLength(2);
+    expect(briefs[0]).toMatchObject({ matchOrder: 0, delta: 2 });
+    expect(briefs[1]).toMatchObject({ matchOrder: 1, delta: -1 });
   });
 });

@@ -1,5 +1,15 @@
 import type { DbConfidenceSnapshot, PlayerId } from '../types';
 
+/**
+ * Minimal snapshot data required to build per-match MatchBrief sequences for
+ * DGW-aware hot streak computation. Returned by listRecentSnapshotsForAllPlayers.
+ */
+export interface SnapshotBrief {
+  readonly gameweek: number;
+  readonly delta: number;
+  readonly reason: string;
+}
+
 export interface ConfidenceSnapshotRepository {
   /** Inserts or replaces a single confidence snapshot. */
   upsert(snapshot: DbConfidenceSnapshot): void;
@@ -65,6 +75,20 @@ export interface ConfidenceSnapshotRepository {
    * pick a later boost and hide the most-recent past one.
    */
   recentBoostGameweekForAllPlayers(minGw: number, maxGw: number): ReadonlyMap<number, number>;
+
+  /**
+   * Returns a map of playerId → SnapshotBrief array (gameweek, delta, reason) for
+   * all players with at least one snapshot in gameweeks ≥ minGw.
+   *
+   * Rows are ordered by gameweek ascending within each player, matching the order
+   * required by buildMatchBriefs for correct matchOrder assignment.
+   *
+   * Used by the Dashboard and Players list live hot streak computation to replace
+   * the GW-based recentBoostGameweekForAllPlayers path. Returning the reason field
+   * lets buildMatchBriefs expand DGW snapshots into per-sub-match MatchBrief entries,
+   * fixing the DGW streak bug without any SQL-side parsing.
+   */
+  listRecentSnapshotsForAllPlayers(minGw: number): ReadonlyMap<number, readonly SnapshotBrief[]>;
 
   /**
    * Deletes all snapshots for a player. Used by the Big Teams recompute

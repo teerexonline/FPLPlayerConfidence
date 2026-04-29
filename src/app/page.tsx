@@ -2,7 +2,7 @@ import 'server-only';
 import type { JSX } from 'react';
 import { getRepositories } from '@/lib/db/server';
 import { SYSTEM_USER_ID } from '@/lib/db/constants';
-import { hotStreakFromGwsSince } from '@/lib/confidence/hotStreak';
+import { buildMatchBriefs, computeHotStreak } from '@/lib/confidence/hotStreak';
 import { BiggestMoversCard } from './_components/BiggestMoversCard';
 import { WatchlistCard } from './_components/WatchlistCard';
 import { LeaderboardPreview } from './_components/LeaderboardPreview';
@@ -57,13 +57,12 @@ function loadDashboard(): DashboardResult {
   const recentAppearancesMap =
     repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
-  // Hot streak: find the most recent GW where each player had delta ≥ 3.
-  // Look back 3 GWs — anything older cannot produce a streak level (window: 0, 1, 2 GWs since boost).
-  const minBoostGw = Math.max(1, currentGameweek - 2);
-  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(
-    minBoostGw,
-    currentGameweek,
-  );
+  // Hot streak: fetch recent snapshots (with reason) so buildMatchBriefs can expand DGW
+  // rows into per-sub-match entries. computeHotStreak then counts matches, not GWs, which
+  // correctly handles DGW boosts where the combined delta ≠ any single sub-match delta.
+  const minStreakGw = Math.max(1, currentGameweek - 2);
+  const recentSnapshotsMap =
+    repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
 
   const players: DashboardPlayer[] = currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const numericId = Number(pid);
@@ -71,9 +70,8 @@ function loadDashboard(): DashboardResult {
     const team = player ? teamMap.get(player.team_id) : undefined;
     if (!player || !team) return [];
 
-    const boostGw = boostGwMap.get(numericId);
-    const hotStreakLevel =
-      boostGw !== undefined ? hotStreakFromGwsSince(currentGameweek - boostGw) : null;
+    const recentSnaps = recentSnapshotsMap.get(numericId) ?? [];
+    const hotStreakLevel = computeHotStreak(buildMatchBriefs(recentSnaps));
 
     return [
       {

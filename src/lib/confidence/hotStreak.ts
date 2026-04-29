@@ -80,3 +80,53 @@ export function computeHotStreak(matchBriefs: readonly MatchBrief[]): HotStreakL
   const maxOrder = Math.max(...matchBriefs.map((b) => b.matchOrder));
   return computeHotStreakAtMatch(matchBriefs, maxOrder);
 }
+
+/**
+ * Regex matching a signed integer in parentheses — the per-sub-match delta marker
+ * appended by collapseByGameweek when building DGW compound reason strings.
+ * Format: `(+N)` or `(-N)` where N is one or more digits.
+ *
+ * Each DGW sub-match entry ends with exactly one such pattern; reason text clauses
+ * (e.g. "Performance vs FDR 3 opponent + Fatigue") never contain this pattern, so
+ * matchAll returns exactly one capture per sub-match — no false positives.
+ */
+const DGW_DELTA_RE = /\(([+-]\d+)\)/g;
+
+function parseDgwSubDeltas(reason: string): readonly number[] | null {
+  if (!reason.startsWith('DGW: ')) return null;
+  const deltas = [...reason.matchAll(DGW_DELTA_RE)].map((m) => parseInt(m[1] ?? '0', 10));
+  return deltas.length >= 2 ? deltas : null;
+}
+
+/**
+ * Converts a chronologically-sorted list of GW snapshots into a flat MatchBrief
+ * sequence with 0-indexed matchOrders. DGW snapshots (whose reason starts with
+ * "DGW: ") are expanded into two consecutive entries using the per-sub-match
+ * deltas embedded in the reason string, so each sub-match consumes one streak step.
+ *
+ * Input MUST be sorted by gameweek ascending — callers guarantee this via the
+ * repository query order.
+ *
+ * This is the correct input-building step for computeHotStreak on the live bulk
+ * path (Dashboard, Players list). It mirrors the logic in the Player Detail page
+ * server component, ensuring both paths compute identical streak levels.
+ */
+export function buildMatchBriefs(
+  snapshots: readonly { delta: number; reason: string }[],
+): readonly MatchBrief[] {
+  const briefs: MatchBrief[] = [];
+  let cursor = 0;
+  for (const s of snapshots) {
+    const subDeltas = parseDgwSubDeltas(s.reason);
+    if (subDeltas !== null) {
+      for (const d of subDeltas) {
+        briefs.push({ matchOrder: cursor, delta: d });
+        cursor++;
+      }
+    } else {
+      briefs.push({ matchOrder: cursor, delta: s.delta });
+      cursor++;
+    }
+  }
+  return briefs;
+}

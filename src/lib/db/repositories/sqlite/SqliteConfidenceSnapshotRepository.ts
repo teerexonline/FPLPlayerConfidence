@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { playerId } from '../../types';
 import type { DbConfidenceSnapshot, PlayerId } from '../../types';
-import type { ConfidenceSnapshotRepository } from '../ConfidenceSnapshotRepository';
+import type { ConfidenceSnapshotRepository, SnapshotBrief } from '../ConfidenceSnapshotRepository';
 
 interface SnapshotRow {
   player_id: number;
@@ -18,6 +18,13 @@ interface SnapshotRow {
 interface DeltaRow {
   player_id: number;
   delta: number;
+}
+
+interface RecentSnapshotRow {
+  player_id: number;
+  gameweek: number;
+  delta: number;
+  reason: string;
 }
 
 function rowToSnapshot(row: SnapshotRow): DbConfidenceSnapshot {
@@ -56,6 +63,7 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
     [number, number],
     { player_id: number; boost_gw: number }
   >;
+  private readonly stmtRecentSnapshots: Database.Statement<[number], RecentSnapshotRow>;
 
   constructor(private readonly db: Database.Database) {
     this.stmtUpsert = db.prepare(
@@ -116,6 +124,12 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
        FROM confidence_snapshots
        WHERE delta >= 3 AND gameweek >= ? AND gameweek <= ?
        GROUP BY player_id`,
+    );
+    this.stmtRecentSnapshots = db.prepare<[number], RecentSnapshotRow>(
+      `SELECT player_id, gameweek, delta, reason
+       FROM confidence_snapshots
+       WHERE gameweek >= ?
+       ORDER BY player_id, gameweek ASC`,
     );
   }
 
@@ -199,6 +213,20 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
     const map = new Map<number, number>();
     for (const row of rows) {
       map.set(row.player_id, row.boost_gw);
+    }
+    return map;
+  }
+
+  listRecentSnapshotsForAllPlayers(minGw: number): ReadonlyMap<number, readonly SnapshotBrief[]> {
+    const rows = this.stmtRecentSnapshots.all(minGw);
+    const map = new Map<number, SnapshotBrief[]>();
+    for (const row of rows) {
+      let arr = map.get(row.player_id);
+      if (!arr) {
+        arr = [];
+        map.set(row.player_id, arr);
+      }
+      arr.push({ gameweek: row.gameweek, delta: row.delta, reason: row.reason });
     }
     return map;
   }

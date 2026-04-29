@@ -152,6 +152,23 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
     }
     return map;
   }
+  listRecentSnapshotsForAllPlayers(
+    minGw: number,
+  ): ReadonlyMap<number, readonly { gameweek: number; delta: number; reason: string }[]> {
+    const map = new Map<number, { gameweek: number; delta: number; reason: string }[]>();
+    const sorted = [...this.store.values()]
+      .filter((s) => s.gameweek >= minGw)
+      .sort((a, b) => a.gameweek - b.gameweek);
+    for (const s of sorted) {
+      let arr = map.get(s.player_id);
+      if (!arr) {
+        arr = [];
+        map.set(s.player_id, arr);
+      }
+      arr.push({ gameweek: s.gameweek, delta: s.delta, reason: s.reason });
+    }
+    return map;
+  }
   deleteByPlayer(pid: PlayerId): void {
     for (const [key, s] of this.store.entries()) {
       if (s.player_id === pid) this.store.delete(key);
