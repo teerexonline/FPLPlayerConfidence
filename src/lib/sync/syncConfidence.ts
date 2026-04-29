@@ -40,6 +40,7 @@ function collapseByGameweek(pid: number, history: readonly MatchDelta[]): DbConf
     const last = entries.at(-1);
     if (last === undefined) continue;
     const totalDelta = entries.reduce((sum, e) => sum + e.delta, 0);
+    const totalRawDelta = entries.reduce((sum, e) => sum + e.rawDelta, 0);
     const signedStr = (d: number): string => (d >= 0 ? `+${d.toString()}` : d.toString());
     const reason =
       entries.length === 1
@@ -51,6 +52,7 @@ function collapseByGameweek(pid: number, history: readonly MatchDelta[]): DbConf
       gameweek: last.gameweek,
       confidence_after: last.confidenceAfter,
       delta: totalDelta,
+      raw_delta: totalRawDelta,
       reason,
       fatigue_applied: entries.some((e) => e.fatigueApplied),
       motm_counter: last.motmCounterAfter,

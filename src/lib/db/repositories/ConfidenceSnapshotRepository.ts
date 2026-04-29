@@ -7,6 +7,7 @@ import type { DbConfidenceSnapshot, PlayerId } from '../types';
 export interface SnapshotBrief {
   readonly gameweek: number;
   readonly delta: number;
+  readonly rawDelta: number; // pre-fatigue clamped delta — passed to buildMatchBriefs
   readonly reason: string;
 }
 

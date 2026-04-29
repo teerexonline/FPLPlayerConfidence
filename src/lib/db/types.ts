@@ -43,6 +43,7 @@ export interface DbConfidenceSnapshot {
   readonly gameweek: number;
   readonly confidence_after: number;
   readonly delta: number;
+  readonly raw_delta: number; // pre-fatigue clamped delta — used for streak threshold and level
   readonly reason: string;
   readonly fatigue_applied: boolean;
   readonly motm_counter: number;

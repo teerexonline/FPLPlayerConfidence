@@ -31,6 +31,9 @@ export const SQL_MIGRATIONS: readonly string[] = [
     added_at   INTEGER NOT NULL,
     PRIMARY KEY (user_id, player_id)
   )`,
+  // v1.7: pre-fatigue clamped delta — used for Hot Streak threshold and level so
+  // fatigue events don't mask a qualifying boost or downgrade the flame color.
+  `ALTER TABLE confidence_snapshots ADD COLUMN raw_delta INTEGER NOT NULL DEFAULT 0`,
 ];
 
 export const SQL_SCHEMA = `

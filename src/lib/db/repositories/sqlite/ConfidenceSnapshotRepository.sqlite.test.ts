@@ -14,6 +14,7 @@ function aSnapshot(overrides: Partial<DbConfidenceSnapshot> = {}): DbConfidenceS
     gameweek: 1,
     confidence_after: 0,
     delta: 0,
+    raw_delta: 0,
     reason: 'test',
     fatigue_applied: false,
     motm_counter: 0,

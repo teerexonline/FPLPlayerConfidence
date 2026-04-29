@@ -8,6 +8,7 @@ interface SnapshotRow {
   gameweek: number;
   confidence_after: number;
   delta: number;
+  raw_delta: number;
   reason: string;
   fatigue_applied: number; // stored as 0 | 1
   motm_counter: number;
@@ -24,6 +25,7 @@ interface RecentSnapshotRow {
   player_id: number;
   gameweek: number;
   delta: number;
+  raw_delta: number;
   reason: string;
 }
 
@@ -33,6 +35,7 @@ function rowToSnapshot(row: SnapshotRow): DbConfidenceSnapshot {
     gameweek: row.gameweek,
     confidence_after: row.confidence_after,
     delta: row.delta,
+    raw_delta: row.raw_delta,
     reason: row.reason,
     fatigue_applied: row.fatigue_applied !== 0,
     motm_counter: row.motm_counter,
@@ -42,11 +45,11 @@ function rowToSnapshot(row: SnapshotRow): DbConfidenceSnapshot {
 }
 
 const SELECT_COLS =
-  'player_id, gameweek, confidence_after, delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter';
+  'player_id, gameweek, confidence_after, delta, raw_delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter';
 
 export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
   private readonly stmtUpsert: Database.Statement<
-    [number, number, number, number, string, number, number, number, number]
+    [number, number, number, number, number, string, number, number, number, number]
   >;
   private readonly stmtListByPlayer: Database.Statement<[number], SnapshotRow>;
   private readonly stmtCurrentByPlayer: Database.Statement<[number], SnapshotRow>;
@@ -68,8 +71,8 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
   constructor(private readonly db: Database.Database) {
     this.stmtUpsert = db.prepare(
       `INSERT OR REPLACE INTO confidence_snapshots
-       (player_id, gameweek, confidence_after, delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (player_id, gameweek, confidence_after, delta, raw_delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     this.stmtListByPlayer = db.prepare<[number], SnapshotRow>(
       `SELECT ${SELECT_COLS} FROM confidence_snapshots
@@ -119,17 +122,18 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
        WHERE gameweek >= ?
        GROUP BY player_id`,
     );
+    // v1.7: use raw_delta for boost detection so fatigue doesn't mask a qualifying boost.
     this.stmtRecentBoost = db.prepare<
       [number, number],
       { player_id: number; boost_gw: number; boost_delta: number }
     >(
-      `SELECT player_id, MAX(gameweek) AS boost_gw, delta AS boost_delta
+      `SELECT player_id, MAX(gameweek) AS boost_gw, raw_delta AS boost_delta
        FROM confidence_snapshots
-       WHERE delta >= 3 AND gameweek >= ? AND gameweek <= ?
+       WHERE raw_delta >= 3 AND gameweek >= ? AND gameweek <= ?
        GROUP BY player_id`,
     );
     this.stmtRecentSnapshots = db.prepare<[number], RecentSnapshotRow>(
-      `SELECT player_id, gameweek, delta, reason
+      `SELECT player_id, gameweek, delta, raw_delta, reason
        FROM confidence_snapshots
        WHERE gameweek >= ?
        ORDER BY player_id, gameweek ASC`,
@@ -142,6 +146,7 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
       snapshot.gameweek,
       snapshot.confidence_after,
       snapshot.delta,
+      snapshot.raw_delta,
       snapshot.reason,
       snapshot.fatigue_applied ? 1 : 0,
       snapshot.motm_counter,
@@ -158,6 +163,7 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
           s.gameweek,
           s.confidence_after,
           s.delta,
+          s.raw_delta,
           s.reason,
           s.fatigue_applied ? 1 : 0,
           s.motm_counter,
@@ -232,7 +238,12 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
         arr = [];
         map.set(row.player_id, arr);
       }
-      arr.push({ gameweek: row.gameweek, delta: row.delta, reason: row.reason });
+      arr.push({
+        gameweek: row.gameweek,
+        delta: row.delta,
+        rawDelta: row.raw_delta,
+        reason: row.reason,
+      });
     }
     return map;
   }

@@ -9,6 +9,7 @@ function makeSnap(gameweek: number, delta: number, reason: string): SnapshotPoin
     gameweek,
     confidenceAfter: delta,
     delta,
+    rawDelta: delta,
     reason,
     fatigueApplied: false,
     motmCounter: 0,

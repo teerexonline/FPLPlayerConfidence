@@ -19,7 +19,8 @@ export interface CalculatorInput {
 
 export interface MatchDelta {
   readonly gameweek: number;
-  readonly delta: number; // post-clamp net change
+  readonly delta: number; // post-fatigue net change
+  readonly rawDelta: number; // pre-fatigue clamped delta — used for streak threshold and level
   readonly reason: string;
   readonly fatigueApplied: boolean; // true iff MOTM Fatigue penalty was applied
   readonly dcFatigueApplied: boolean; // true iff DC Fatigue penalty was applied

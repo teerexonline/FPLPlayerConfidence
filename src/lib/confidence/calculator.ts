@@ -18,16 +18,42 @@ const DEFCON_THRESHOLD: Record<Position, number | null> = {
 };
 
 /**
- * Multiplier for goal/assist-driven events (MOTM, Performance).
- * FDR 4 and 5 are boosted relative to the old single table to reward
- * genuine attacking returns against tough opposition more aggressively.
+ * v1.7: MOTM uses a dedicated table with a raised floor (×0.75 at FDR 1–2) so a
+ * goal against any opponent is worth at least +2. FDR 4 is boosted to ×2.0
+ * (was ×1.5) to make +4 reachable and distinguish warm from mild.
  */
-const GOAL_ASSIST_FDR_MULTIPLIERS: Record<number, number> = {
+export const MOTM_FDR_MULTIPLIERS: Record<number, number> = {
+  1: 0.75,
+  2: 0.75,
+  3: 1.0,
+  4: 2.0,
+  5: 2.5,
+};
+
+/**
+ * v1.7: Performance (single assist for MID/FWD, single assist for GK/DEF) uses a
+ * separate table that scales more aggressively at high FDR. A solo assist at
+ * FDR 4 gives +3 (mild streak trigger); at FDR 5/BIG it gives +4 (warm trigger).
+ */
+export const PERFORMANCE_FDR_MULTIPLIERS: Record<number, number> = {
   1: 0.5,
   2: 0.75,
   3: 1.0,
-  4: 1.5,
-  5: 2.5,
+  4: 2.5,
+  5: 3.5,
+};
+
+/**
+ * v1.7: Clean sheet uses a separate multiplier table. CS at FDR 1–4 rounds to +1;
+ * at FDR 5 (×1.5) it rounds to +2. The big-team override does NOT apply here —
+ * CS always uses the actual FPL FDR.
+ */
+const CS_FDR_MULTIPLIERS: Record<number, number> = {
+  1: 0.5,
+  2: 0.75,
+  3: 1.0,
+  4: 1.25,
+  5: 1.5,
 };
 
 /**
@@ -82,12 +108,13 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
   // getOpponentLabel applies the big-team override for goal/assist and blank events only.
   // DefCon is a flat recovery point — no override, uses FPL's actual FDR in the label.
   const { fdr, label } = getOpponentLabel(match);
-  const gaMul = GOAL_ASSIST_FDR_MULTIPLIERS[fdr] ?? 1;
+  const motmMul = MOTM_FDR_MULTIPLIERS[fdr] ?? 1;
+  const perfMul = PERFORMANCE_FDR_MULTIPLIERS[fdr] ?? 1;
   const blkMul = FDR_BLANK_MULTIPLIER[fdr] ?? 1;
 
   if (match.goals >= 1 || match.assists >= 2) {
     return {
-      raw: roundAwayFromZero(2 * gaMul),
+      raw: roundAwayFromZero(2 * motmMul),
       reasons: [`MOTM vs ${label} opponent`],
       isMotm: true,
       isDefCon: false,
@@ -96,7 +123,7 @@ function resolveMidFwd(match: MatchEvent, defconHit: boolean): MatchAdjustment {
   }
 
   if (match.assists === 1) {
-    const raw = roundAwayFromZero(1 * gaMul);
+    const raw = roundAwayFromZero(1 * perfMul);
     // A Performance that rounds to +3 or more against a tough opponent is
     // reclassified as MOTM. The delta is not recalculated — only the label
     // and fatigue-counter eligibility change.
@@ -136,37 +163,51 @@ function resolveGkDef(
   defconHit: boolean,
 ): MatchAdjustment {
   // getOpponentLabel applies the big-team override for goal/assist and blank events only.
-  // Clean Sheet, DefCon, and SaveCon are flat recovery points — +1 regardless of FDR
-  // or big-team status. Their reason strings use FPL's actual FDR for display accuracy.
+  // CS, DefCon, and SaveCon are flat recovery points — their reason strings use FPL's
+  // actual FDR for display accuracy (no big-team override).
   const { fdr, label } = getOpponentLabel(match);
-  const gaMul = GOAL_ASSIST_FDR_MULTIPLIERS[fdr] ?? 1;
+  const motmMul = MOTM_FDR_MULTIPLIERS[fdr] ?? 1;
+  const perfMul = PERFORMANCE_FDR_MULTIPLIERS[fdr] ?? 1;
+  // CS always uses actual FPL FDR — big-team override does not apply.
+  const csMul = CS_FDR_MULTIPLIERS[match.opponentFdr] ?? 1;
   const blkMul = FDR_BLANK_MULTIPLIER[fdr] ?? 1;
   const actualFdr = match.opponentFdr;
   const defContrib = position === 'DEF' && defconHit;
   let rawFloat = 0;
   const reasons: string[] = [];
   let isMotm = false;
+  let isPerformance = false;
 
-  if (match.assists >= 1) {
-    rawFloat += 2 * gaMul;
-    reasons.push(`Assist vs ${label} opponent (MOTM)`);
+  // v1.7: goals >= 1 or assists >= 2 → MOTM (2× MOTM table).
+  // Single assist only → Performance (1× Performance table, no MOTM reclassification
+  // in the GK/DEF path — assists are inherently rarer and the reclassification rule
+  // is a MID/FWD-specific concept).
+  if (match.goals >= 1 || match.assists >= 2) {
+    if (match.goals >= 1) {
+      reasons.push(`MOTM vs ${label} opponent`);
+    } else {
+      // assists >= 2, no goal
+      reasons.push(`Assist vs ${label} opponent (MOTM)`);
+    }
+    rawFloat += 2 * motmMul;
     isMotm = true;
-  } else if (match.goals >= 1) {
-    rawFloat += 2 * gaMul;
-    reasons.push(`MOTM vs ${label} opponent`);
-    isMotm = true;
+  } else if (match.assists === 1) {
+    rawFloat += 1 * perfMul;
+    reasons.push(`Assist vs ${label} opponent`);
+    isPerformance = true;
   }
 
-  if (match.cleanSheet) {
-    rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
+  // v1.7: CS fires only when MOTM did not fire. CS + Performance still stacks.
+  if (!isMotm && match.cleanSheet) {
+    rawFloat += 1 * csMul;
     reasons.push(`Clean sheet vs FDR ${actualFdr.toString()} opponent`);
   }
 
-  // SaveCon/DefCon fire only when no positive event has already fired (Blank substitutes).
-  // Exactly one of these three branches executes.
+  // SaveCon/DefCon/Blank fire only when no positive event has already fired.
+  // Single-assist Performance is a positive event — it silences the fallback branch.
   let isDefCon = false;
   let isSaveCon = false;
-  if (!isMotm && !match.cleanSheet) {
+  if (!isMotm && !isPerformance && !match.cleanSheet) {
     if (defContrib) {
       rawFloat += 1; // flat recovery point — no FDR multiplier, no big-team override
       reasons.push(`DefCon vs FDR ${actualFdr.toString()} opponent`);
@@ -182,10 +223,10 @@ function resolveGkDef(
   }
 
   const raw = roundAwayFromZero(rawFloat);
-  // Safety guard: a non-MOTM stacking result that rounds to ≥+3 is reclassified.
-  // With CS flat at +1, this cannot fire with current event values — retained as
-  // a defensive invariant check in case future events introduce larger flat bonuses.
-  if (raw >= 3 && !isMotm) {
+  // Safety guard: catches unexpected non-MOTM stacking (e.g. future event types)
+  // that produce raw ≥ 3. Gated on !isPerformance so Performance+CS at high FDR
+  // does not accidentally reclassify — the spec treats that as Performance, not MOTM.
+  if (raw >= 3 && !isMotm && !isPerformance) {
     isMotm = true;
   }
   return { raw, reasons, isMotm, isDefCon, isSaveCon };
@@ -212,10 +253,13 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
     let dcFatigueApplied = false;
     let scFatigueApplied = false;
 
-    // Clamp after the event gain first. Fatigue (if triggered) is then applied to
-    // the already-clamped value so the ceiling cannot silently absorb the penalty.
+    // Clamp after the event gain first. rawDelta captures the pre-fatigue clamped
+    // delta — used for streak threshold and level so fatigue doesn't mask a hot boost.
     confidence = clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX);
+    const rawDelta = confidence - before;
 
+    // Fatigue (if triggered) is applied to the already-clamped value so the ceiling
+    // cannot silently absorb the penalty.
     // isMotm, isDefCon, and isSaveCon are mutually exclusive — the resolver only
     // sets one of them per match. The else-if chain encodes this structurally (§6.4).
     if (isMotm) {
@@ -263,6 +307,7 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
     history.push({
       gameweek: match.gameweek,
       delta: confidence - before,
+      rawDelta,
       reason: reasonList.join(' + '),
       fatigueApplied,
       dcFatigueApplied,

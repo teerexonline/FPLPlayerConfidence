@@ -6,6 +6,7 @@ export interface SnapshotPoint {
   readonly gameweek: number;
   readonly confidenceAfter: number;
   readonly delta: number;
+  readonly rawDelta: number; // pre-fatigue clamped delta — used for streak level
   readonly reason: string;
   readonly fatigueApplied: boolean;
   readonly motmCounter: number;

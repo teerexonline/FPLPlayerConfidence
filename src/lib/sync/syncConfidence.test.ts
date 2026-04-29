@@ -146,10 +146,10 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
   ): ReadonlyMap<number, { boostGw: number; boostDelta: number }> {
     const map = new Map<number, { boostGw: number; boostDelta: number }>();
     for (const s of this.store.values()) {
-      if (s.delta >= 3 && s.gameweek >= minGw && s.gameweek <= maxGw) {
+      if (s.raw_delta >= 3 && s.gameweek >= minGw && s.gameweek <= maxGw) {
         const existing = map.get(s.player_id);
         if (existing === undefined || s.gameweek > existing.boostGw) {
-          map.set(s.player_id, { boostGw: s.gameweek, boostDelta: s.delta });
+          map.set(s.player_id, { boostGw: s.gameweek, boostDelta: s.raw_delta });
         }
       }
     }
@@ -157,8 +157,14 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
   }
   listRecentSnapshotsForAllPlayers(
     minGw: number,
-  ): ReadonlyMap<number, readonly { gameweek: number; delta: number; reason: string }[]> {
-    const map = new Map<number, { gameweek: number; delta: number; reason: string }[]>();
+  ): ReadonlyMap<
+    number,
+    readonly { gameweek: number; delta: number; rawDelta: number; reason: string }[]
+  > {
+    const map = new Map<
+      number,
+      { gameweek: number; delta: number; rawDelta: number; reason: string }[]
+    >();
     const sorted = [...this.store.values()]
       .filter((s) => s.gameweek >= minGw)
       .sort((a, b) => a.gameweek - b.gameweek);
@@ -168,7 +174,7 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
         arr = [];
         map.set(s.player_id, arr);
       }
-      arr.push({ gameweek: s.gameweek, delta: s.delta, reason: s.reason });
+      arr.push({ gameweek: s.gameweek, delta: s.delta, rawDelta: s.raw_delta, reason: s.reason });
     }
     return map;
   }

@@ -31,6 +31,12 @@ export interface HotStreakInfo {
 export interface MatchBrief {
   readonly matchOrder: number;
   readonly delta: number;
+  /**
+   * Pre-fatigue clamped delta — used for streak threshold (rawDelta >= 3) and
+   * level (magnitude-based color). Fatigue can reduce delta below 3 without
+   * cancelling the streak, and should not downgrade the flame color.
+   */
+  readonly rawDelta: number;
   /** Gameweek this match belongs to. null when the caller didn't supply GW context. */
   readonly gameweek: number | null;
 }
@@ -69,8 +75,9 @@ export function computeHotStreakAtMatch(
   matchBriefs: readonly MatchBrief[],
   atMatchOrder: number,
 ): HotStreakInfo | null {
+  // Use rawDelta (pre-fatigue) for trigger and level — fatigue must not mask a hot boost.
   const mostRecentBoost = [...matchBriefs]
-    .filter((b) => b.matchOrder <= atMatchOrder && b.delta >= 3)
+    .filter((b) => b.matchOrder <= atMatchOrder && b.rawDelta >= 3)
     .sort((a, b) => b.matchOrder - a.matchOrder)[0];
 
   if (mostRecentBoost === undefined) return null;
@@ -79,8 +86,8 @@ export function computeHotStreakAtMatch(
   if (!isInStreakWindow(matchesSinceBoost)) return null;
 
   return {
-    level: levelFromDelta(mostRecentBoost.delta),
-    boostDelta: mostRecentBoost.delta,
+    level: levelFromDelta(mostRecentBoost.rawDelta),
+    boostDelta: mostRecentBoost.rawDelta,
     boostGw: mostRecentBoost.gameweek,
     matchesSinceBoost,
   };
@@ -164,7 +171,7 @@ function parseDgwSubDeltas(reason: string): readonly number[] | null {
  * server component, ensuring both paths compute identical streak levels.
  */
 export function buildMatchBriefs(
-  snapshots: readonly { delta: number; reason: string; gameweek?: number }[],
+  snapshots: readonly { delta: number; rawDelta: number; reason: string; gameweek?: number }[],
 ): readonly MatchBrief[] {
   const briefs: MatchBrief[] = [];
   let cursor = 0;
@@ -172,12 +179,16 @@ export function buildMatchBriefs(
     const gw = s.gameweek ?? null;
     const subDeltas = parseDgwSubDeltas(s.reason);
     if (subDeltas !== null) {
+      // DGW sub-matches: per-sub rawDelta is not stored separately, so use the
+      // parsed post-fatigue sub-delta for both delta and rawDelta. The rawDelta
+      // approximation is acceptable here — DGW players burn streak steps faster
+      // regardless, and the per-sub fatigue adjustment is rare.
       for (const d of subDeltas) {
-        briefs.push({ matchOrder: cursor, delta: d, gameweek: gw });
+        briefs.push({ matchOrder: cursor, delta: d, rawDelta: d, gameweek: gw });
         cursor++;
       }
     } else {
-      briefs.push({ matchOrder: cursor, delta: s.delta, gameweek: gw });
+      briefs.push({ matchOrder: cursor, delta: s.delta, rawDelta: s.rawDelta, gameweek: gw });
       cursor++;
     }
   }

@@ -29,6 +29,7 @@ function makeSnap(
     gameweek,
     confidenceAfter,
     delta,
+    rawDelta: delta,
     reason,
     fatigueApplied: false,
     motmCounter: 0,

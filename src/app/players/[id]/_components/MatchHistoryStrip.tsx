@@ -52,12 +52,22 @@ function buildMatchData(snapshots: readonly SnapshotPoint[]): {
     if (dgwParts !== null && dgwParts.length >= 2) {
       cardMetas.push({ isDgw: true, dgwParts, orderA: cursor, orderB: cursor + 1 });
       for (const part of dgwParts) {
-        matchBriefs.push({ matchOrder: cursor, delta: part.delta, gameweek: s.gameweek });
+        matchBriefs.push({
+          matchOrder: cursor,
+          delta: part.delta,
+          rawDelta: part.delta,
+          gameweek: s.gameweek,
+        });
         cursor++;
       }
     } else {
       cardMetas.push({ isDgw: false, orderA: cursor, orderB: null });
-      matchBriefs.push({ matchOrder: cursor, delta: s.delta, gameweek: s.gameweek });
+      matchBriefs.push({
+        matchOrder: cursor,
+        delta: s.delta,
+        rawDelta: s.rawDelta,
+        gameweek: s.gameweek,
+      });
       cursor++;
     }
   }

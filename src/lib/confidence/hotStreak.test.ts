@@ -11,12 +11,12 @@ import type { MatchBrief } from './hotStreak';
 
 /** Build a brief without GW context (tests that don't need boostGw). */
 function brief(matchOrder: number, delta: number): MatchBrief {
-  return { matchOrder, delta, gameweek: null };
+  return { matchOrder, delta, rawDelta: delta, gameweek: null };
 }
 
 /** Build a brief with GW context. */
 function briefGw(matchOrder: number, delta: number, gameweek: number): MatchBrief {
-  return { matchOrder, delta, gameweek };
+  return { matchOrder, delta, rawDelta: delta, gameweek };
 }
 
 // ── hotStreakAtGw ────────────────────────────────────────────────────────────
@@ -304,76 +304,79 @@ describe('computeHotStreak', () => {
 
 describe('buildMatchBriefs', () => {
   it('single non-DGW snapshot produces one brief with the snapshot delta', () => {
-    const result = buildMatchBriefs([{ delta: 2, reason: 'Blank vs FDR 3 opponent' }]);
-    expect(result).toEqual([{ matchOrder: 0, delta: 2, gameweek: null }]);
+    const result = buildMatchBriefs([{ delta: 2, rawDelta: 2, reason: 'Blank vs FDR 3 opponent' }]);
+    expect(result).toEqual([{ matchOrder: 0, delta: 2, rawDelta: 2, gameweek: null }]);
   });
 
   it('passes through gameweek when provided', () => {
-    const result = buildMatchBriefs([{ delta: 3, reason: 'MOTM vs FDR 5 opponent', gameweek: 33 }]);
+    const result = buildMatchBriefs([
+      { delta: 3, rawDelta: 3, reason: 'MOTM vs FDR 5 opponent', gameweek: 33 },
+    ]);
     expect(result[0]).toMatchObject({ gameweek: 33 });
   });
 
   it('gameweek is null when not provided', () => {
-    const result = buildMatchBriefs([{ delta: 3, reason: 'MOTM vs FDR 5 opponent' }]);
+    const result = buildMatchBriefs([{ delta: 3, rawDelta: 3, reason: 'MOTM vs FDR 5 opponent' }]);
     expect(result[0]?.gameweek).toBeNull();
   });
 
   it('multiple non-DGW snapshots produce consecutive matchOrders', () => {
     const result = buildMatchBriefs([
-      { delta: 1, reason: 'Performance vs FDR 3 opponent' },
-      { delta: 3, reason: 'MOTM vs FDR 5 opponent' },
-      { delta: -1, reason: 'Blank vs FDR 3 opponent' },
+      { delta: 1, rawDelta: 1, reason: 'Performance vs FDR 3 opponent' },
+      { delta: 3, rawDelta: 3, reason: 'MOTM vs FDR 5 opponent' },
+      { delta: -1, rawDelta: -1, reason: 'Blank vs FDR 3 opponent' },
     ]);
     expect(result).toEqual([
-      { matchOrder: 0, delta: 1, gameweek: null },
-      { matchOrder: 1, delta: 3, gameweek: null },
-      { matchOrder: 2, delta: -1, gameweek: null },
+      { matchOrder: 0, delta: 1, rawDelta: 1, gameweek: null },
+      { matchOrder: 1, delta: 3, rawDelta: 3, gameweek: null },
+      { matchOrder: 2, delta: -1, rawDelta: -1, gameweek: null },
     ]);
   });
 
   it('DGW snapshot expands into two consecutive briefs with per-sub-match deltas', () => {
     const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
-    const result = buildMatchBriefs([{ delta: 2, reason }]);
+    const result = buildMatchBriefs([{ delta: 2, rawDelta: 2, reason }]);
     expect(result).toEqual([
-      { matchOrder: 0, delta: 3, gameweek: null },
-      { matchOrder: 1, delta: -1, gameweek: null },
+      { matchOrder: 0, delta: 3, rawDelta: 3, gameweek: null },
+      { matchOrder: 1, delta: -1, rawDelta: -1, gameweek: null },
     ]);
   });
 
   it('DGW snapshot both sub-matches share the parent snapshot gameweek', () => {
     const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
-    const result = buildMatchBriefs([{ delta: 2, reason, gameweek: 33 }]);
+    const result = buildMatchBriefs([{ delta: 2, rawDelta: 2, reason, gameweek: 33 }]);
     expect(result[0]?.gameweek).toBe(33);
     expect(result[1]?.gameweek).toBe(33);
   });
 
   it('DGW boost in sub-match B (most recent) → computeHotStreak returns hot', () => {
     const reason = 'DGW: Blank vs FDR 3 opponent (+1) + MOTM vs FDR 5 opponent (+5)';
-    const result = computeHotStreak(buildMatchBriefs([{ delta: 6, reason }]));
+    const result = computeHotStreak(buildMatchBriefs([{ delta: 6, rawDelta: 6, reason }]));
     expect(result?.level).toBe('hot');
   });
 
   it('DGW combined delta < 3 but sub-match A delta ≥ 3 → boost detected via per-sub-match parsing', () => {
     const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
-    const briefs = buildMatchBriefs([{ delta: 2, reason }]);
+    const briefs = buildMatchBriefs([{ delta: 2, rawDelta: 2, reason }]);
     expect(briefs[0]).toMatchObject({ delta: 3 });
     expect(briefs[1]).toMatchObject({ delta: -1 });
     // Sub-match B is latest → matchesSinceBoost=1 from the boost at sub-match A
-    expect(computeHotStreak(briefs)?.level).toBe('mild'); // delta=3 → mild
+    expect(computeHotStreak(briefs)?.level).toBe('mild'); // rawDelta=3 → mild
   });
 
   it('mixed sequence: non-DGW then DGW assigns matchOrders correctly', () => {
     const result = buildMatchBriefs([
-      { delta: 1, reason: 'Performance vs FDR 3 opponent' },
+      { delta: 1, rawDelta: 1, reason: 'Performance vs FDR 3 opponent' },
       {
         delta: 2,
+        rawDelta: 2,
         reason: 'DGW: Performance vs FDR 4 opponent (+3) + Blank vs FDR 2 opponent (-1)',
       },
     ]);
     expect(result).toEqual([
-      { matchOrder: 0, delta: 1, gameweek: null },
-      { matchOrder: 1, delta: 3, gameweek: null },
-      { matchOrder: 2, delta: -1, gameweek: null },
+      { matchOrder: 0, delta: 1, rawDelta: 1, gameweek: null },
+      { matchOrder: 1, delta: 3, rawDelta: 3, gameweek: null },
+      { matchOrder: 2, delta: -1, rawDelta: -1, gameweek: null },
     ]);
   });
 
@@ -384,9 +387,25 @@ describe('buildMatchBriefs', () => {
   it('DGW reason with fatigue-modified sub-match parses correctly', () => {
     const reason =
       'DGW: Performance vs FDR 3 opponent + Fatigue (+2) + Blank vs FDR 2 opponent (-1)';
-    const briefs = buildMatchBriefs([{ delta: 1, reason }]);
+    const briefs = buildMatchBriefs([{ delta: 1, rawDelta: 1, reason }]);
     expect(briefs).toHaveLength(2);
     expect(briefs[0]).toMatchObject({ matchOrder: 0, delta: 2 });
     expect(briefs[1]).toMatchObject({ matchOrder: 1, delta: -1 });
+  });
+
+  it('non-DGW snapshot: rawDelta flows through directly from input', () => {
+    // rawDelta=4 (pre-fatigue) vs delta=2 (post-fatigue) — both stored independently.
+    const result = buildMatchBriefs([
+      { delta: 2, rawDelta: 4, reason: 'MOTM vs FDR 5 opponent + Fatigue −2' },
+    ]);
+    expect(result[0]).toMatchObject({ delta: 2, rawDelta: 4 });
+  });
+
+  it('streak triggers on rawDelta ≥ 3 even when post-fatigue delta < 3', () => {
+    // rawDelta=4 (pre-fatigue) triggers warm streak even though post-fatigue delta=2 would not.
+    const briefs = buildMatchBriefs([
+      { delta: 2, rawDelta: 4, reason: 'MOTM vs FDR 5 opponent + Fatigue −2' },
+    ]);
+    expect(computeHotStreak(briefs)?.level).toBe('warm'); // rawDelta=4 → warm
   });
 });

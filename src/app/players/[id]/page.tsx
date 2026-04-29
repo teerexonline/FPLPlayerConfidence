@@ -31,6 +31,7 @@ function loadPlayer(rawId: string): PlayerDetailData {
     gameweek: s.gameweek,
     confidenceAfter: s.confidence_after,
     delta: s.delta,
+    rawDelta: s.raw_delta,
     reason: s.reason,
     fatigueApplied: s.fatigue_applied,
     motmCounter: s.motm_counter,
@@ -46,17 +47,28 @@ function loadPlayer(rawId: string): PlayerDetailData {
 
   // Build match briefs with DGW-awareness: each DGW sub-match gets its own matchOrder,
   // so the live streak burns through sub-matches rather than gameweeks.
+  // rawDelta (pre-fatigue) is used for streak threshold and level.
   let matchCursor = 0;
   const matchBriefs: MatchBrief[] = [];
   for (const s of snapshots) {
     const dgwParts = parseDgwReason(s.reason);
     if (dgwParts !== null) {
       for (const part of dgwParts) {
-        matchBriefs.push({ matchOrder: matchCursor, delta: part.delta, gameweek: s.gameweek });
+        matchBriefs.push({
+          matchOrder: matchCursor,
+          delta: part.delta,
+          rawDelta: part.delta,
+          gameweek: s.gameweek,
+        });
         matchCursor++;
       }
     } else {
-      matchBriefs.push({ matchOrder: matchCursor, delta: s.delta, gameweek: s.gameweek });
+      matchBriefs.push({
+        matchOrder: matchCursor,
+        delta: s.delta,
+        rawDelta: s.rawDelta,
+        gameweek: s.gameweek,
+      });
       matchCursor++;
     }
   }

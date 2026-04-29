@@ -20,6 +20,7 @@ function makeSnapshot(overrides: Partial<SnapshotPoint> = {}): SnapshotPoint {
     gameweek: 12,
     confidenceAfter: 2,
     delta: 2,
+    rawDelta: 2,
     reason: 'MOTM vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 1,

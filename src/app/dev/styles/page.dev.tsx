@@ -493,6 +493,7 @@ export default function StylesPage() {
               snapshot={{
                 gameweek: 28,
                 delta: 3,
+                rawDelta: 3,
                 confidenceAfter: 4,
                 reason: 'MOTM vs FDR 5 opponent',
                 fatigueApplied: false,
@@ -505,6 +506,7 @@ export default function StylesPage() {
               snapshot={{
                 gameweek: 25,
                 delta: 2,
+                rawDelta: 2,
                 confidenceAfter: 3,
                 reason: 'MOTM vs FDR 3 opponent',
                 fatigueApplied: false,
@@ -517,6 +519,7 @@ export default function StylesPage() {
               snapshot={{
                 gameweek: 22,
                 delta: 1,
+                rawDelta: 1,
                 confidenceAfter: 1,
                 reason: 'Clean sheet vs FDR 2 opponent',
                 fatigueApplied: false,
@@ -529,6 +532,7 @@ export default function StylesPage() {
               snapshot={{
                 gameweek: 30,
                 delta: -1,
+                rawDelta: -1,
                 confidenceAfter: -1,
                 reason: 'Blank vs FDR 3 opponent',
                 fatigueApplied: false,
@@ -541,6 +545,7 @@ export default function StylesPage() {
               snapshot={{
                 gameweek: 32,
                 delta: -2,
+                rawDelta: -2,
                 confidenceAfter: 0,
                 reason: 'Blank vs FDR 1 opponent',
                 fatigueApplied: false,
@@ -553,6 +558,7 @@ export default function StylesPage() {
               snapshot={{
                 gameweek: 10,
                 delta: -2,
+                rawDelta: 2,
                 confidenceAfter: -3,
                 reason: 'MOTM vs FDR 3 opponent + Fatigue −2',
                 fatigueApplied: true,
