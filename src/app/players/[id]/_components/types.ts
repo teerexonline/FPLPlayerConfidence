@@ -1,4 +1,4 @@
-import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 import type { Position } from '@/lib/db/types';
 
 /** A single gameweek confidence data point — the full snapshot row. */
@@ -52,7 +52,7 @@ export interface PlayerDetailData {
   readonly status: string;
   readonly chanceOfPlaying: number | null;
   readonly news: string;
-  readonly hotStreakLevel: HotStreakLevel | null;
+  readonly hotStreak: HotStreakInfo | null;
 }
 
 // ── DGW reason parsing ────────────────────────────────────────────────────────

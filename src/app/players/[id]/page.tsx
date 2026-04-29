@@ -52,15 +52,15 @@ function loadPlayer(rawId: string): PlayerDetailData {
     const dgwParts = parseDgwReason(s.reason);
     if (dgwParts !== null) {
       for (const part of dgwParts) {
-        matchBriefs.push({ matchOrder: matchCursor, delta: part.delta });
+        matchBriefs.push({ matchOrder: matchCursor, delta: part.delta, gameweek: s.gameweek });
         matchCursor++;
       }
     } else {
-      matchBriefs.push({ matchOrder: matchCursor, delta: s.delta });
+      matchBriefs.push({ matchOrder: matchCursor, delta: s.delta, gameweek: s.gameweek });
       matchCursor++;
     }
   }
-  const hotStreakLevel = computeHotStreak(matchBriefs);
+  const hotStreak = computeHotStreak(matchBriefs);
 
   return {
     id: player.id,
@@ -78,7 +78,7 @@ function loadPlayer(rawId: string): PlayerDetailData {
     status: player.status,
     chanceOfPlaying: player.chance_of_playing_next_round,
     news: player.news,
-    hotStreakLevel,
+    hotStreak,
   };
 }
 

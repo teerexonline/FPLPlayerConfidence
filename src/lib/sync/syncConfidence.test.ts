@@ -140,13 +140,16 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
     }
     return [...latest.values()];
   }
-  recentBoostGameweekForAllPlayers(minGw: number, maxGw: number): ReadonlyMap<number, number> {
-    const map = new Map<number, number>();
+  recentBoostForAllPlayers(
+    minGw: number,
+    maxGw: number,
+  ): ReadonlyMap<number, { boostGw: number; boostDelta: number }> {
+    const map = new Map<number, { boostGw: number; boostDelta: number }>();
     for (const s of this.store.values()) {
       if (s.delta >= 3 && s.gameweek >= minGw && s.gameweek <= maxGw) {
         const existing = map.get(s.player_id);
-        if (existing === undefined || s.gameweek > existing) {
-          map.set(s.player_id, s.gameweek);
+        if (existing === undefined || s.gameweek > existing.boostGw) {
+          map.set(s.player_id, { boostGw: s.gameweek, boostDelta: s.delta });
         }
       }
     }

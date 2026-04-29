@@ -259,17 +259,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Hot streak: look back up to 2 GWs from the *viewed* GW (not the live GW)
   // so the flame reflects what was true at GW N, not at the current season GW.
   const minBoostGw = Math.max(1, targetGw - 2);
-  const boostGwMap = repos.confidenceSnapshots.recentBoostGameweekForAllPlayers(
-    minBoostGw,
-    targetGw,
-  );
+  const boostMap = repos.confidenceSnapshots.recentBoostForAllPlayers(minBoostGw, targetGw);
 
   // Build squad player rows.
   const squadRows: SquadPlayerRow[] = finalPicks.map((p) => {
     const player = playerMap.get(p.element);
     const team = player ? teamMap.get(player.team_id) : undefined;
-    const boostGw = boostGwMap.get(p.element);
-    const hotStreakLevel = boostGw !== undefined ? hotStreakAtGw(boostGw, targetGw) : null;
+    const boost = boostMap.get(p.element);
+    const hotStreak =
+      boost !== undefined ? hotStreakAtGw(boost.boostGw, targetGw, boost.boostDelta) : null;
     return {
       playerId: p.element,
       webName: player?.web_name ?? `Player ${p.element.toString()}`,
@@ -283,7 +281,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       status: player?.status ?? 'a',
       chanceOfPlaying: player?.chance_of_playing_next_round ?? null,
       news: player?.news ?? '',
-      hotStreakLevel,
+      hotStreak,
     };
   });
 

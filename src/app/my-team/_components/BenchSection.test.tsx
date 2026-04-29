@@ -26,7 +26,7 @@ function makeBenchPlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRo
     status: 'a',
     chanceOfPlaying: null,
     news: '',
-    hotStreakLevel: null,
+    hotStreak: null,
     ...overrides,
   };
 }
@@ -37,17 +37,17 @@ const FOUR: readonly SquadPlayerRow[] = Array.from({ length: 4 }, (_, i) =>
 
 describe('BenchSection', () => {
   it('renders the "Bench" section heading', () => {
-    render(<BenchSection bench={FOUR} currentGW={20} />);
+    render(<BenchSection bench={FOUR} />);
     expect(screen.getByRole('region', { name: /^Bench$/i })).toBeInTheDocument();
   });
 
   it('renders 4 list items', () => {
-    render(<BenchSection bench={FOUR} currentGW={20} />);
+    render(<BenchSection bench={FOUR} />);
     expect(screen.getAllByRole('listitem')).toHaveLength(4);
   });
 
   it('renders a link for each bench player pointing to /players/:id', () => {
-    render(<BenchSection bench={FOUR} currentGW={20} />);
+    render(<BenchSection bench={FOUR} />);
     const links = screen.getAllByRole('link');
     expect(links).toHaveLength(4);
     expect(links[0]).toHaveAttribute('href', '/players/12');
@@ -58,7 +58,6 @@ describe('BenchSection', () => {
     render(
       <BenchSection
         bench={[makeBenchPlayer({ playerId: 12, webName: 'Flekken', squadPosition: 12 })]}
-        currentGW={20}
       />,
     );
     const link = screen.getByRole('link');
@@ -69,7 +68,6 @@ describe('BenchSection', () => {
     render(
       <BenchSection
         bench={[makeBenchPlayer({ playerId: 13, webName: 'Isak', squadPosition: 13 })]}
-        currentGW={20}
       />,
     );
     expect(screen.getByText('Isak')).toBeInTheDocument();
@@ -86,19 +84,18 @@ describe('BenchSection', () => {
             squadPosition: 14,
           }),
         ]}
-        currentGW={20}
       />,
     );
     expect(screen.getByText('NEW · FWD')).toBeInTheDocument();
   });
 
   it('renders the bench exclusion note', () => {
-    render(<BenchSection bench={FOUR} currentGW={20} />);
+    render(<BenchSection bench={FOUR} />);
     expect(screen.getByText(/Bench is excluded from Team Confidence/i)).toBeInTheDocument();
   });
 
   it('has no accessibility violations (axe)', async () => {
-    const { container } = render(<BenchSection bench={FOUR} currentGW={20} />);
+    const { container } = render(<BenchSection bench={FOUR} />);
     expect(await axe(container)).toHaveNoViolations();
   });
 });

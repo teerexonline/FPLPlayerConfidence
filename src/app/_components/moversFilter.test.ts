@@ -17,7 +17,7 @@ function makePlayer(overrides: Partial<DashboardPlayer> = {}): DashboardPlayer {
     chanceOfPlaying: null,
     news: '',
     recentAppearances: 3,
-    hotStreakLevel: null,
+    hotStreak: null,
     totalPoints: 100,
     ...overrides,
   };

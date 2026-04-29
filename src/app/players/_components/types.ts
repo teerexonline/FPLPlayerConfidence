@@ -1,5 +1,5 @@
 import type { PlayerId, TeamId } from '@/lib/db/types';
-import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 import type { Position } from '@/lib/confidence/types';
 
 export type { Position };
@@ -27,7 +27,7 @@ export interface PlayerWithConfidence {
   readonly news: string;
   /** Snapshot count in the window [currentGW-2, currentGW]. 0–3. */
   readonly recentAppearances: number;
-  readonly hotStreakLevel: HotStreakLevel | null;
+  readonly hotStreak: HotStreakInfo | null;
   /** Season total FPL points — used as a tiebreaker when primary sort values are equal. */
   readonly totalPoints: number;
 }

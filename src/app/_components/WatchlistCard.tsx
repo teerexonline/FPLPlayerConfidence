@@ -42,9 +42,8 @@ function WatchlistRow({ player }: { readonly player: DashboardPlayer }): JSX.Ele
               {player.webName}
             </p>
             <LivePlayerStreakIndicator
-              level={player.hotStreakLevel}
+              hotStreak={player.hotStreak}
               size="sm"
-              currentGW={player.latestGameweek}
               status={player.status}
               isStale={player.recentAppearances < 2}
             />

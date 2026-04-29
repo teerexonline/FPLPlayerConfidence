@@ -28,7 +28,7 @@ function makePlayer(
     status: 'a',
     chanceOfPlaying: null,
     news: '',
-    hotStreakLevel: null,
+    hotStreak: null,
   };
 }
 

@@ -32,8 +32,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     chanceOfPlaying,
     news,
     recentAppearances,
-    hotStreakLevel,
-    gameweek,
+    hotStreak,
   } = player;
   const router = useRouter();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
@@ -78,9 +77,8 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
           {webName}
         </span>
         <LivePlayerStreakIndicator
-          level={hotStreakLevel}
+          hotStreak={hotStreak}
           size="sm"
-          currentGW={gameweek}
           status={status}
           isStale={recentAppearances < 2}
         />

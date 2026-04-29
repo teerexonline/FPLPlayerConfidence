@@ -1,4 +1,4 @@
-import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 import type { Position } from '@/lib/confidence/types';
 
 export interface DashboardPlayer {
@@ -15,7 +15,7 @@ export interface DashboardPlayer {
   readonly chanceOfPlaying: number | null;
   readonly news: string;
   readonly recentAppearances: number;
-  readonly hotStreakLevel: HotStreakLevel | null;
+  readonly hotStreak: HotStreakInfo | null;
   /** Season total FPL points — used as a tiebreaker when primary sort values are equal. */
   readonly totalPoints: number;
 }

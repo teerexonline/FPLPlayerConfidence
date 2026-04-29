@@ -33,8 +33,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     chanceOfPlaying,
     news,
     recentAppearances,
-    hotStreakLevel,
-    gameweek,
+    hotStreak,
   } = player;
   const price = `£${(nowCost / 10).toFixed(1)}m`;
 
@@ -55,9 +54,8 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
             {webName}
           </span>
           <LivePlayerStreakIndicator
-            level={hotStreakLevel}
+            hotStreak={hotStreak}
             size="sm"
-            currentGW={gameweek}
             status={status}
             isStale={recentAppearances < 2}
           />

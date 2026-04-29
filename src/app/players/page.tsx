@@ -46,7 +46,7 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
 
     const numericPid = Number(pid);
     const recentSnaps = recentSnapshotsMap.get(numericPid) ?? [];
-    const hotStreakLevel = computeHotStreak(buildMatchBriefs(recentSnaps));
+    const hotStreak = computeHotStreak(buildMatchBriefs(recentSnaps));
 
     return [
       {
@@ -64,7 +64,7 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
         chanceOfPlaying: player.chance_of_playing_next_round,
         news: player.news,
         recentAppearances: recentAppearancesMap.get(pid) ?? 0,
-        hotStreakLevel,
+        hotStreak,
         totalPoints: player.total_points,
       },
     ];

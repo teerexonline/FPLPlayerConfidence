@@ -3,6 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { axe } from 'jest-axe';
 import { MatchHistoryCard } from './MatchHistoryCard';
 import type { SnapshotPoint } from './types';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
+
+function makeHotStreak(overrides: Partial<HotStreakInfo> = {}): HotStreakInfo {
+  return {
+    level: 'hot',
+    boostDelta: 5,
+    boostGw: 31,
+    matchesSinceBoost: 0,
+    ...overrides,
+  };
+}
 
 function makeSnapshot(overrides: Partial<SnapshotPoint> = {}): SnapshotPoint {
   return {
@@ -168,66 +179,113 @@ describe('MatchHistoryCard', () => {
 
   // ── Streak and boost visual emphasis ─────────────────────────────────────
 
-  it('renders a fresh-streak (red_hot) flame on the boost GW', () => {
+  it('renders a hot flame on the boost match (matchesSinceBoost=0)', () => {
     render(
       <MatchHistoryCard
         snapshot={makeSnapshot({ gameweek: 31, delta: 5 })}
-        hotStreakLevel="red_hot"
+        hotStreak={makeHotStreak({
+          level: 'hot',
+          boostDelta: 5,
+          boostGw: 31,
+          matchesSinceBoost: 0,
+        })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Fresh streak · GW31' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31' })).toBeInTheDocument();
   });
 
-  it('renders a recent-streak (med_hot) flame on the GW after the boost', () => {
+  it('renders a warm flame on a streak-window card (matchesSinceBoost=1)', () => {
     render(
       <MatchHistoryCard
         snapshot={makeSnapshot({ gameweek: 32, delta: -1 })}
-        hotStreakLevel="med_hot"
+        hotStreak={makeHotStreak({
+          level: 'warm',
+          boostDelta: 4,
+          boostGw: 31,
+          matchesSinceBoost: 1,
+        })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Recent streak · GW32' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Hot streak: +4 boost in GW31' })).toBeInTheDocument();
   });
 
-  it('renders a fading-streak (low_hot) flame two GWs after the boost', () => {
+  it('renders a mild flame two matches after boost (matchesSinceBoost=2)', () => {
     render(
       <MatchHistoryCard
         snapshot={makeSnapshot({ gameweek: 33, delta: 1 })}
-        hotStreakLevel="low_hot"
+        hotStreak={makeHotStreak({
+          level: 'mild',
+          boostDelta: 3,
+          boostGw: 31,
+          matchesSinceBoost: 2,
+        })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Fading streak · GW33' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Hot streak: +3 boost in GW31' })).toBeInTheDocument();
   });
 
-  it('renders no streak flame when hotStreakLevel is null', () => {
+  it('hot flame carries same tooltip regardless of which match in window', () => {
+    // All 3 cards of a +5 boost show 'hot' level with identical tooltip
+    const streak1 = makeHotStreak({
+      level: 'hot',
+      boostDelta: 5,
+      boostGw: 31,
+      matchesSinceBoost: 0,
+    });
+    const streak2 = makeHotStreak({
+      level: 'hot',
+      boostDelta: 5,
+      boostGw: 31,
+      matchesSinceBoost: 1,
+    });
+    const streak3 = makeHotStreak({
+      level: 'hot',
+      boostDelta: 5,
+      boostGw: 31,
+      matchesSinceBoost: 2,
+    });
+    for (const hotStreak of [streak1, streak2, streak3]) {
+      const { unmount } = render(
+        <MatchHistoryCard snapshot={makeSnapshot()} hotStreak={hotStreak} />,
+      );
+      expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31' })).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('renders no streak flame when hotStreak is null', () => {
     render(
-      <MatchHistoryCard
-        snapshot={makeSnapshot({ gameweek: 34, delta: 2 })}
-        hotStreakLevel={null}
-      />,
+      <MatchHistoryCard snapshot={makeSnapshot({ gameweek: 34, delta: 2 })} hotStreak={null} />,
     );
-    expect(screen.queryByRole('img', { name: /streak/i })).toBeNull();
+    expect(screen.queryByRole('img')).toBeNull();
   });
 
-  it('renders no streak flame when hotStreakLevel is not provided (cold card)', () => {
+  it('renders no streak flame when hotStreak is not provided (cold card)', () => {
     render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 5 })} />);
-    expect(screen.queryByRole('img', { name: /streak/i })).toBeNull();
+    expect(screen.queryByRole('img')).toBeNull();
   });
 
-  it('sets data-boost="true" when hotStreakLevel is red_hot', () => {
+  it('sets data-boost="true" when matchesSinceBoost is 0 (the boost match itself)', () => {
     const { container } = render(
-      <MatchHistoryCard snapshot={makeSnapshot({ delta: 5 })} hotStreakLevel="red_hot" />,
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ delta: 5 })}
+        hotStreak={makeHotStreak({ matchesSinceBoost: 0 })}
+      />,
     );
     expect(container.firstChild).toHaveAttribute('data-boost', 'true');
   });
 
-  it('does not set data-boost when hotStreakLevel is med_hot', () => {
+  it('does not set data-boost when matchesSinceBoost is 1', () => {
     const { container } = render(
-      <MatchHistoryCard snapshot={makeSnapshot({ delta: -1 })} hotStreakLevel="med_hot" />,
+      <MatchHistoryCard
+        snapshot={makeSnapshot({ delta: -1 })}
+        hotStreak={makeHotStreak({ matchesSinceBoost: 1 })}
+      />,
     );
     expect(container.firstChild).not.toHaveAttribute('data-boost');
   });
 
-  it('does not set data-boost when hotStreakLevel is null (even for high delta)', () => {
+  it('does not set data-boost when hotStreak is null (even for high delta)', () => {
     const { container } = render(<MatchHistoryCard snapshot={makeSnapshot({ delta: 5 })} />);
     expect(container.firstChild).not.toHaveAttribute('data-boost');
   });
@@ -236,10 +294,10 @@ describe('MatchHistoryCard', () => {
     render(
       <MatchHistoryCard
         snapshot={makeSnapshot({ gameweek: 31, reason: 'MOTM vs BIG opponent', delta: 5 })}
-        hotStreakLevel="red_hot"
+        hotStreak={makeHotStreak({ boostGw: 31 })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Fresh streak · GW31' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31' })).toBeInTheDocument();
     expect(screen.getByText('BIG')).toBeInTheDocument();
   });
 
@@ -248,7 +306,7 @@ describe('MatchHistoryCard', () => {
       <ul role="list">
         <MatchHistoryCard
           snapshot={makeSnapshot({ gameweek: 31, delta: 5 })}
-          hotStreakLevel="red_hot"
+          hotStreak={makeHotStreak()}
         />
       </ul>,
     );

@@ -26,7 +26,7 @@ function makePlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRow {
     status: 'a',
     chanceOfPlaying: null,
     news: '',
-    hotStreakLevel: null,
+    hotStreak: null,
     ...overrides,
   };
 }
@@ -37,17 +37,17 @@ const ELEVEN: readonly SquadPlayerRow[] = Array.from({ length: 11 }, (_, i) =>
 
 describe('StartingXIList', () => {
   it('renders the "Starting XI" section heading', () => {
-    render(<StartingXIList starters={ELEVEN} currentGW={20} />);
+    render(<StartingXIList starters={ELEVEN} />);
     expect(screen.getByRole('region', { name: /Starting XI/i })).toBeInTheDocument();
   });
 
   it('renders 11 list items', () => {
-    render(<StartingXIList starters={ELEVEN} currentGW={20} />);
+    render(<StartingXIList starters={ELEVEN} />);
     expect(screen.getAllByRole('listitem')).toHaveLength(11);
   });
 
   it('renders a link for each player pointing to /players/:id', () => {
-    render(<StartingXIList starters={ELEVEN} currentGW={20} />);
+    render(<StartingXIList starters={ELEVEN} />);
     const links = screen.getAllByRole('link');
     expect(links).toHaveLength(11);
     expect(links[0]).toHaveAttribute('href', '/players/1');
@@ -56,10 +56,7 @@ describe('StartingXIList', () => {
 
   it('renders the captain badge with aria-label "Captain"', () => {
     render(
-      <StartingXIList
-        starters={ELEVEN.map((p, i) => (i === 0 ? { ...p, isCaptain: true } : p))}
-        currentGW={20}
-      />,
+      <StartingXIList starters={ELEVEN.map((p, i) => (i === 0 ? { ...p, isCaptain: true } : p))} />,
     );
     expect(screen.getByLabelText('Captain')).toBeInTheDocument();
   });
@@ -68,20 +65,19 @@ describe('StartingXIList', () => {
     render(
       <StartingXIList
         starters={ELEVEN.map((p, i) => (i === 1 ? { ...p, isViceCaptain: true } : p))}
-        currentGW={20}
       />,
     );
     expect(screen.getByLabelText('Vice captain')).toBeInTheDocument();
   });
 
   it('does not render captain or vice captain badges when neither flag is set', () => {
-    render(<StartingXIList starters={ELEVEN} currentGW={20} />);
+    render(<StartingXIList starters={ELEVEN} />);
     expect(screen.queryByLabelText('Captain')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Vice captain')).not.toBeInTheDocument();
   });
 
   it('renders the captain note below the list', () => {
-    render(<StartingXIList starters={ELEVEN} currentGW={20} />);
+    render(<StartingXIList starters={ELEVEN} />);
     expect(screen.getByText(/Captain shown for context only/i)).toBeInTheDocument();
   });
 
@@ -89,7 +85,6 @@ describe('StartingXIList', () => {
     render(
       <StartingXIList
         starters={[makePlayer({ playerId: 99, webName: 'Haaland', squadPosition: 9 })]}
-        currentGW={20}
       />,
     );
     expect(screen.getByText('Haaland')).toBeInTheDocument();
@@ -101,7 +96,6 @@ describe('StartingXIList', () => {
         starters={[
           makePlayer({ playerId: 10, teamShortName: 'MCI', position: 'FWD', squadPosition: 10 }),
         ]}
-        currentGW={20}
       />,
     );
     expect(screen.getByText('MCI · FWD')).toBeInTheDocument();
@@ -109,44 +103,71 @@ describe('StartingXIList', () => {
 
   // ── GW scrubber interaction ─────────────────────────────────────────────────
 
-  it('scrubbing from GW34 to GW3 — flame appears when hotStreakLevel changes from null to red_hot', () => {
-    // Simulates API returning no flame at GW34 (boost expired) then a fresh
-    // flame at GW3 (boost was on GW3 from the viewed GW's perspective).
+  it('flame appears when hotStreak changes from null to a HotStreakInfo', () => {
     const { rerender } = render(
       <StartingXIList
-        starters={[makePlayer({ playerId: 1, squadPosition: 1, hotStreakLevel: null })]}
-        currentGW={34}
+        starters={[makePlayer({ playerId: 1, squadPosition: 1, hotStreak: null })]}
       />,
     );
     expect(screen.queryByRole('img', { name: /streak/i })).toBeNull();
 
     rerender(
       <StartingXIList
-        starters={[makePlayer({ playerId: 1, squadPosition: 1, hotStreakLevel: 'red_hot' })]}
-        currentGW={3}
+        starters={[
+          makePlayer({
+            playerId: 1,
+            squadPosition: 1,
+            hotStreak: { level: 'hot', boostDelta: 5, boostGw: 3, matchesSinceBoost: 0 },
+          }),
+        ]}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Fresh streak · GW3' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW3' })).toBeInTheDocument();
   });
 
-  it('hot streak indicator shows GW label matching currentGW prop (GW21)', () => {
-    const starters = [makePlayer({ playerId: 1, squadPosition: 1, hotStreakLevel: 'red_hot' })];
-    render(<StartingXIList starters={starters} currentGW={21} />);
-    expect(screen.getByRole('img', { name: 'Fresh streak · GW21' })).toBeInTheDocument();
+  it('hot streak indicator shows boost GW from HotStreakInfo', () => {
+    const starters = [
+      makePlayer({
+        playerId: 1,
+        squadPosition: 1,
+        hotStreak: { level: 'hot', boostDelta: 5, boostGw: 21, matchesSinceBoost: 0 },
+      }),
+    ];
+    render(<StartingXIList starters={starters} />);
+    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW21' })).toBeInTheDocument();
   });
 
-  it('hot streak indicator reflects scrubbed GW when currentGW changes', () => {
-    const starters = [makePlayer({ playerId: 1, squadPosition: 1, hotStreakLevel: 'med_hot' })];
-    const { rerender } = render(<StartingXIList starters={starters} currentGW={20} />);
-    expect(screen.getByRole('img', { name: 'Recent streak · GW20' })).toBeInTheDocument();
+  it('hot streak indicator updates when hotStreak prop changes to different boost GW', () => {
+    const { rerender } = render(
+      <StartingXIList
+        starters={[
+          makePlayer({
+            playerId: 1,
+            squadPosition: 1,
+            hotStreak: { level: 'warm', boostDelta: 4, boostGw: 20, matchesSinceBoost: 0 },
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Hot streak: +4 boost in GW20' })).toBeInTheDocument();
 
-    rerender(<StartingXIList starters={starters} currentGW={21} />);
-    expect(screen.getByRole('img', { name: 'Recent streak · GW21' })).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: 'Recent streak · GW20' })).toBeNull();
+    rerender(
+      <StartingXIList
+        starters={[
+          makePlayer({
+            playerId: 1,
+            squadPosition: 1,
+            hotStreak: { level: 'hot', boostDelta: 5, boostGw: 21, matchesSinceBoost: 0 },
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW21' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Hot streak: +4 boost in GW20' })).toBeNull();
   });
 
   it('has no accessibility violations (axe)', async () => {
-    const { container } = render(<StartingXIList starters={ELEVEN} currentGW={20} />);
+    const { container } = render(<StartingXIList starters={ELEVEN} />);
     expect(await axe(container)).toHaveNoViolations();
   });
 });

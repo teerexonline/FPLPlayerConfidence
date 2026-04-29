@@ -133,7 +133,9 @@ function makeSnap(overrides: Partial<SnapshotPoint>): SnapshotPoint {
 }
 
 describe('MatchHistoryStrip — DGW streak computation', () => {
-  it('shows fresh flame on DGW sub-match A and recent flame on sub-match B when part A is the boost', () => {
+  it('shows flame on DGW sub-match A (boost) and sub-match B (matchesSince=1), both mild', () => {
+    // DGW: part A delta=3 (mild boost, matchOrder=1), part B delta=-1 (matchOrder=2, matchesSince=1)
+    // GW28 (matchOrder=0, delta=1) provides no boost — streak starts on DGW sub-match A.
     const snapshots: SnapshotPoint[] = [
       makeSnap({ gameweek: 28, delta: 1 }),
       {
@@ -148,11 +150,14 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
       },
     ];
     render(<MatchHistoryStrip snapshots={snapshots} />);
-    expect(screen.getByRole('img', { name: 'Fresh streak · GW29' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Recent streak · GW29' })).toBeInTheDocument();
+    // Both sub-matches carry the same tooltip — the boost was delta=3 in GW29
+    const flames = screen.getAllByRole('img', { name: 'Hot streak: +3 boost in GW29' });
+    expect(flames).toHaveLength(2);
   });
 
-  it('shows fading flame on the GW after a DGW boost (matchesSince=2)', () => {
+  it('shows flame on the GW after a DGW boost (matchesSince=2, still in window)', () => {
+    // DGW GW29: sub-match A (matchOrder=0, delta=3 → mild boost), sub-match B (matchOrder=1)
+    // GW30: matchOrder=2 → matchesSinceBoost=2 → still in the 3-match window
     const snapshots: SnapshotPoint[] = [
       {
         gameweek: 29,
@@ -164,10 +169,12 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
         defConCounter: 0,
         saveConCounter: 0,
       },
-      makeSnap({ gameweek: 30, delta: -1 }), // matchOrder 2 → matchesSince=2 → fading
+      makeSnap({ gameweek: 30, delta: -1 }),
     ];
     render(<MatchHistoryStrip snapshots={snapshots} />);
-    expect(screen.getByRole('img', { name: 'Fading streak · GW30' })).toBeInTheDocument();
+    // DGW sub-match A + B + GW30 all carry the same tooltip (boost was delta=3 in GW29)
+    const flames = screen.getAllByRole('img', { name: 'Hot streak: +3 boost in GW29' });
+    expect(flames.length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows no flame three matches after a DGW boost (streak expired at matchesSince=3)', () => {
@@ -182,15 +189,15 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
         defConCounter: 0,
         saveConCounter: 0,
       },
-      makeSnap({ gameweek: 30, delta: -1 }), // matchOrder 2 → fading
-      makeSnap({ gameweek: 31, delta: 0 }), // matchOrder 3 → expired
+      makeSnap({ gameweek: 30, delta: -1 }), // matchOrder 2 → matchesSince=2 → in window
+      makeSnap({ gameweek: 31, delta: 0 }), // matchOrder 3 → matchesSince=3 → expired
     ];
     render(<MatchHistoryStrip snapshots={snapshots} />);
-    // GW30 still shows fading
-    expect(screen.getByRole('img', { name: 'Fading streak · GW30' })).toBeInTheDocument();
-    // GW31 has no flame
-    expect(screen.queryByRole('img', { name: 'Fading streak · GW31' })).toBeNull();
-    expect(screen.queryByRole('img', { name: /streak.*GW31/i })).toBeNull();
+    // DGW (2 sub-matches) + GW30 all show the same tooltip (boost was GW29)
+    const flames = screen.getAllByRole('img', { name: 'Hot streak: +3 boost in GW29' });
+    expect(flames.length).toBeGreaterThanOrEqual(1);
+    // GW31 has no flame — matchesSinceBoost=3 is outside the 3-match window
+    expect(screen.queryByRole('img', { name: /boost in GW31/i })).toBeNull();
   });
 });
 

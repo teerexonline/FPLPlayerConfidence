@@ -4,64 +4,79 @@ import {
   computeHotStreak,
   computeHotStreakAtMatch,
   hotStreakAtGw,
-  hotStreakFromGwsSince,
 } from './hotStreak';
+import type { MatchBrief } from './hotStreak';
 
-// ── hotStreakFromGwsSince ────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-describe('hotStreakFromGwsSince', () => {
-  it('returns red_hot when gwsSince is 0 (boost GW itself)', () => {
-    expect(hotStreakFromGwsSince(0)).toBe('red_hot');
-  });
+/** Build a brief without GW context (tests that don't need boostGw). */
+function brief(matchOrder: number, delta: number): MatchBrief {
+  return { matchOrder, delta, gameweek: null };
+}
 
-  it('returns med_hot when gwsSince is 1 (one step after boost)', () => {
-    expect(hotStreakFromGwsSince(1)).toBe('med_hot');
-  });
-
-  it('returns low_hot when gwsSince is 2 (two steps after boost)', () => {
-    expect(hotStreakFromGwsSince(2)).toBe('low_hot');
-  });
-
-  it('returns null when gwsSince is 3 (streak expired)', () => {
-    expect(hotStreakFromGwsSince(3)).toBeNull();
-  });
-
-  it('returns null when gwsSince is 4', () => {
-    expect(hotStreakFromGwsSince(4)).toBeNull();
-  });
-
-  it('returns null for large gwsSince values', () => {
-    expect(hotStreakFromGwsSince(10)).toBeNull();
-    expect(hotStreakFromGwsSince(38)).toBeNull();
-  });
-
-  it('returns null for negative gwsSince (no === 0 match)', () => {
-    expect(hotStreakFromGwsSince(-1)).toBeNull();
-  });
-});
+/** Build a brief with GW context. */
+function briefGw(matchOrder: number, delta: number, gameweek: number): MatchBrief {
+  return { matchOrder, delta, gameweek };
+}
 
 // ── hotStreakAtGw ────────────────────────────────────────────────────────────
-// These three cases mirror the /my-team scrubber scenarios from the bug report.
 
 describe('hotStreakAtGw', () => {
-  it('GW10 view: boost at GW8 shows low_hot (2 GWs after boost)', () => {
-    expect(hotStreakAtGw(8, 10)).toBe('low_hot');
+  it('GW10 view: boost at GW8 with delta +3 shows mild (2 GWs after boost)', () => {
+    expect(hotStreakAtGw(8, 10, 3)?.level).toBe('mild');
   });
 
-  it('GW10 view: boost at GW15 shows no flame — boost has not happened yet', () => {
-    expect(hotStreakAtGw(15, 10)).toBeNull();
+  it('GW10 view: boost at GW15 — boost has not happened yet, returns null', () => {
+    expect(hotStreakAtGw(15, 10, 5)).toBeNull();
   });
 
-  it('GW10 view: boost at GW5 shows no flame — streak window expired', () => {
-    expect(hotStreakAtGw(5, 10)).toBeNull();
+  it('GW10 view: boost at GW5 — streak window expired, returns null', () => {
+    expect(hotStreakAtGw(5, 10, 5)).toBeNull();
   });
 
-  it('GW10 view: boost at GW10 shows red_hot (same GW as boost)', () => {
-    expect(hotStreakAtGw(10, 10)).toBe('red_hot');
+  it('GW10 view: boost at GW10 with delta +5 shows hot (same GW as boost)', () => {
+    const result = hotStreakAtGw(10, 10, 5);
+    expect(result?.level).toBe('hot');
+    expect(result?.matchesSinceBoost).toBe(0);
   });
 
-  it('GW10 view: boost at GW9 shows med_hot (1 GW after boost)', () => {
-    expect(hotStreakAtGw(9, 10)).toBe('med_hot');
+  it('GW10 view: boost at GW9 with delta +4 shows warm (1 GW after boost)', () => {
+    const result = hotStreakAtGw(9, 10, 4);
+    expect(result?.level).toBe('warm');
+    expect(result?.matchesSinceBoost).toBe(1);
+  });
+
+  it('returns boostGw from the first argument', () => {
+    const result = hotStreakAtGw(33, 33, 5);
+    expect(result?.boostGw).toBe(33);
+  });
+
+  it('returns boostDelta from the third argument', () => {
+    expect(hotStreakAtGw(10, 10, 4)?.boostDelta).toBe(4);
+  });
+
+  // ── Magnitude-based color (same GW window, different deltas) ──────────────
+
+  it('delta +5 → hot regardless of which match in window it is viewed at', () => {
+    expect(hotStreakAtGw(33, 33, 5)?.level).toBe('hot'); // match 0
+    expect(hotStreakAtGw(33, 34, 5)?.level).toBe('hot'); // match 1
+    expect(hotStreakAtGw(33, 35, 5)?.level).toBe('hot'); // match 2
+  });
+
+  it('delta +4 → warm across all 3 streak matches', () => {
+    expect(hotStreakAtGw(33, 33, 4)?.level).toBe('warm');
+    expect(hotStreakAtGw(33, 34, 4)?.level).toBe('warm');
+    expect(hotStreakAtGw(33, 35, 4)?.level).toBe('warm');
+  });
+
+  it('delta +3 → mild across all 3 streak matches', () => {
+    expect(hotStreakAtGw(33, 33, 3)?.level).toBe('mild');
+    expect(hotStreakAtGw(33, 34, 3)?.level).toBe('mild');
+    expect(hotStreakAtGw(33, 35, 3)?.level).toBe('mild');
+  });
+
+  it('delta +5, GW36 view (3 GWs after GW33 boost) — window expired, null', () => {
+    expect(hotStreakAtGw(33, 36, 5)).toBeNull();
   });
 });
 
@@ -73,104 +88,114 @@ describe('computeHotStreakAtMatch', () => {
   });
 
   it('returns null when no brief at or before atMatchOrder has delta ≥ 3', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 2 },
-      { matchOrder: 1, delta: -1 },
-      { matchOrder: 2, delta: 1 },
-    ];
+    const briefs = [brief(0, 2), brief(1, -1), brief(2, 1)];
     expect(computeHotStreakAtMatch(briefs, 2)).toBeNull();
   });
 
-  it('returns red_hot at the boost match itself (matchesSince=0)', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: 1 },
-    ];
-    expect(computeHotStreakAtMatch(briefs, 0)).toBe('red_hot');
+  it('boost match (matchesSinceBoost=0) returns correct level from delta', () => {
+    expect(computeHotStreakAtMatch([brief(0, 5)], 0)?.level).toBe('hot');
+    expect(computeHotStreakAtMatch([brief(0, 4)], 0)?.level).toBe('warm');
+    expect(computeHotStreakAtMatch([brief(0, 3)], 0)?.level).toBe('mild');
   });
 
-  it('returns med_hot one match after the boost (matchesSince=1)', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: -1 },
-    ];
-    expect(computeHotStreakAtMatch(briefs, 1)).toBe('med_hot');
+  it('level is the same 1 match after the boost (matchesSinceBoost=1)', () => {
+    const briefs = [brief(0, 5), brief(1, -1)];
+    expect(computeHotStreakAtMatch(briefs, 1)?.level).toBe('hot');
   });
 
-  it('returns low_hot two matches after the boost (matchesSince=2)', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 2, delta: 1 },
-    ];
-    expect(computeHotStreakAtMatch(briefs, 2)).toBe('low_hot');
+  it('level is the same 2 matches after the boost (matchesSinceBoost=2)', () => {
+    const briefs = [brief(0, 4), brief(2, 1)];
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('warm');
   });
 
-  it('returns null three matches after the boost (streak expired)', () => {
-    const briefs = [{ matchOrder: 0, delta: 3 }];
-    expect(computeHotStreakAtMatch(briefs, 3)).toBeNull();
+  it('returns null 3 matches after the boost (streak expired)', () => {
+    expect(computeHotStreakAtMatch([brief(0, 3)], 3)).toBeNull();
   });
 
   it('excludes boosts that occurred after atMatchOrder', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 2, delta: 5 },
-    ];
+    const briefs = [brief(0, 1), brief(2, 5)];
     expect(computeHotStreakAtMatch(briefs, 1)).toBeNull();
   });
 
   it('anchors to most-recent prior boost when multiple boosts exist', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: -1 },
-      { matchOrder: 2, delta: 4 },
-      { matchOrder: 3, delta: 0 },
-    ];
-    expect(computeHotStreakAtMatch(briefs, 3)).toBe('med_hot');
+    const briefs = [brief(0, 3), brief(1, -1), brief(2, 4), brief(3, 0)];
+    // Most recent boost at match 2 (delta +4 → warm), viewed at match 3 → matchesSince=1
+    expect(computeHotStreakAtMatch(briefs, 3)?.level).toBe('warm');
   });
 
   it('DGW scenario: boost in first sub-match burns one step per sub-match', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 1, delta: 3 },
-      { matchOrder: 2, delta: -1 },
-      { matchOrder: 3, delta: -1 },
-      { matchOrder: 4, delta: 0 },
-    ];
+    const briefs = [brief(0, 1), brief(1, 5), brief(2, -1), brief(3, -1), brief(4, 0)];
     expect(computeHotStreakAtMatch(briefs, 0)).toBeNull();
-    expect(computeHotStreakAtMatch(briefs, 1)).toBe('red_hot');
-    expect(computeHotStreakAtMatch(briefs, 2)).toBe('med_hot');
-    expect(computeHotStreakAtMatch(briefs, 3)).toBe('low_hot');
+    expect(computeHotStreakAtMatch(briefs, 1)?.level).toBe('hot');
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('hot'); // same level, not decaying
+    expect(computeHotStreakAtMatch(briefs, 3)?.level).toBe('hot');
     expect(computeHotStreakAtMatch(briefs, 4)).toBeNull();
   });
 
   it('does not mutate the input array', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: 1 },
-    ];
+    const briefs = [brief(0, 3), brief(1, 1)];
     const copy = [...briefs];
     computeHotStreakAtMatch(briefs, 1);
     expect(briefs).toStrictEqual(copy);
   });
 
   it('handles briefs in arbitrary order', () => {
-    const briefs = [
-      { matchOrder: 2, delta: 1 },
-      { matchOrder: 0, delta: 3 },
-    ];
-    expect(computeHotStreakAtMatch(briefs, 2)).toBe('low_hot');
+    const briefs = [brief(2, 1), brief(0, 3)];
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('mild');
   });
 
   it('correctly handles multiple boosts — each resets the anchor', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: -1 },
-      { matchOrder: 2, delta: 4 },
-      { matchOrder: 3, delta: -1 },
-    ];
-    expect(computeHotStreakAtMatch(briefs, 0)).toBe('red_hot');
-    expect(computeHotStreakAtMatch(briefs, 2)).toBe('red_hot');
-    expect(computeHotStreakAtMatch(briefs, 3)).toBe('med_hot');
+    const briefs = [brief(0, 3), brief(1, -1), brief(2, 4), brief(3, -1)];
+    expect(computeHotStreakAtMatch(briefs, 0)?.level).toBe('mild'); // delta=3 → mild
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('warm'); // delta=4 → warm
+    expect(computeHotStreakAtMatch(briefs, 3)?.level).toBe('warm'); // still the +4 boost
+  });
+
+  it('returns matchesSinceBoost=0 on boost match, 1 one after, 2 two after', () => {
+    const briefs = [brief(0, 5), brief(1, -1), brief(2, 0)];
+    expect(computeHotStreakAtMatch(briefs, 0)?.matchesSinceBoost).toBe(0);
+    expect(computeHotStreakAtMatch(briefs, 1)?.matchesSinceBoost).toBe(1);
+    expect(computeHotStreakAtMatch(briefs, 2)?.matchesSinceBoost).toBe(2);
+  });
+
+  it('boostGw is null when briefs carry no gameweek', () => {
+    expect(computeHotStreakAtMatch([brief(0, 5)], 0)?.boostGw).toBeNull();
+  });
+
+  it('boostGw reflects the brief gameweek when provided', () => {
+    const briefs = [briefGw(0, 5, 33), briefGw(1, -1, 34)];
+    expect(computeHotStreakAtMatch(briefs, 1)?.boostGw).toBe(33);
+  });
+
+  // ── New magnitude tests ───────────────────────────────────────────────────
+
+  it('delta +5 boost → hot (red) at all 3 streak positions', () => {
+    const briefs = [brief(0, 5), brief(1, 0), brief(2, 0)];
+    expect(computeHotStreakAtMatch(briefs, 0)?.level).toBe('hot');
+    expect(computeHotStreakAtMatch(briefs, 1)?.level).toBe('hot');
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('hot');
+  });
+
+  it('delta +4 boost → warm (orange) at all 3 streak positions', () => {
+    const briefs = [brief(0, 4), brief(1, 0), brief(2, 0)];
+    expect(computeHotStreakAtMatch(briefs, 0)?.level).toBe('warm');
+    expect(computeHotStreakAtMatch(briefs, 1)?.level).toBe('warm');
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('warm');
+  });
+
+  it('delta +3 boost → mild (slate) at all 3 streak positions', () => {
+    const briefs = [brief(0, 3), brief(1, 0), brief(2, 0)];
+    expect(computeHotStreakAtMatch(briefs, 0)?.level).toBe('mild');
+    expect(computeHotStreakAtMatch(briefs, 1)?.level).toBe('mild');
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('mild');
+  });
+
+  it('delta +5 boost GW33: viewed at GW33, 34, 35 all return hot; GW36 returns null', () => {
+    const briefs = [briefGw(0, 5, 33), briefGw(1, -1, 34), briefGw(2, 0, 35), briefGw(3, 1, 36)];
+    expect(computeHotStreakAtMatch(briefs, 0)?.level).toBe('hot');
+    expect(computeHotStreakAtMatch(briefs, 1)?.level).toBe('hot');
+    expect(computeHotStreakAtMatch(briefs, 2)?.level).toBe('hot');
+    expect(computeHotStreakAtMatch(briefs, 3)).toBeNull();
   });
 });
 
@@ -182,124 +207,96 @@ describe('computeHotStreak', () => {
   });
 
   it('returns null when no brief has delta ≥ 3', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 2 },
-      { matchOrder: 1, delta: -1 },
-      { matchOrder: 2, delta: 1 },
-    ];
+    const briefs = [brief(0, 2), brief(1, -1), brief(2, 1)];
     expect(computeHotStreak(briefs)).toBeNull();
   });
 
   it('returns null when the most recent boost was 3+ matches ago', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: 1 },
-      { matchOrder: 2, delta: 0 },
-      { matchOrder: 3, delta: 2 },
-    ];
+    const briefs = [brief(0, 3), brief(1, 1), brief(2, 0), brief(3, 2)];
     expect(computeHotStreak(briefs)).toBeNull();
   });
 
-  it('returns red_hot when boost is the latest match (matchesSince=0)', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 1, delta: 3 },
-    ];
-    expect(computeHotStreak(briefs)).toBe('red_hot');
+  it('returns hot when delta +5 boost is the latest match', () => {
+    const briefs = [brief(0, 1), brief(1, 5)];
+    expect(computeHotStreak(briefs)?.level).toBe('hot');
   });
 
-  it('returns med_hot when boost was 1 match ago', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 1, delta: 4 },
-      { matchOrder: 2, delta: -1 },
-    ];
-    expect(computeHotStreak(briefs)).toBe('med_hot');
+  it('returns warm when delta +4 boost is 1 match ago', () => {
+    const briefs = [brief(0, 1), brief(1, 4), brief(2, -1)];
+    expect(computeHotStreak(briefs)?.level).toBe('warm');
   });
 
-  it('returns low_hot when boost was 2 matches ago', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: 1 },
-      { matchOrder: 2, delta: -1 },
-    ];
-    expect(computeHotStreak(briefs)).toBe('low_hot');
+  it('returns mild when delta +3 boost is 2 matches ago', () => {
+    const briefs = [brief(0, 3), brief(1, 1), brief(2, -1)];
+    expect(computeHotStreak(briefs)?.level).toBe('mild');
   });
 
   it('returns null when boost was 3 matches ago (streak expired)', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 5 },
-      { matchOrder: 1, delta: 0 },
-      { matchOrder: 2, delta: 1 },
-      { matchOrder: 3, delta: 2 },
-    ];
+    const briefs = [brief(0, 5), brief(1, 0), brief(2, 1), brief(3, 2)];
     expect(computeHotStreak(briefs)).toBeNull();
   });
 
   it('uses the most recent qualifying boost when multiple boosts exist', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: 1 },
-      { matchOrder: 2, delta: 4 },
-      { matchOrder: 3, delta: -1 },
-      { matchOrder: 4, delta: 2 },
-    ];
-    expect(computeHotStreak(briefs)).toBe('low_hot');
+    const briefs = [brief(0, 3), brief(1, 1), brief(2, 4), brief(3, -1), brief(4, 2)];
+    // Most recent boost at match 2 (delta=4→warm), now 2 matches ago
+    expect(computeHotStreak(briefs)?.level).toBe('warm');
   });
 
   it('resets the timer when a new boost occurs during an existing streak', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: 1 },
-      { matchOrder: 2, delta: 3 },
-      { matchOrder: 3, delta: -1 },
-    ];
-    expect(computeHotStreak(briefs)).toBe('med_hot');
+    const briefs = [brief(0, 3), brief(1, 1), brief(2, 3), brief(3, -1)];
+    // Most recent boost at match 2 (delta=3→mild), 1 match ago
+    expect(computeHotStreak(briefs)?.level).toBe('mild');
   });
 
   it('handles briefs arriving in arbitrary order', () => {
-    const briefs = [
-      { matchOrder: 3, delta: -1 },
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 2, delta: 3 },
-      { matchOrder: 1, delta: 1 },
-    ];
-    expect(computeHotStreak(briefs)).toBe('med_hot');
+    // At maxOrder=3: most recent boost is matchOrder=2 (delta=4), matchesSinceBoost=1 → warm
+    const briefs = [brief(3, -1), brief(0, 3), brief(2, 4), brief(1, 1)];
+    expect(computeHotStreak(briefs)?.level).toBe('warm');
   });
 
-  it('treats delta exactly equal to 3 as a valid boost', () => {
-    expect(computeHotStreak([{ matchOrder: 0, delta: 3 }])).toBe('red_hot');
+  it('treats delta exactly equal to 3 as a valid boost (→ mild)', () => {
+    expect(computeHotStreak([brief(0, 3)])?.level).toBe('mild');
   });
 
   it('treats delta of 2 as not a boost', () => {
-    expect(computeHotStreak([{ matchOrder: 0, delta: 2 }])).toBeNull();
+    expect(computeHotStreak([brief(0, 2)])).toBeNull();
   });
 
   it('handles a single-match history with no boost', () => {
-    expect(computeHotStreak([{ matchOrder: 0, delta: 0 }])).toBeNull();
+    expect(computeHotStreak([brief(0, 0)])).toBeNull();
   });
 
   it('handles a single-match history that is a boost', () => {
-    expect(computeHotStreak([{ matchOrder: 0, delta: 6 }])).toBe('red_hot');
+    expect(computeHotStreak([brief(0, 6)])?.level).toBe('hot');
   });
 
   it('does not mutate the input array', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 1, delta: 3 },
-    ];
+    const briefs = [brief(0, 1), brief(1, 3)];
     const copy = [...briefs];
     computeHotStreak(briefs);
     expect(briefs).toStrictEqual(copy);
   });
 
-  it('DGW: boost in sub-match A means live indicator shows recent if sub-match B is latest', () => {
-    const briefs = [
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 1, delta: 3 },
-      { matchOrder: 2, delta: -1 },
-    ];
-    expect(computeHotStreak(briefs)).toBe('med_hot');
+  it('DGW: boost in sub-match A means live indicator shows correct level at sub-match B', () => {
+    const briefs = [brief(0, 1), brief(1, 5), brief(2, -1)];
+    expect(computeHotStreak(briefs)?.level).toBe('hot');
+  });
+
+  // ── Magnitude-based color consistency ────────────────────────────────────
+
+  it('delta +5 boost 2 matches ago → hot (color does not decay)', () => {
+    const briefs = [brief(0, 5), brief(1, -1), brief(2, 0)];
+    expect(computeHotStreak(briefs)?.level).toBe('hot');
+  });
+
+  it('delta +4 boost 2 matches ago → warm (color does not decay)', () => {
+    const briefs = [brief(0, 4), brief(1, -1), brief(2, 0)];
+    expect(computeHotStreak(briefs)?.level).toBe('warm');
+  });
+
+  it('delta +3 boost 2 matches ago → mild (color does not decay)', () => {
+    const briefs = [brief(0, 3), brief(1, -1), brief(2, 0)];
+    expect(computeHotStreak(briefs)?.level).toBe('mild');
   });
 });
 
@@ -308,7 +305,17 @@ describe('computeHotStreak', () => {
 describe('buildMatchBriefs', () => {
   it('single non-DGW snapshot produces one brief with the snapshot delta', () => {
     const result = buildMatchBriefs([{ delta: 2, reason: 'Blank vs FDR 3 opponent' }]);
-    expect(result).toEqual([{ matchOrder: 0, delta: 2 }]);
+    expect(result).toEqual([{ matchOrder: 0, delta: 2, gameweek: null }]);
+  });
+
+  it('passes through gameweek when provided', () => {
+    const result = buildMatchBriefs([{ delta: 3, reason: 'MOTM vs FDR 5 opponent', gameweek: 33 }]);
+    expect(result[0]).toMatchObject({ gameweek: 33 });
+  });
+
+  it('gameweek is null when not provided', () => {
+    const result = buildMatchBriefs([{ delta: 3, reason: 'MOTM vs FDR 5 opponent' }]);
+    expect(result[0]?.gameweek).toBeNull();
   });
 
   it('multiple non-DGW snapshots produce consecutive matchOrders', () => {
@@ -318,9 +325,9 @@ describe('buildMatchBriefs', () => {
       { delta: -1, reason: 'Blank vs FDR 3 opponent' },
     ]);
     expect(result).toEqual([
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 1, delta: 3 },
-      { matchOrder: 2, delta: -1 },
+      { matchOrder: 0, delta: 1, gameweek: null },
+      { matchOrder: 1, delta: 3, gameweek: null },
+      { matchOrder: 2, delta: -1, gameweek: null },
     ]);
   });
 
@@ -328,28 +335,31 @@ describe('buildMatchBriefs', () => {
     const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
     const result = buildMatchBriefs([{ delta: 2, reason }]);
     expect(result).toEqual([
-      { matchOrder: 0, delta: 3 },
-      { matchOrder: 1, delta: -1 },
+      { matchOrder: 0, delta: 3, gameweek: null },
+      { matchOrder: 1, delta: -1, gameweek: null },
     ]);
   });
 
-  it('DGW boost in sub-match B (most recent) → computeHotStreak returns red_hot — the live-indicator DGW bug', () => {
-    // The bug: combined DGW delta = +1+3 = 4. With GW-based: gwsSince=0 → 'fresh' at currentGW.
-    // At currentGW+1, gwsSince=1 → 'recent'. But sub-match B (matchOrder=1) WAS the most recent
-    // match, and the boost was there — matchesSinceBoost=0 → should be 'fresh'.
-    const reason = 'DGW: Blank vs FDR 3 opponent (+1) + MOTM vs FDR 5 opponent (+3)';
-    const result = computeHotStreak(buildMatchBriefs([{ delta: 4, reason }]));
-    expect(result).toBe('red_hot');
+  it('DGW snapshot both sub-matches share the parent snapshot gameweek', () => {
+    const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
+    const result = buildMatchBriefs([{ delta: 2, reason, gameweek: 33 }]);
+    expect(result[0]?.gameweek).toBe(33);
+    expect(result[1]?.gameweek).toBe(33);
+  });
+
+  it('DGW boost in sub-match B (most recent) → computeHotStreak returns hot', () => {
+    const reason = 'DGW: Blank vs FDR 3 opponent (+1) + MOTM vs FDR 5 opponent (+5)';
+    const result = computeHotStreak(buildMatchBriefs([{ delta: 6, reason }]));
+    expect(result?.level).toBe('hot');
   });
 
   it('DGW combined delta < 3 but sub-match A delta ≥ 3 → boost detected via per-sub-match parsing', () => {
-    // Combined = +3 + (−1) = +2. SQL WHERE delta>=3 misses this. buildMatchBriefs finds it.
     const reason = 'DGW: MOTM vs FDR 5 opponent (+3) + Blank vs FDR 3 opponent (-1)';
     const briefs = buildMatchBriefs([{ delta: 2, reason }]);
     expect(briefs[0]).toMatchObject({ delta: 3 });
     expect(briefs[1]).toMatchObject({ delta: -1 });
-    // After the DGW (sub-match B is the latest), matchesSinceBoost = 1 → 'recent'.
-    expect(computeHotStreak(briefs)).toBe('med_hot');
+    // Sub-match B is latest → matchesSinceBoost=1 from the boost at sub-match A
+    expect(computeHotStreak(briefs)?.level).toBe('mild'); // delta=3 → mild
   });
 
   it('mixed sequence: non-DGW then DGW assigns matchOrders correctly', () => {
@@ -361,9 +371,9 @@ describe('buildMatchBriefs', () => {
       },
     ]);
     expect(result).toEqual([
-      { matchOrder: 0, delta: 1 },
-      { matchOrder: 1, delta: 3 },
-      { matchOrder: 2, delta: -1 },
+      { matchOrder: 0, delta: 1, gameweek: null },
+      { matchOrder: 1, delta: 3, gameweek: null },
+      { matchOrder: 2, delta: -1, gameweek: null },
     ]);
   });
 
@@ -372,9 +382,6 @@ describe('buildMatchBriefs', () => {
   });
 
   it('DGW reason with fatigue-modified sub-match parses correctly', () => {
-    // Real format: "Performance + Fatigue" is the sub-match reason text with no inline delta;
-    // the combined entry delta (+2) appears only at the end. The signed-delta regex finds
-    // exactly one delta per sub-match entry — no false positives.
     const reason =
       'DGW: Performance vs FDR 3 opponent + Fatigue (+2) + Blank vs FDR 2 opponent (-1)';
     const briefs = buildMatchBriefs([{ delta: 1, reason }]);

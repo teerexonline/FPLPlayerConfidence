@@ -28,8 +28,7 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
     status,
     chanceOfPlaying,
     news,
-    hotStreakLevel,
-    latestGameweek,
+    hotStreak,
   } = player;
   const price = `£${(nowCost / 10).toFixed(1)}m`;
   const jerseyUrl = `/api/jerseys/${teamCode.toString()}?size=110`;
@@ -87,13 +86,12 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
           </span>
           <span className="bg-border h-3.5 w-px" aria-hidden="true" />
           <span className="text-muted text-[14px] tabular-nums">{price}</span>
-          {hotStreakLevel !== null && (status === 'a' || status === '') && (
+          {hotStreak !== null && (status === 'a' || status === '') && (
             <>
               <span className="bg-border h-3.5 w-px" aria-hidden="true" />
               <LivePlayerStreakIndicator
-                level={hotStreakLevel}
+                hotStreak={hotStreak}
                 size="lg"
-                currentGW={latestGameweek}
                 status={status}
                 isStale={false}
               />

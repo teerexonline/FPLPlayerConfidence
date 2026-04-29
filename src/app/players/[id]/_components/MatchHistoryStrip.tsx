@@ -52,12 +52,12 @@ function buildMatchData(snapshots: readonly SnapshotPoint[]): {
     if (dgwParts !== null && dgwParts.length >= 2) {
       cardMetas.push({ isDgw: true, dgwParts, orderA: cursor, orderB: cursor + 1 });
       for (const part of dgwParts) {
-        matchBriefs.push({ matchOrder: cursor, delta: part.delta });
+        matchBriefs.push({ matchOrder: cursor, delta: part.delta, gameweek: s.gameweek });
         cursor++;
       }
     } else {
       cardMetas.push({ isDgw: false, orderA: cursor, orderB: null });
-      matchBriefs.push({ matchOrder: cursor, delta: s.delta });
+      matchBriefs.push({ matchOrder: cursor, delta: s.delta, gameweek: s.gameweek });
       cursor++;
     }
   }
@@ -125,8 +125,8 @@ export function MatchHistoryStrip({
                 key={snapshot.gameweek}
                 snapshot={snapshot}
                 parts={meta.dgwParts}
-                hotStreakLevelA={streakA}
-                hotStreakLevelB={computeHotStreakAtMatch(matchBriefs, meta.orderB)}
+                hotStreakA={streakA}
+                hotStreakB={computeHotStreakAtMatch(matchBriefs, meta.orderB)}
                 isSelected={isSelected}
                 {...clickProps}
               />
@@ -134,7 +134,7 @@ export function MatchHistoryStrip({
               <MatchHistoryCard
                 key={snapshot.gameweek}
                 snapshot={snapshot}
-                hotStreakLevel={streakA}
+                hotStreak={streakA}
                 isSelected={isSelected}
                 {...clickProps}
               />

@@ -85,9 +85,8 @@ function MoverRow({ player, variant, rank }: MoverRowProps): JSX.Element {
             {player.webName}
           </p>
           <LivePlayerStreakIndicator
-            level={player.hotStreakLevel}
+            hotStreak={player.hotStreak}
             size="sm"
-            currentGW={player.latestGameweek}
             status={player.status}
             isStale={player.recentAppearances < 2}
           />

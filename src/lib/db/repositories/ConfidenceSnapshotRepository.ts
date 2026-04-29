@@ -66,15 +66,15 @@ export interface ConfidenceSnapshotRepository {
   recentAppearancesForAllPlayers(minGw: number): ReadonlyMap<number, number>;
 
   /**
-   * Returns a map of playerId → the most recent gameweek in which delta ≥ 3,
-   * considering only gameweeks in [minGw, maxGw]. Players with no qualifying
-   * boost in that window are absent from the map.
+   * Returns a map of playerId → { boostGw, boostDelta } for the most recent boost
+   * (delta ≥ 3) in [minGw, maxGw]. Players with no qualifying boost are absent.
    *
-   * maxGw must be supplied to avoid returning future boosts when viewing a
-   * historical GW — MAX(gameweek) without an upper bound would otherwise
-   * pick a later boost and hide the most-recent past one.
+   * maxGw prevents returning future boosts when viewing a historical GW.
    */
-  recentBoostGameweekForAllPlayers(minGw: number, maxGw: number): ReadonlyMap<number, number>;
+  recentBoostForAllPlayers(
+    minGw: number,
+    maxGw: number,
+  ): ReadonlyMap<number, { boostGw: number; boostDelta: number }>;
 
   /**
    * Returns a map of playerId → SnapshotBrief array (gameweek, delta, reason) for

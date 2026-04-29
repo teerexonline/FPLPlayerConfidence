@@ -1,4 +1,4 @@
-import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 import type { Position } from '@/lib/db/types';
 
 /** One player row rendered in StartingXIList or BenchSection. */
@@ -16,7 +16,7 @@ export interface SquadPlayerRow {
   readonly status: string;
   readonly chanceOfPlaying: number | null;
   readonly news: string;
-  readonly hotStreakLevel: HotStreakLevel | null;
+  readonly hotStreak: HotStreakInfo | null;
 }
 
 /** Full view model returned by GET /api/my-team and consumed by MyTeamPageClient. */

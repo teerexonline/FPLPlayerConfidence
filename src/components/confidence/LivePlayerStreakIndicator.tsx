@@ -1,14 +1,15 @@
+'use client';
+
 import type { JSX } from 'react';
 import { HotStreakIndicator } from './HotStreakIndicator';
-import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 
 export interface LivePlayerStreakIndicatorProps {
-  readonly level: HotStreakLevel | null;
+  readonly hotStreak: HotStreakInfo | null;
   /** FPL status code: 'a'=available, 'd'=doubtful, 'i'=injured, 's'=suspended, etc. */
   readonly status: string;
   /** True when the player has < 2 snapshots in the recent 3-GW window. */
   readonly isStale: boolean;
-  readonly currentGW: number;
   readonly size?: 'sm' | 'lg';
   readonly className?: string;
 }
@@ -24,10 +25,9 @@ export interface LivePlayerStreakIndicatorProps {
  * flames describe what was true at the time of each match, not the live state.
  */
 export function LivePlayerStreakIndicator({
-  level,
+  hotStreak,
   status,
   isStale,
-  currentGW,
   size = 'sm',
   className,
 }: LivePlayerStreakIndicatorProps): JSX.Element | null {
@@ -35,9 +35,8 @@ export function LivePlayerStreakIndicator({
   if (isStale) return null;
   return (
     <HotStreakIndicator
-      level={level}
+      hotStreak={hotStreak}
       size={size}
-      currentGW={currentGW}
       {...(className !== undefined ? { className } : {})}
     />
   );

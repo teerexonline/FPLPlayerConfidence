@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
-import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 import { classifyReason } from './types';
 import type { DgwPart, SnapshotPoint } from './types';
 import { formatDelta, getPresentation } from './MatchHistoryCard';
@@ -9,10 +9,10 @@ import { formatDelta, getPresentation } from './MatchHistoryCard';
 export interface DgwMatchCardProps {
   readonly snapshot: SnapshotPoint;
   readonly parts: readonly DgwPart[];
-  /** Streak level for the first sub-match (DGW match A). */
-  readonly hotStreakLevelA?: HotStreakLevel | null;
-  /** Streak level for the second sub-match (DGW match B). */
-  readonly hotStreakLevelB?: HotStreakLevel | null;
+  /** Streak info for the first sub-match (DGW match A). */
+  readonly hotStreakA?: HotStreakInfo | null;
+  /** Streak info for the second sub-match (DGW match B). */
+  readonly hotStreakB?: HotStreakInfo | null;
   readonly isSelected?: boolean;
   readonly onClick?: () => void;
 }
@@ -21,12 +21,10 @@ export interface DgwMatchCardProps {
 
 function DgwSubCard({
   part,
-  hotStreakLevel,
-  gameweek,
+  hotStreak,
 }: {
   readonly part: DgwPart;
-  readonly hotStreakLevel?: HotStreakLevel | null;
-  readonly gameweek: number;
+  readonly hotStreak?: HotStreakInfo | null;
 }): JSX.Element {
   const kind = classifyReason(part.reason);
   const { label, icon: Icon, iconClass } = getPresentation(kind, part.delta);
@@ -38,9 +36,7 @@ function DgwSubCard({
       <Icon className={cn('h-4 w-4', iconClass)} />
       <div className="flex items-center gap-0.5">
         <span className="text-muted text-center text-[9px] leading-tight font-medium">{label}</span>
-        {hotStreakLevel != null && (
-          <HotStreakIndicator level={hotStreakLevel} size="sm" currentGW={gameweek} />
-        )}
+        {hotStreak != null && <HotStreakIndicator hotStreak={hotStreak} size="sm" />}
       </div>
       <span
         className={cn('text-[15px] leading-none font-semibold tabular-nums', deltaColor)}
@@ -61,8 +57,8 @@ function DgwSubCard({
 export function DgwMatchCard({
   snapshot,
   parts,
-  hotStreakLevelA = null,
-  hotStreakLevelB = null,
+  hotStreakA = null,
+  hotStreakB = null,
   isSelected = false,
   onClick,
 }: DgwMatchCardProps): JSX.Element | null {
@@ -119,9 +115,9 @@ export function DgwMatchCard({
 
       {/* Two sub-cards separated by a hairline */}
       <div className="flex px-1.5 pt-1">
-        <DgwSubCard part={part1} hotStreakLevel={hotStreakLevelA} gameweek={gameweek} />
+        <DgwSubCard part={part1} hotStreak={hotStreakA} />
         <div className="bg-border/60 mx-1 w-px self-stretch" />
-        <DgwSubCard part={part2} hotStreakLevel={hotStreakLevelB} gameweek={gameweek} />
+        <DgwSubCard part={part2} hotStreak={hotStreakB} />
       </div>
 
       {/* Net delta footer */}

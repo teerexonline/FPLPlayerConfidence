@@ -2,13 +2,13 @@ import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import { confidenceToPercent } from '@/lib/utils/math';
 import { HotStreakIndicator } from '@/components/confidence/HotStreakIndicator';
-import type { HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 import { classifyReason } from './types';
 import type { ReasonKind, SnapshotPoint } from './types';
 
 export interface MatchHistoryCardProps {
   readonly snapshot: SnapshotPoint;
-  readonly hotStreakLevel?: HotStreakLevel | null;
+  readonly hotStreak?: HotStreakInfo | null;
   readonly isSelected?: boolean;
   readonly onClick?: () => void;
 }
@@ -229,7 +229,7 @@ export function formatDelta(delta: number): string {
  */
 export function MatchHistoryCard({
   snapshot,
-  hotStreakLevel = null,
+  hotStreak = null,
   isSelected = false,
   onClick,
 }: MatchHistoryCardProps): JSX.Element {
@@ -239,7 +239,7 @@ export function MatchHistoryCard({
 
   const hasFatigueClause = fatigueApplied || reason.toLowerCase().includes('fatigue');
   const isBigOpponent = reason.includes('vs BIG opponent');
-  const isBoostMatch = hotStreakLevel === 'red_hot';
+  const isBoostMatch = hotStreak?.matchesSinceBoost === 0;
 
   const deltaColor = delta > 0 ? 'text-positive' : delta < 0 ? 'text-negative' : 'text-neutral';
 
@@ -292,9 +292,7 @@ export function MatchHistoryCard({
           )}
         </div>
         <div className="flex items-center gap-1">
-          {hotStreakLevel != null && (
-            <HotStreakIndicator level={hotStreakLevel} size="sm" currentGW={gameweek} />
-          )}
+          {hotStreak != null && <HotStreakIndicator hotStreak={hotStreak} size="sm" />}
           {isBigOpponent && (
             <span
               className="bg-accent/15 text-accent rounded-sm px-[3px] py-px text-[7px] leading-none font-bold tracking-[0.06em] uppercase"

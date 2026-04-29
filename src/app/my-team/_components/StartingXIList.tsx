@@ -12,8 +12,6 @@ import type { SquadPlayerRow } from './types';
 
 interface StartingXIListProps {
   readonly starters: readonly SquadPlayerRow[];
-  /** The gameweek context being displayed — forwarded to HotStreakIndicator so the GW label reflects the viewed GW, not always the live GW. */
-  readonly currentGW: number;
 }
 
 function CaptainBadge({
@@ -48,13 +46,7 @@ function CaptainBadge({
   return <span className="w-5 shrink-0" aria-hidden="true" />;
 }
 
-function StarterRow({
-  player,
-  currentGW,
-}: {
-  player: SquadPlayerRow;
-  currentGW: number;
-}): JSX.Element {
+function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
   return (
     <li role="listitem">
       <Link
@@ -92,9 +84,8 @@ function StarterRow({
               {player.webName}
             </p>
             <LivePlayerStreakIndicator
-              level={player.hotStreakLevel}
+              hotStreak={player.hotStreak}
               size="sm"
-              currentGW={currentGW}
               status={player.status}
               isStale={false}
             />
@@ -131,7 +122,7 @@ function StarterRow({
  * Each row links to the player's detail page. Includes the formation label
  * derived from the actual squad positions.
  */
-export function StartingXIList({ starters, currentGW }: StartingXIListProps): JSX.Element {
+export function StartingXIList({ starters }: StartingXIListProps): JSX.Element {
   return (
     <section aria-label="Starting XI" className="mb-2">
       <h2 className="text-muted mb-1 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
@@ -140,7 +131,7 @@ export function StartingXIList({ starters, currentGW }: StartingXIListProps): JS
       <div className="border-border bg-surface rounded-[8px] border px-4">
         <ul role="list">
           {starters.map((player) => (
-            <StarterRow key={player.playerId} player={player} currentGW={currentGW} />
+            <StarterRow key={player.playerId} player={player} />
           ))}
         </ul>
       </div>

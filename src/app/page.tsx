@@ -71,7 +71,7 @@ function loadDashboard(): DashboardResult {
     if (!player || !team) return [];
 
     const recentSnaps = recentSnapshotsMap.get(numericId) ?? [];
-    const hotStreakLevel = computeHotStreak(buildMatchBriefs(recentSnaps));
+    const hotStreak = computeHotStreak(buildMatchBriefs(recentSnaps));
 
     return [
       {
@@ -88,7 +88,7 @@ function loadDashboard(): DashboardResult {
         chanceOfPlaying: player.chance_of_playing_next_round,
         news: player.news,
         recentAppearances: recentAppearancesMap.get(numericId) ?? 0,
-        hotStreakLevel,
+        hotStreak,
         totalPoints: player.total_points,
       },
     ];

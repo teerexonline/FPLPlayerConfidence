@@ -2,22 +2,29 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { LivePlayerStreakIndicator } from './LivePlayerStreakIndicator';
 import type { LivePlayerStreakIndicatorProps } from './LivePlayerStreakIndicator';
+import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
+
+const HOT_STREAK: HotStreakInfo = {
+  level: 'hot',
+  boostDelta: 5,
+  boostGw: 33,
+  matchesSinceBoost: 0,
+};
 
 const BASE: LivePlayerStreakIndicatorProps = {
-  level: 'red_hot',
+  hotStreak: HOT_STREAK,
   status: 'a',
   isStale: false,
-  currentGW: 30,
 };
 
 describe('LivePlayerStreakIndicator', () => {
   it('renders the flame when player is available and not stale', () => {
     render(<LivePlayerStreakIndicator {...BASE} />);
-    expect(screen.getByRole('img', { name: /fresh streak/i })).toBeInTheDocument();
+    expect(screen.getByRole('img')).toBeInTheDocument();
   });
 
-  it('renders null when level is null (player is cold)', () => {
-    const { container } = render(<LivePlayerStreakIndicator {...BASE} level={null} />);
+  it('renders null when hotStreak is null (player is cold)', () => {
+    const { container } = render(<LivePlayerStreakIndicator {...BASE} hotStreak={null} />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -58,21 +65,33 @@ describe('LivePlayerStreakIndicator', () => {
 
   it('shows the flame when status is empty string (treated as available)', () => {
     render(<LivePlayerStreakIndicator {...BASE} status="" />);
-    expect(screen.getByRole('img', { name: /fresh streak/i })).toBeInTheDocument();
+    expect(screen.getByRole('img')).toBeInTheDocument();
   });
 
   it('passes size=lg to HotStreakIndicator — renders text label', () => {
     render(<LivePlayerStreakIndicator {...BASE} size="lg" />);
-    expect(screen.getByText('Fresh')).toBeInTheDocument();
+    expect(screen.getByText('Hot')).toBeInTheDocument();
   });
 
-  it('renders med_hot flame correctly', () => {
-    render(<LivePlayerStreakIndicator {...BASE} level="med_hot" />);
-    expect(screen.getByRole('img', { name: /recent streak/i })).toBeInTheDocument();
+  it('renders warm flame correctly — tooltip shows +4 boost', () => {
+    const warmStreak: HotStreakInfo = {
+      level: 'warm',
+      boostDelta: 4,
+      boostGw: 20,
+      matchesSinceBoost: 0,
+    };
+    render(<LivePlayerStreakIndicator {...BASE} hotStreak={warmStreak} />);
+    expect(screen.getByRole('img')).toHaveAttribute('title', 'Hot streak: +4 boost in GW20');
   });
 
-  it('renders low_hot flame correctly', () => {
-    render(<LivePlayerStreakIndicator {...BASE} level="low_hot" />);
-    expect(screen.getByRole('img', { name: /fading streak/i })).toBeInTheDocument();
+  it('renders mild flame correctly — tooltip shows +3 boost', () => {
+    const mildStreak: HotStreakInfo = {
+      level: 'mild',
+      boostDelta: 3,
+      boostGw: 21,
+      matchesSinceBoost: 1,
+    };
+    render(<LivePlayerStreakIndicator {...BASE} hotStreak={mildStreak} />);
+    expect(screen.getByRole('img')).toHaveAttribute('title', 'Hot streak: +3 boost in GW21');
   });
 });
