@@ -8,7 +8,6 @@ import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndic
 import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
-import { computeFormation } from './computeFormation';
 import type { SquadPlayerRow } from './types';
 
 interface StartingXIListProps {
@@ -133,20 +132,8 @@ function StarterRow({
  * derived from the actual squad positions.
  */
 export function StartingXIList({ starters, currentGW }: StartingXIListProps): JSX.Element {
-  const formation = computeFormation(starters);
-
   return (
     <section aria-label="Starting XI" className="mb-2">
-      {/* Formation label */}
-      <div className="mb-3" aria-label={`Formation: ${formation}`}>
-        <p className="text-muted font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
-          Formation
-        </p>
-        <p className="text-text mt-0.5 font-sans text-[18px] font-semibold tracking-tight tabular-nums">
-          {formation}
-        </p>
-      </div>
-
       <h2 className="text-muted mb-1 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
         Starting XI
       </h2>

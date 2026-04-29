@@ -3,6 +3,8 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { ConnectTeamForm } from './ConnectTeamForm';
+import { computeFormation } from './computeFormation';
+import { GwControlBar } from './GwControlBar';
 import { GwTimeline } from './GwTimeline';
 import { ManagerHeader } from './ManagerHeader';
 import { MyTeamHero } from './MyTeamHero';
@@ -41,6 +43,7 @@ function LoadedView({
   onChangeTeam: () => void;
 }): JSX.Element {
   const starters = data.starters;
+  const formation = computeFormation(starters);
 
   // Compute real player counts per line from the starters array.
   const defenceCount = starters.filter((p) => p.position === 'GK' || p.position === 'DEF').length;
@@ -90,6 +93,13 @@ function LoadedView({
           attackCount={attackCount}
         />
 
+        <GwControlBar
+          formation={formation}
+          selectedGw={selectedGw}
+          currentGameweek={data.currentGameweek}
+          firstGameweek={firstGw}
+          onSelectGw={onSelectGw}
+        />
         <StartingXIList starters={starters} currentGW={data.gameweek} />
 
         <div className="mt-6">

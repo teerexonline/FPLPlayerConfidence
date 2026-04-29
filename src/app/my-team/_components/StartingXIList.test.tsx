@@ -107,46 +107,6 @@ describe('StartingXIList', () => {
     expect(screen.getByText('MCI · FWD')).toBeInTheDocument();
   });
 
-  it('renders the formation label derived from actual starters', () => {
-    const starters = [
-      makePlayer({ playerId: 1, squadPosition: 1, position: 'GK' }),
-      makePlayer({ playerId: 2, squadPosition: 2, position: 'DEF' }),
-      makePlayer({ playerId: 3, squadPosition: 3, position: 'DEF' }),
-      makePlayer({ playerId: 4, squadPosition: 4, position: 'DEF' }),
-      makePlayer({ playerId: 5, squadPosition: 5, position: 'DEF' }),
-      makePlayer({ playerId: 6, squadPosition: 6, position: 'MID' }),
-      makePlayer({ playerId: 7, squadPosition: 7, position: 'MID' }),
-      makePlayer({ playerId: 8, squadPosition: 8, position: 'MID' }),
-      makePlayer({ playerId: 9, squadPosition: 9, position: 'FWD' }),
-      makePlayer({ playerId: 10, squadPosition: 10, position: 'FWD' }),
-      makePlayer({ playerId: 11, squadPosition: 11, position: 'FWD' }),
-    ];
-    render(<StartingXIList starters={starters} currentGW={20} />);
-    // Formation label text (4 DEF + 3 MID + 3 FWD)
-    expect(screen.getByText('4-3-3')).toBeInTheDocument();
-    // Section-header label
-    expect(screen.getByText('Formation')).toBeInTheDocument();
-  });
-
-  it('formation label aria-label describes the formation', () => {
-    const starters = [
-      makePlayer({ playerId: 1, squadPosition: 1, position: 'GK' }),
-      makePlayer({ playerId: 2, squadPosition: 2, position: 'DEF' }),
-      makePlayer({ playerId: 3, squadPosition: 3, position: 'DEF' }),
-      makePlayer({ playerId: 4, squadPosition: 4, position: 'DEF' }),
-      makePlayer({ playerId: 5, squadPosition: 5, position: 'DEF' }),
-      makePlayer({ playerId: 6, squadPosition: 6, position: 'MID' }),
-      makePlayer({ playerId: 7, squadPosition: 7, position: 'MID' }),
-      makePlayer({ playerId: 8, squadPosition: 8, position: 'MID' }),
-      makePlayer({ playerId: 9, squadPosition: 9, position: 'MID' }),
-      makePlayer({ playerId: 10, squadPosition: 10, position: 'MID' }),
-      makePlayer({ playerId: 11, squadPosition: 11, position: 'FWD' }),
-    ];
-    render(<StartingXIList starters={starters} currentGW={20} />);
-    // 4-5-1 formation
-    expect(screen.getByLabelText('Formation: 4-5-1')).toBeInTheDocument();
-  });
-
   // ── GW scrubber interaction ─────────────────────────────────────────────────
 
   it('scrubbing from GW34 to GW3 — flame appears when hotStreakLevel changes from null to red_hot', () => {
