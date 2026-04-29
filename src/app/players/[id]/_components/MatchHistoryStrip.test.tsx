@@ -11,6 +11,7 @@ const SAMPLE_SNAPSHOTS: SnapshotPoint[] = [
     confidenceAfter: 1,
     delta: 1,
     rawDelta: 1,
+    eventMagnitude: 1,
     reason: 'Clean sheet vs FDR 2 opponent',
     fatigueApplied: false,
     motmCounter: 0,
@@ -22,6 +23,7 @@ const SAMPLE_SNAPSHOTS: SnapshotPoint[] = [
     confidenceAfter: 3,
     delta: 2,
     rawDelta: 2,
+    eventMagnitude: 2,
     reason: 'MOTM vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 1,
@@ -33,6 +35,7 @@ const SAMPLE_SNAPSHOTS: SnapshotPoint[] = [
     confidenceAfter: 1,
     delta: -2,
     rawDelta: -2,
+    eventMagnitude: -2,
     reason: 'Blank vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 0,
@@ -93,6 +96,7 @@ describe('MatchHistoryStrip', () => {
       confidenceAfter: 0,
       delta: -2,
       rawDelta: -2,
+      eventMagnitude: -1,
       reason: 'DGW: Blank vs FDR 3 opponent (-1) + Blank vs FDR 2 opponent (-1)',
       fatigueApplied: false,
       motmCounter: 0,
@@ -110,6 +114,7 @@ describe('MatchHistoryStrip', () => {
       confidenceAfter: 3,
       delta: -1,
       rawDelta: -1,
+      eventMagnitude: 2,
       reason: 'DGW: MOTM vs FDR 3 opponent + Fatigue −2 (+0) + Blank vs FDR 2 opponent (-1)',
       fatigueApplied: true,
       motmCounter: 0,
@@ -129,6 +134,7 @@ function makeSnap(overrides: Partial<SnapshotPoint>): SnapshotPoint {
     confidenceAfter: 0,
     delta: 0,
     rawDelta: 0,
+    eventMagnitude: 0,
     reason: 'MOTM vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 0,
@@ -149,6 +155,7 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
         confidenceAfter: 2,
         delta: 2,
         rawDelta: 2,
+        eventMagnitude: 3,
         reason: 'DGW: MOTM vs FDR 3 opponent (+3) + Blank vs FDR 2 opponent (-1)',
         fatigueApplied: false,
         motmCounter: 1,
@@ -157,9 +164,14 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
       },
     ];
     render(<MatchHistoryStrip snapshots={snapshots} />);
-    // Both sub-matches carry the same tooltip — the boost was delta=3 in GW29
-    const flames = screen.getAllByRole('img', { name: 'Hot streak: +3 boost in GW29' });
-    expect(flames).toHaveLength(2);
+    // Sub-match A is the boost match (matchesSinceBoost=0 → this match)
+    // Sub-match B is one step after (matchesSinceBoost=1 → 1 match ago)
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +3 boost in GW29 (this match)' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +3 boost in GW29 (1 match ago)' }),
+    ).toBeInTheDocument();
   });
 
   it('shows flame on the GW after a DGW boost (matchesSince=2, still in window)', () => {
@@ -171,6 +183,7 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
         confidenceAfter: 2,
         delta: 2,
         rawDelta: 2,
+        eventMagnitude: 3,
         reason: 'DGW: MOTM vs FDR 3 opponent (+3) + Blank vs FDR 2 opponent (-1)',
         fatigueApplied: false,
         motmCounter: 1,
@@ -180,9 +193,18 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
       makeSnap({ gameweek: 30, delta: -1 }),
     ];
     render(<MatchHistoryStrip snapshots={snapshots} />);
-    // DGW sub-match A + B + GW30 all carry the same tooltip (boost was delta=3 in GW29)
-    const flames = screen.getAllByRole('img', { name: 'Hot streak: +3 boost in GW29' });
-    expect(flames.length).toBeGreaterThanOrEqual(1);
+    // DGW sub-match A: matchesSinceBoost=0 → (this match)
+    // DGW sub-match B: matchesSinceBoost=1 → (1 match ago)
+    // GW30: matchesSinceBoost=2 → (2 matches ago)
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +3 boost in GW29 (this match)' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +3 boost in GW29 (1 match ago)' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +3 boost in GW29 (2 matches ago)' }),
+    ).toBeInTheDocument();
   });
 
   it('shows no flame three matches after a DGW boost (streak expired at matchesSince=3)', () => {
@@ -192,6 +214,7 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
         confidenceAfter: 2,
         delta: 2,
         rawDelta: 2,
+        eventMagnitude: 3,
         reason: 'DGW: MOTM vs FDR 3 opponent (+3) + Blank vs FDR 2 opponent (-1)',
         fatigueApplied: false,
         motmCounter: 1,
@@ -202,9 +225,10 @@ describe('MatchHistoryStrip — DGW streak computation', () => {
       makeSnap({ gameweek: 31, delta: 0 }), // matchOrder 3 → matchesSince=3 → expired
     ];
     render(<MatchHistoryStrip snapshots={snapshots} />);
-    // DGW (2 sub-matches) + GW30 all show the same tooltip (boost was GW29)
-    const flames = screen.getAllByRole('img', { name: 'Hot streak: +3 boost in GW29' });
-    expect(flames.length).toBeGreaterThanOrEqual(1);
+    // DGW sub-match A/B and GW30 all show GW29 boost (each with their own recency suffix)
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +3 boost in GW29 (this match)' }),
+    ).toBeInTheDocument();
     // GW31 has no flame — matchesSinceBoost=3 is outside the 3-match window
     expect(screen.queryByRole('img', { name: /boost in GW31/i })).toBeNull();
   });

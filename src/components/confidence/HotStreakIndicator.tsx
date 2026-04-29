@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { HotStreakInfo, HotStreakLevel } from '@/lib/confidence/hotStreak';
+import type { HotStreakInfo, HotStreakIntensity, HotStreakLevel } from '@/lib/confidence/hotStreak';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -25,10 +25,17 @@ export interface HotStreakIndicatorProps {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+const RECENCY_SUFFIX: Record<HotStreakIntensity, string> = {
+  high: '(this match)',
+  med: '(1 match ago)',
+  low: '(2 matches ago)',
+};
+
 function buildTooltip(hotStreak: HotStreakInfo): string {
   const sign = hotStreak.boostDelta > 0 ? '+' : '';
   const base = `Hot streak: ${sign}${hotStreak.boostDelta.toString()} boost`;
-  return hotStreak.boostGw !== null ? `${base} in GW${hotStreak.boostGw.toString()}` : base;
+  const gwPart = hotStreak.boostGw !== null ? ` in GW${hotStreak.boostGw.toString()}` : '';
+  return `${base}${gwPart} ${RECENCY_SUFFIX[hotStreak.intensity]}`;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -37,8 +44,9 @@ function buildTooltip(hotStreak: HotStreakInfo): string {
  * Thermal signal indicator for a player's hot streak.
  *
  * Color encodes boost magnitude (not recency) — hot/warm/mild stays constant
- * across all 3 matches in the streak window. At `lg` size, `hot` adds
- * animate-pulse and shows the boost GW as a sublabel.
+ * across all 3 matches in the streak window. Intensity encodes recency:
+ * high (boost match) → pulse glow at lg; low (last in window) → faded at lg,
+ * opacity-40 at sm. Tooltip always includes the recency suffix.
  *
  * Returns null when hotStreak is null (player is cold).
  */
@@ -53,21 +61,29 @@ export function HotStreakIndicator({
   const tooltip = buildTooltip(hotStreak);
   const gwText = hotStreak.boostGw !== null ? `GW${hotStreak.boostGw.toString()}` : null;
 
+  const smOpacity =
+    hotStreak.intensity === 'med'
+      ? 'opacity-70'
+      : hotStreak.intensity === 'low'
+        ? 'opacity-40'
+        : undefined;
+
   if (size === 'sm') {
     return (
       <span
         role="img"
         aria-label={tooltip}
         title={tooltip}
-        className={cn('inline-flex shrink-0 items-center', className)}
+        className={cn('inline-flex shrink-0 items-center', smOpacity, className)}
       >
         <Flame aria-hidden="true" className={cn('h-3 w-3', meta.colorClass)} />
       </span>
     );
   }
 
-  // lg variant
-  const isPulsing = hotStreak.level === 'hot';
+  // lg variant — pulse on boost match (intensity=high), faded on last window match (intensity=low)
+  const isPulsing = hotStreak.intensity === 'high';
+  const isLow = hotStreak.intensity === 'low';
 
   return (
     <span
@@ -77,7 +93,12 @@ export function HotStreakIndicator({
     >
       <Flame
         aria-hidden="true"
-        className={cn('h-4 w-4', meta.colorClass, isPulsing && 'animate-pulse')}
+        className={cn(
+          'h-4 w-4',
+          meta.colorClass,
+          isPulsing && 'animate-pulse',
+          isLow && 'opacity-50',
+        )}
       />
 
       {/* Stacked label: magnitude name + boost GW context */}

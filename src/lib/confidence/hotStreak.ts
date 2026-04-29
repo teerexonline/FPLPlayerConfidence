@@ -1,17 +1,29 @@
 /**
- * A player's hot streak magnitude level, derived from the delta of the triggering
- * boost match (delta ≥ 3). Color stays constant across all 3 streak matches.
+ * A player's hot streak magnitude level, derived from the eventMagnitude of the
+ * triggering boost match (eventMagnitude ≥ 3). Color stays constant across all 3
+ * streak matches and is independent of clamp absorption or fatigue.
  *
- * hot  (delta ≥ 5) → red    (#f43f5e)
- * warm (delta ≥ 4) → orange (#fb923c)
- * mild (delta ≥ 3) → slate  (#94a3b8)
+ * hot  (eventMagnitude ≥ 5) → red    (#f43f5e)
+ * warm (eventMagnitude ≥ 4) → orange (#fb923c)
+ * mild (eventMagnitude ≥ 3) → slate  (#94a3b8)
  */
 export type HotStreakLevel = 'hot' | 'warm' | 'mild';
 
 /**
+ * Recency signal for a hot streak, derived from matchesSinceBoost at read time.
+ * Color (level) is the dominant signal; intensity is the secondary signal.
+ *
+ * high (matchesSinceBoost=0) → boost match itself
+ * med  (matchesSinceBoost=1) → one match after boost
+ * low  (matchesSinceBoost=2) → two matches after boost (last in window)
+ */
+export type HotStreakIntensity = 'high' | 'med' | 'low';
+
+/**
  * Rich hot-streak result returned by the compute functions.
  * The level encodes boost magnitude (not recency), so it is identical across
- * all 3 matches in the streak window.
+ * all 3 matches in the streak window. The intensity encodes recency and varies
+ * across the window.
  */
 export interface HotStreakInfo {
   readonly level: HotStreakLevel;
@@ -21,6 +33,8 @@ export interface HotStreakInfo {
   readonly boostGw: number | null;
   /** How many match steps after the boost this result represents (0 = boost match itself). */
   readonly matchesSinceBoost: number;
+  /** Recency signal derived from matchesSinceBoost: 0→high, 1→med, 2→low. */
+  readonly intensity: HotStreakIntensity;
 }
 
 /**
@@ -31,12 +45,13 @@ export interface HotStreakInfo {
 export interface MatchBrief {
   readonly matchOrder: number;
   readonly delta: number;
+  readonly rawDelta: number; // pre-fatigue clamped delta (kept for backwards compat)
   /**
-   * Pre-fatigue clamped delta — used for streak threshold (rawDelta >= 3) and
-   * level (magnitude-based color). Fatigue can reduce delta below 3 without
-   * cancelling the streak, and should not downgrade the flame color.
+   * Raw multiplier output before any clamp or fatigue — used for streak trigger
+   * (eventMagnitude ≥ 3) and level. A goal vs a BIG team always has eventMagnitude=5
+   * regardless of where confidence sat going in (ceiling absorption is transparent).
    */
-  readonly rawDelta: number;
+  readonly eventMagnitude: number;
   /** Gameweek this match belongs to. null when the caller didn't supply GW context. */
   readonly gameweek: number | null;
 }
@@ -47,6 +62,12 @@ function levelFromDelta(delta: number): HotStreakLevel {
   if (delta >= 5) return 'hot';
   if (delta >= 4) return 'warm';
   return 'mild';
+}
+
+function intensityFromMatchesSince(n: number): HotStreakIntensity {
+  if (n === 0) return 'high';
+  if (n === 1) return 'med';
+  return 'low';
 }
 
 /** Returns true when gwsSince is within the 3-match streak window [0, 2]. */
@@ -75,9 +96,10 @@ export function computeHotStreakAtMatch(
   matchBriefs: readonly MatchBrief[],
   atMatchOrder: number,
 ): HotStreakInfo | null {
-  // Use rawDelta (pre-fatigue) for trigger and level — fatigue must not mask a hot boost.
+  // Use eventMagnitude (pre-clamp) for trigger and level — ceiling absorption must not
+  // mask a hot boost (e.g. Haaland at conf=1 before BIG MOTM: raw=5, rawDelta=4).
   const mostRecentBoost = [...matchBriefs]
-    .filter((b) => b.matchOrder <= atMatchOrder && b.rawDelta >= 3)
+    .filter((b) => b.matchOrder <= atMatchOrder && b.eventMagnitude >= 3)
     .sort((a, b) => b.matchOrder - a.matchOrder)[0];
 
   if (mostRecentBoost === undefined) return null;
@@ -86,10 +108,11 @@ export function computeHotStreakAtMatch(
   if (!isInStreakWindow(matchesSinceBoost)) return null;
 
   return {
-    level: levelFromDelta(mostRecentBoost.rawDelta),
-    boostDelta: mostRecentBoost.rawDelta,
+    level: levelFromDelta(mostRecentBoost.eventMagnitude),
+    boostDelta: mostRecentBoost.eventMagnitude,
     boostGw: mostRecentBoost.gameweek,
     matchesSinceBoost,
+    intensity: intensityFromMatchesSince(matchesSinceBoost),
   };
 }
 
@@ -117,6 +140,7 @@ export function hotStreakAtGw(
     boostDelta,
     boostGw,
     matchesSinceBoost,
+    intensity: intensityFromMatchesSince(matchesSinceBoost),
   };
 }
 
@@ -171,7 +195,13 @@ function parseDgwSubDeltas(reason: string): readonly number[] | null {
  * server component, ensuring both paths compute identical streak levels.
  */
 export function buildMatchBriefs(
-  snapshots: readonly { delta: number; rawDelta: number; reason: string; gameweek?: number }[],
+  snapshots: readonly {
+    delta: number;
+    rawDelta: number;
+    eventMagnitude: number;
+    reason: string;
+    gameweek?: number;
+  }[],
 ): readonly MatchBrief[] {
   const briefs: MatchBrief[] = [];
   let cursor = 0;
@@ -179,16 +209,31 @@ export function buildMatchBriefs(
     const gw = s.gameweek ?? null;
     const subDeltas = parseDgwSubDeltas(s.reason);
     if (subDeltas !== null) {
-      // DGW sub-matches: per-sub rawDelta is not stored separately, so use the
-      // parsed post-fatigue sub-delta for both delta and rawDelta. The rawDelta
-      // approximation is acceptable here — DGW players burn streak steps faster
-      // regardless, and the per-sub fatigue adjustment is rare.
+      // DGW expansion: the stored event_magnitude is Math.max(...sub-match raws).
+      // Assign it to the sub-match with the highest sub-delta (best proxy for the
+      // highest raw) so streak trigger and level reflect the best moment. Other
+      // sub-matches use Math.max(0, d) as a conservative approximation — they may
+      // still contribute context but won't inflate streak level.
+      const maxSubDelta = Math.max(...subDeltas);
       for (const d of subDeltas) {
-        briefs.push({ matchOrder: cursor, delta: d, rawDelta: d, gameweek: gw });
+        const isTopSub = d === maxSubDelta;
+        briefs.push({
+          matchOrder: cursor,
+          delta: d,
+          rawDelta: d,
+          eventMagnitude: isTopSub ? s.eventMagnitude : Math.max(0, d),
+          gameweek: gw,
+        });
         cursor++;
       }
     } else {
-      briefs.push({ matchOrder: cursor, delta: s.delta, rawDelta: s.rawDelta, gameweek: gw });
+      briefs.push({
+        matchOrder: cursor,
+        delta: s.delta,
+        rawDelta: s.rawDelta,
+        eventMagnitude: s.eventMagnitude,
+        gameweek: gw,
+      });
       cursor++;
     }
   }

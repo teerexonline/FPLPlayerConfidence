@@ -11,6 +11,7 @@ function makeHotStreak(overrides: Partial<HotStreakInfo> = {}): HotStreakInfo {
     boostDelta: 5,
     boostGw: 31,
     matchesSinceBoost: 0,
+    intensity: 'high',
     ...overrides,
   };
 }
@@ -21,6 +22,7 @@ function makeSnapshot(overrides: Partial<SnapshotPoint> = {}): SnapshotPoint {
     confidenceAfter: 2,
     delta: 2,
     rawDelta: 2,
+    eventMagnitude: 2,
     reason: 'MOTM vs FDR 3 opponent',
     fatigueApplied: false,
     motmCounter: 1,
@@ -189,10 +191,13 @@ describe('MatchHistoryCard', () => {
           boostDelta: 5,
           boostGw: 31,
           matchesSinceBoost: 0,
+          intensity: 'high',
         })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31 (this match)' }),
+    ).toBeInTheDocument();
   });
 
   it('renders a warm flame on a streak-window card (matchesSinceBoost=1)', () => {
@@ -204,10 +209,13 @@ describe('MatchHistoryCard', () => {
           boostDelta: 4,
           boostGw: 31,
           matchesSinceBoost: 1,
+          intensity: 'med',
         })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Hot streak: +4 boost in GW31' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +4 boost in GW31 (1 match ago)' }),
+    ).toBeInTheDocument();
   });
 
   it('renders a mild flame two matches after boost (matchesSinceBoost=2)', () => {
@@ -219,37 +227,30 @@ describe('MatchHistoryCard', () => {
           boostDelta: 3,
           boostGw: 31,
           matchesSinceBoost: 2,
+          intensity: 'low',
         })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Hot streak: +3 boost in GW31' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +3 boost in GW31 (2 matches ago)' }),
+    ).toBeInTheDocument();
   });
 
-  it('hot flame carries same tooltip regardless of which match in window', () => {
-    // All 3 cards of a +5 boost show 'hot' level with identical tooltip
-    const streak1 = makeHotStreak({
-      level: 'hot',
-      boostDelta: 5,
-      boostGw: 31,
-      matchesSinceBoost: 0,
-    });
-    const streak2 = makeHotStreak({
-      level: 'hot',
-      boostDelta: 5,
-      boostGw: 31,
-      matchesSinceBoost: 1,
-    });
-    const streak3 = makeHotStreak({
-      level: 'hot',
-      boostDelta: 5,
-      boostGw: 31,
-      matchesSinceBoost: 2,
-    });
-    for (const hotStreak of [streak1, streak2, streak3]) {
+  it('hot flame carries same boost context across all 3 window cards (recency suffix differs)', () => {
+    // Color stays constant; tooltip recency suffix changes per position in window.
+    const windows: [Partial<HotStreakInfo>, string][] = [
+      [{ matchesSinceBoost: 0, intensity: 'high' }, 'Hot streak: +5 boost in GW31 (this match)'],
+      [{ matchesSinceBoost: 1, intensity: 'med' }, 'Hot streak: +5 boost in GW31 (1 match ago)'],
+      [{ matchesSinceBoost: 2, intensity: 'low' }, 'Hot streak: +5 boost in GW31 (2 matches ago)'],
+    ];
+    for (const [overrides, expectedLabel] of windows) {
       const { unmount } = render(
-        <MatchHistoryCard snapshot={makeSnapshot()} hotStreak={hotStreak} />,
+        <MatchHistoryCard
+          snapshot={makeSnapshot()}
+          hotStreak={makeHotStreak({ level: 'hot', boostDelta: 5, boostGw: 31, ...overrides })}
+        />,
       );
-      expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31' })).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: expectedLabel })).toBeInTheDocument();
       unmount();
     }
   });
@@ -295,10 +296,12 @@ describe('MatchHistoryCard', () => {
     render(
       <MatchHistoryCard
         snapshot={makeSnapshot({ gameweek: 31, reason: 'MOTM vs BIG opponent', delta: 5 })}
-        hotStreak={makeHotStreak({ boostGw: 31 })}
+        hotStreak={makeHotStreak({ boostGw: 31, intensity: 'high' })}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +5 boost in GW31 (this match)' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('BIG')).toBeInTheDocument();
   });
 

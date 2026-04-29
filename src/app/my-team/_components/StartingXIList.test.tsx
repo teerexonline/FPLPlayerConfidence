@@ -117,12 +117,20 @@ describe('StartingXIList', () => {
           makePlayer({
             playerId: 1,
             squadPosition: 1,
-            hotStreak: { level: 'hot', boostDelta: 5, boostGw: 3, matchesSinceBoost: 0 },
+            hotStreak: {
+              level: 'hot',
+              boostDelta: 5,
+              boostGw: 3,
+              matchesSinceBoost: 0,
+              intensity: 'high',
+            },
           }),
         ]}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW3' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +5 boost in GW3 (this match)' }),
+    ).toBeInTheDocument();
   });
 
   it('hot streak indicator shows boost GW from HotStreakInfo', () => {
@@ -130,11 +138,19 @@ describe('StartingXIList', () => {
       makePlayer({
         playerId: 1,
         squadPosition: 1,
-        hotStreak: { level: 'hot', boostDelta: 5, boostGw: 21, matchesSinceBoost: 0 },
+        hotStreak: {
+          level: 'hot',
+          boostDelta: 5,
+          boostGw: 21,
+          matchesSinceBoost: 0,
+          intensity: 'high',
+        },
       }),
     ];
     render(<StartingXIList starters={starters} />);
-    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW21' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +5 boost in GW21 (this match)' }),
+    ).toBeInTheDocument();
   });
 
   it('hot streak indicator updates when hotStreak prop changes to different boost GW', () => {
@@ -144,12 +160,20 @@ describe('StartingXIList', () => {
           makePlayer({
             playerId: 1,
             squadPosition: 1,
-            hotStreak: { level: 'warm', boostDelta: 4, boostGw: 20, matchesSinceBoost: 0 },
+            hotStreak: {
+              level: 'warm',
+              boostDelta: 4,
+              boostGw: 20,
+              matchesSinceBoost: 0,
+              intensity: 'high',
+            },
           }),
         ]}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Hot streak: +4 boost in GW20' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +4 boost in GW20 (this match)' }),
+    ).toBeInTheDocument();
 
     rerender(
       <StartingXIList
@@ -157,13 +181,23 @@ describe('StartingXIList', () => {
           makePlayer({
             playerId: 1,
             squadPosition: 1,
-            hotStreak: { level: 'hot', boostDelta: 5, boostGw: 21, matchesSinceBoost: 0 },
+            hotStreak: {
+              level: 'hot',
+              boostDelta: 5,
+              boostGw: 21,
+              matchesSinceBoost: 0,
+              intensity: 'high',
+            },
           }),
         ]}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Hot streak: +5 boost in GW21' })).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: 'Hot streak: +4 boost in GW20' })).toBeNull();
+    expect(
+      screen.getByRole('img', { name: 'Hot streak: +5 boost in GW21 (this match)' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('img', { name: 'Hot streak: +4 boost in GW20 (this match)' }),
+    ).toBeNull();
   });
 
   it('has no accessibility violations (axe)', async () => {

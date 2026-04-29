@@ -9,6 +9,7 @@ const HOT_STREAK: HotStreakInfo = {
   boostDelta: 5,
   boostGw: 33,
   matchesSinceBoost: 0,
+  intensity: 'high',
 };
 
 const BASE: LivePlayerStreakIndicatorProps = {
@@ -73,25 +74,33 @@ describe('LivePlayerStreakIndicator', () => {
     expect(screen.getByText('Hot')).toBeInTheDocument();
   });
 
-  it('renders warm flame correctly — tooltip shows +4 boost', () => {
+  it('renders warm flame correctly — tooltip shows +4 boost with recency', () => {
     const warmStreak: HotStreakInfo = {
       level: 'warm',
       boostDelta: 4,
       boostGw: 20,
       matchesSinceBoost: 0,
+      intensity: 'high',
     };
     render(<LivePlayerStreakIndicator {...BASE} hotStreak={warmStreak} />);
-    expect(screen.getByRole('img')).toHaveAttribute('title', 'Hot streak: +4 boost in GW20');
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'title',
+      'Hot streak: +4 boost in GW20 (this match)',
+    );
   });
 
-  it('renders mild flame correctly — tooltip shows +3 boost', () => {
+  it('renders mild flame correctly — tooltip shows +3 boost with recency', () => {
     const mildStreak: HotStreakInfo = {
       level: 'mild',
       boostDelta: 3,
       boostGw: 21,
       matchesSinceBoost: 1,
+      intensity: 'med',
     };
     render(<LivePlayerStreakIndicator {...BASE} hotStreak={mildStreak} />);
-    expect(screen.getByRole('img')).toHaveAttribute('title', 'Hot streak: +3 boost in GW21');
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'title',
+      'Hot streak: +3 boost in GW21 (1 match ago)',
+    );
   });
 });
