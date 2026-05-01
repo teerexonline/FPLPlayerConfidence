@@ -51,6 +51,7 @@ function makeSnap(
     confidenceAfter,
     delta,
     rawDelta: delta,
+    eventMagnitude: delta,
     reason,
     fatigueApplied: false,
     motmCounter: 0,

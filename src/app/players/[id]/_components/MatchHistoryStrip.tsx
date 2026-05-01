@@ -51,11 +51,16 @@ function buildMatchData(snapshots: readonly SnapshotPoint[]): {
     const dgwParts = parseDgwReason(s.reason);
     if (dgwParts !== null && dgwParts.length >= 2) {
       cardMetas.push({ isDgw: true, dgwParts, orderA: cursor, orderB: cursor + 1 });
+      // Assign s.eventMagnitude to the top sub-match (highest sub-delta) so the streak
+      // flame reflects the best moment in the DGW. Others get Math.max(0, part.delta).
+      const maxSubDelta = Math.max(...dgwParts.map((p) => p.delta));
       for (const part of dgwParts) {
+        const isTopSub = part.delta === maxSubDelta;
         matchBriefs.push({
           matchOrder: cursor,
           delta: part.delta,
           rawDelta: part.delta,
+          eventMagnitude: isTopSub ? s.eventMagnitude : Math.max(0, part.delta),
           gameweek: s.gameweek,
         });
         cursor++;
@@ -66,6 +71,7 @@ function buildMatchData(snapshots: readonly SnapshotPoint[]): {
         matchOrder: cursor,
         delta: s.delta,
         rawDelta: s.rawDelta,
+        eventMagnitude: s.eventMagnitude,
         gameweek: s.gameweek,
       });
       cursor++;

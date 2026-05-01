@@ -34,6 +34,9 @@ export const SQL_MIGRATIONS: readonly string[] = [
   // v1.7: pre-fatigue clamped delta — used for Hot Streak threshold and level so
   // fatigue events don't mask a qualifying boost or downgrade the flame color.
   `ALTER TABLE confidence_snapshots ADD COLUMN raw_delta INTEGER NOT NULL DEFAULT 0`,
+  // v1.7.2: raw multiplier output before any clamp — used for streak trigger and level
+  // so ceiling absorption cannot hide a hot boost (e.g. rawDelta=4 when raw=5 at ceiling).
+  `ALTER TABLE confidence_snapshots ADD COLUMN event_magnitude INTEGER NOT NULL DEFAULT 0`,
 ];
 
 export const SQL_SCHEMA = `

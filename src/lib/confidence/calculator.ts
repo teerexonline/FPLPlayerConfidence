@@ -253,8 +253,11 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
     let dcFatigueApplied = false;
     let scFatigueApplied = false;
 
-    // Clamp after the event gain first. rawDelta captures the pre-fatigue clamped
-    // delta — used for streak threshold and level so fatigue doesn't mask a hot boost.
+    // eventMagnitude = the raw multiplier output before any clamp or fatigue.
+    // Used for Hot Streak level so ceiling absorption can't hide a BIG-team moment.
+    // rawDelta = post-clamp pre-fatigue delta — distinct from eventMagnitude when
+    // the player starts close to the confidence ceiling or floor.
+    const eventMagnitude = raw;
     confidence = clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX);
     const rawDelta = confidence - before;
 
@@ -308,6 +311,7 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
       gameweek: match.gameweek,
       delta: confidence - before,
       rawDelta,
+      eventMagnitude,
       reason: reasonList.join(' + '),
       fatigueApplied,
       dcFatigueApplied,

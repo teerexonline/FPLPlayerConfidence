@@ -1378,6 +1378,33 @@ describe('calculateConfidence', () => {
     });
   });
 
+  it('eventMagnitude: normal MOTM FDR3 — raw=2, no ceiling — eventMagnitude=rawDelta=delta=2', () => {
+    const result = calculateConfidence({
+      position: 'MID',
+      matches: [aMatch({ gameweek: 1, goals: 1 })],
+    });
+    expect(result.history[0]).toMatchObject({ eventMagnitude: 2, rawDelta: 2, delta: 2 });
+  });
+
+  it('eventMagnitude: ceiling absorption — raw=5 but clamp gives rawDelta=4; eventMagnitude=5', () => {
+    // Player at conf=1 before BIG MOTM: raw=5, clamp(1+5)=5, rawDelta=4. eventMagnitude=5.
+    const input: CalculatorInput = {
+      position: 'MID',
+      matches: [
+        aMatch({ gameweek: 1 }), // blank FDR3 → conf=−1
+        aMatch({ gameweek: 2, goals: 1 }), // MOTM FDR3 → +2, conf=1
+        aMatch({ gameweek: 3, goals: 1, opponentTeamId: 12, opponentFdr: 3 }), // MOTM BIG → raw=5, clamp(1+5)=5
+      ],
+    };
+    const result = calculateConfidence(input);
+    expect(result.history[2]).toMatchObject({
+      eventMagnitude: 5, // pre-clamp raw — the true moment magnitude
+      rawDelta: 4, // post-clamp pre-fatigue: 5−1=4
+      delta: 4,
+      confidenceAfter: 5,
+    });
+  });
+
   it('rounding: DEF blank vs FDR 1 — base −1 × 1.5 = −1.5 → rounds away from zero → −2', () => {
     // Covered by EX-26 above; explicit here as a labeled rounding test.
     const result = calculateConfidence({

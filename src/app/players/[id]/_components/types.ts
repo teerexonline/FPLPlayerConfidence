@@ -6,7 +6,8 @@ export interface SnapshotPoint {
   readonly gameweek: number;
   readonly confidenceAfter: number;
   readonly delta: number;
-  readonly rawDelta: number; // pre-fatigue clamped delta — used for streak level
+  readonly rawDelta: number; // pre-fatigue clamped delta (kept for backwards compat)
+  readonly eventMagnitude: number; // raw multiplier output before any clamp — true moment magnitude
   readonly reason: string;
   readonly fatigueApplied: boolean;
   readonly motmCounter: number;

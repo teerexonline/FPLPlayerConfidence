@@ -43,7 +43,8 @@ export interface DbConfidenceSnapshot {
   readonly gameweek: number;
   readonly confidence_after: number;
   readonly delta: number;
-  readonly raw_delta: number; // pre-fatigue clamped delta — used for streak threshold and level
+  readonly raw_delta: number; // pre-fatigue clamped delta (kept for backwards compat)
+  readonly event_magnitude: number; // raw multiplier output before any clamp — true moment magnitude
   readonly reason: string;
   readonly fatigue_applied: boolean;
   readonly motm_counter: number;

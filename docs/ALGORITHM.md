@@ -6,11 +6,13 @@ This document is the **complete specification** for how Confidence is calculated
 
 ## Changelog
 
-| Version | Summary                                                                                                                                                                                                                                                                                                                                                         |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v1.7.1  | Added Arsenal (ID 1) to the BIG team override list. Per the spotlight-effect rationale, Arsenal qualifies as a headliner team alongside the existing four. Any opponent player facing Arsenal now uses effective FDR 5 for goal/assist and Blank events.                                                                                                        |
-| v1.7    | Split `GOAL_ASSIST_FDR_MULTIPLIERS` into `MOTM_FDR_MULTIPLIERS`, `PERFORMANCE_FDR_MULTIPLIERS`, and `CS_FDR_MULTIPLIERS`. GK/DEF single assists now use the Performance path (no MOTM reclassification). CS suppressed when MOTM fires. Added `rawDelta` to `MatchDelta` and `confidence_snapshots.raw_delta`. Hot Streak trigger and level now use `rawDelta`. |
-| v1.6    | Asymmetric confidence range `[-4, +5]`; three independent fatigue mechanisms (MOTM, DC, SC); intermediate-clamp fatigue rule; SaveCon for GK; FDR-replaced big-team binary flag.                                                                                                                                                                                |
+| Version | Summary                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.7.1  | Added Arsenal (ID 1) to the BIG team override list. Per the spotlight-effect rationale, Arsenal qualifies as a headliner team alongside the existing four. Any opponent player facing Arsenal now uses effective FDR 5 for goal/assist and Blank events.                                                                                                                                                                    |
+| v1.7.2  | Added `eventMagnitude` to `MatchDelta` and `confidence_snapshots.event_magnitude`. Hot Streak trigger and level now use `eventMagnitude` (pre-clamp raw multiplier output) instead of `rawDelta` (post-clamp). This fixes ceiling-absorption cases where a player near confidence=+5 had `rawDelta=4` instead of 5 for a BIG MOTM, showing a warm flame instead of hot. `rawDelta` is retained for backwards compatibility. |
+| v1.7.1  | Added Arsenal (ID 1) to the BIG team override list. Per the spotlight-effect rationale, Arsenal qualifies as a headliner team alongside the existing four. Any opponent player facing Arsenal now uses effective FDR 5 for goal/assist and Blank events.                                                                                                                                                                    |
+| v1.7    | Split `GOAL_ASSIST_FDR_MULTIPLIERS` into `MOTM_FDR_MULTIPLIERS`, `PERFORMANCE_FDR_MULTIPLIERS`, and `CS_FDR_MULTIPLIERS`. GK/DEF single assists now use the Performance path (no MOTM reclassification). CS suppressed when MOTM fires. Added `rawDelta` to `MatchDelta` and `confidence_snapshots.raw_delta`. Hot Streak trigger and level now used `rawDelta`.                                                            |
+| v1.6    | Asymmetric confidence range `[-4, +5]`; three independent fatigue mechanisms (MOTM, DC, SC); intermediate-clamp fatigue rule; SaveCon for GK; FDR-replaced big-team binary flag.                                                                                                                                                                                                                                            |
 
 ---
 
@@ -49,6 +51,7 @@ export interface MatchDelta {
   readonly gameweek: number;
   readonly delta: number; // post-clamp net change (includes fatigue adjustment)
   readonly rawDelta: number; // pre-fatigue clamped delta: clamp(before + raw) − before
+  readonly eventMagnitude: number; // raw multiplier output before ANY clamp — the true moment magnitude
   readonly reason: string;
   readonly fatigueApplied: boolean; // true iff MOTM Fatigue penalty was applied
   readonly dcFatigueApplied: boolean; // true iff DC Fatigue penalty was applied
@@ -330,38 +333,44 @@ A single match can only ever increment one counter. If MOTM fires, DefCon and Sa
 
 ---
 
-## 7. Clamping and rawDelta
+## 7. Clamping, rawDelta, and eventMagnitude
 
 After all match-level adjustments (including fatigue) are summed for a single match, clamp the resulting confidence to `[-4, +5]`. Apply clamp **once per match, at the end**. Never between sub-rules within a single match.
 
 The `delta` field in `MatchDelta` is the final difference: `confidenceAfter − confidenceBefore` (post-fatigue). If raw points would push past the clamp, `delta` reflects the clamped change.
 
-`rawDelta` is computed **before fatigue is applied**: `clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX) − before`. It represents how much the event alone (without any fatigue penalty) moved confidence. `rawDelta` is stored in `confidence_snapshots.raw_delta` and is used by the Hot Streak engine (see §7.1).
+`rawDelta` is computed **before fatigue is applied**: `clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX) − before`. It represents how much the event alone (without any fatigue penalty) moved confidence. `rawDelta` is stored in `confidence_snapshots.raw_delta` and is retained for backwards compatibility.
 
-For a match where fatigue fires:
+`eventMagnitude` is the **raw multiplier output before any clamp**: `raw` (the return value of `resolveMidFwd` / `resolveGkDef` before the clamp call). It represents the true moment magnitude — independent of where the player's confidence sat going in. `eventMagnitude` is stored in `confidence_snapshots.event_magnitude` and is used by the Hot Streak engine (see §7.1).
 
-- `rawDelta = confidenceAfterEvent − before` (pre-fatigue clamped delta)
+For a match where fatigue fires and ceiling absorption occurs:
+
+- `eventMagnitude = raw` (pre-clamp multiplier output — the true event size)
+- `rawDelta = clamp(before + raw) − before` (post-clamp pre-fatigue delta — may be less than eventMagnitude)
 - `delta = finalConfidenceAfter − before` (post-fatigue delta, which is rawDelta − 2 when penalty applies)
 
-When no fatigue fires, `delta === rawDelta`.
+When there is no ceiling/floor absorption and no fatigue fires, all three are equal: `delta === rawDelta === eventMagnitude`.
+
+**Example — ceiling absorption:** Player at conf=+1 faces a BIG MOTM (raw=+5). `clamp(1+5)=5`, so `rawDelta=4` but `eventMagnitude=5`. The distinction ensures the Hot Streak flame reflects the actual moment magnitude, not a ceiling-induced artefact.
 
 ### 7.1 Hot Streak
 
-A player is on a **Hot Streak** when a single match's `rawDelta >= 3`. The streak window covers the boosting match and the **two** subsequent matches (total 3 matches). All matches within the window share the same streak indicator.
+A player is on a **Hot Streak** when a single match's `eventMagnitude >= 3`. The streak window covers the boosting match and the **two** subsequent matches (total 3 matches). All matches within the window share the same streak indicator.
 
-Streak level is determined by `rawDelta` of the boosting match:
+Streak level is determined by `eventMagnitude` of the boosting match:
 
-| `rawDelta` | Level | Colour           |
-| ---------- | ----- | ---------------- |
-| ≥ 5        | hot   | `#f43f5e` red    |
-| ≥ 4        | warm  | `#fb923c` orange |
-| ≥ 3        | mild  | `#94a3b8` slate  |
+| `eventMagnitude` | Level | Colour           |
+| ---------------- | ----- | ---------------- |
+| ≥ 5              | hot   | `#f43f5e` red    |
+| ≥ 4              | warm  | `#fb923c` orange |
+| ≥ 3              | mild  | `#94a3b8` slate  |
 
-The level is fixed by the boosting match's `rawDelta` and does **not** change across the streak window.
+The level is fixed by the boosting match's `eventMagnitude` and does **not** change across the streak window.
 
 **Key invariants:**
 
-- Streak trigger uses `rawDelta`, not `delta`. A +5 MOTM that incurs a fatigue penalty (net delta = +3) still triggers at the `rawDelta = +5` (hot) level.
+- Streak trigger uses `eventMagnitude`, not `rawDelta` or `delta`. Ceiling absorption cannot hide a hot boost: a player at conf=+1 who scores vs a BIG team (raw=+5, rawDelta=+4) correctly shows a hot flame.
+- A DGW snapshot stores `event_magnitude = Math.max(...sub-match raws)` — the best moment wins. When expanding into per-match MatchBriefs, the sub-match with the highest sub-delta receives the stored `eventMagnitude`; others receive `Math.max(0, sub-delta)`.
 - A DGW is counted as two consecutive matches for streak-window purposes.
 
 ---
@@ -1293,9 +1302,10 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
     let dcFatigueApplied = false;
     let scFatigueApplied = false;
 
-    // Clamp after the event gain; fatigue is applied to the clamped value.
+    // eventMagnitude: pre-clamp raw multiplier output — the true moment magnitude.
+    // rawDelta: post-clamp pre-fatigue delta (may be less than eventMagnitude near ceiling/floor).
+    const eventMagnitude = raw;
     confidence = clamp(before + raw, CONFIDENCE_MIN, CONFIDENCE_MAX);
-    // rawDelta: pre-fatigue delta, used by the Hot Streak engine.
     const rawDelta = confidence - before;
 
     // Exactly one of these three branches executes per match (see §6.4).
@@ -1344,6 +1354,7 @@ export function calculateConfidence(input: CalculatorInput): CalculatorOutput {
       gameweek: match.gameweek,
       delta: confidence - before,
       rawDelta,
+      eventMagnitude,
       reason: reasonList.join(' + '),
       fatigueApplied,
       dcFatigueApplied,
