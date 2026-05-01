@@ -11,10 +11,10 @@ export const metadata: Metadata = {
   description: 'Manage appearance, data sync, and your FPL team connection.',
 };
 
-function readLastSync(): number | null {
+async function readLastSync(): Promise<number | null> {
   try {
     const repos = getRepositories();
-    const raw = repos.syncMeta.get('last_sync');
+    const raw = await repos.syncMeta.get('last_sync');
     if (!raw) return null;
     const parsed = parseInt(raw, 10);
     return isNaN(parsed) ? null : parsed;
@@ -23,8 +23,8 @@ function readLastSync(): number | null {
   }
 }
 
-export default function SettingsPage(): JSX.Element {
-  const lastSync = readLastSync();
+export default async function SettingsPage(): Promise<JSX.Element> {
+  const lastSync = await readLastSync();
 
   return (
     <SettingsShell

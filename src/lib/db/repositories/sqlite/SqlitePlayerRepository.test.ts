@@ -45,49 +45,49 @@ afterEach(() => {
 });
 
 describe('SqlitePlayerRepository', () => {
-  it('upsert stores a player and findById retrieves the correct row', () => {
+  it('upsert stores a player and findById retrieves the correct row', async () => {
     const player = aPlayer({ id: 1, web_name: 'Salah', position: 'MID', now_cost: 130 });
 
-    repo.upsert(player);
-    const found = repo.findById(1);
+    await repo.upsert(player);
+    const found = await repo.findById(1);
 
     expect(found).toMatchObject({ id: 1, web_name: 'Salah', position: 'MID', now_cost: 130 });
   });
 
-  it('findById returns undefined when the player does not exist', () => {
-    expect(repo.findById(9999)).toBeUndefined();
+  it('findById returns undefined when the player does not exist', async () => {
+    expect(await repo.findById(9999)).toBeUndefined();
   });
 
-  it('upsert on the same id replaces the existing row', () => {
-    repo.upsert(aPlayer({ id: 5, now_cost: 60 }));
-    repo.upsert(aPlayer({ id: 5, now_cost: 65 }));
+  it('upsert on the same id replaces the existing row', async () => {
+    await repo.upsert(aPlayer({ id: 5, now_cost: 60 }));
+    await repo.upsert(aPlayer({ id: 5, now_cost: 65 }));
 
-    expect(repo.findById(5)?.now_cost).toBe(65);
-    expect(repo.listAll()).toHaveLength(1);
+    expect((await repo.findById(5))?.now_cost).toBe(65);
+    expect(await repo.listAll()).toHaveLength(1);
   });
 
-  it('upsertMany inserts all players in a single transaction', () => {
+  it('upsertMany inserts all players in a single transaction', async () => {
     const players = ['GK', 'DEF', 'MID', 'FWD'].map((pos, i) =>
       aPlayer({ id: i + 1, position: pos as DbPlayer['position'] }),
     );
 
-    repo.upsertMany(players);
+    await repo.upsertMany(players);
 
-    expect(repo.listAll()).toHaveLength(4);
+    expect(await repo.listAll()).toHaveLength(4);
   });
 
-  it('listAll returns players ordered by id ascending', () => {
-    repo.upsertMany([aPlayer({ id: 3 }), aPlayer({ id: 1 }), aPlayer({ id: 2 })]);
+  it('listAll returns players ordered by id ascending', async () => {
+    await repo.upsertMany([aPlayer({ id: 3 }), aPlayer({ id: 1 }), aPlayer({ id: 2 })]);
 
-    const ids = repo.listAll().map((p) => p.id);
+    const ids = (await repo.listAll()).map((p) => p.id);
     expect(ids).toEqual([1, 2, 3]);
   });
 
-  it('listAll returns an empty array when no players have been inserted', () => {
-    expect(repo.listAll()).toHaveLength(0);
+  it('listAll returns an empty array when no players have been inserted', async () => {
+    expect(await repo.listAll()).toHaveLength(0);
   });
 
-  it('stores and retrieves ICT stats and next_fixture_fdr', () => {
+  it('stores and retrieves ICT stats and next_fixture_fdr', async () => {
     const player = aPlayer({
       id: 99,
       influence: 450.5,
@@ -96,8 +96,8 @@ describe('SqlitePlayerRepository', () => {
       minutes: 2300,
       next_fixture_fdr: 2,
     });
-    repo.upsert(player);
-    const found = repo.findById(99);
+    await repo.upsert(player);
+    const found = await repo.findById(99);
     expect(found).toMatchObject({
       influence: 450.5,
       creativity: 123.3,
@@ -107,7 +107,7 @@ describe('SqlitePlayerRepository', () => {
     });
   });
 
-  it('ICT fields default to 0 / next_fixture_fdr defaults to 3 for existing rows', () => {
+  it('ICT fields default to 0 / next_fixture_fdr defaults to 3 for existing rows', async () => {
     // Existing DB rows without ICT cols get the migration default values
     const player = aPlayer({
       id: 1,
@@ -117,8 +117,8 @@ describe('SqlitePlayerRepository', () => {
       minutes: 0,
       next_fixture_fdr: 3,
     });
-    repo.upsert(player);
-    const found = repo.findById(1);
+    await repo.upsert(player);
+    const found = await repo.findById(1);
     expect(found?.influence).toBe(0);
     expect(found?.next_fixture_fdr).toBe(3);
   });

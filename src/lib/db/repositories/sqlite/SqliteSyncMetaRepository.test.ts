@@ -23,28 +23,28 @@ afterEach(() => {
 });
 
 describe('SqliteSyncMetaRepository', () => {
-  it('set stores a value and get retrieves it', () => {
-    repo.set('bootstrap_etag', 'abc123', 1_700_000_000);
+  it('set stores a value and get retrieves it', async () => {
+    await repo.set('bootstrap_etag', 'abc123', 1_700_000_000);
 
-    expect(repo.get('bootstrap_etag')).toBe('abc123');
+    expect(await repo.get('bootstrap_etag')).toBe('abc123');
   });
 
-  it('get returns undefined for a key that has never been set', () => {
-    expect(repo.get('nonexistent_key')).toBeUndefined();
+  it('get returns undefined for a key that has never been set', async () => {
+    expect(await repo.get('nonexistent_key')).toBeUndefined();
   });
 
-  it('set on an existing key replaces the value', () => {
-    repo.set('last_sync', '2025-08-01', 1_700_000_000);
-    repo.set('last_sync', '2025-08-08', 1_700_100_000);
+  it('set on an existing key replaces the value', async () => {
+    await repo.set('last_sync', '2025-08-01', 1_700_000_000);
+    await repo.set('last_sync', '2025-08-08', 1_700_100_000);
 
-    expect(repo.get('last_sync')).toBe('2025-08-08');
+    expect(await repo.get('last_sync')).toBe('2025-08-08');
   });
 
-  it('stores multiple independent keys without conflict', () => {
-    repo.set('key_a', 'value_a', 1_000);
-    repo.set('key_b', 'value_b', 2_000);
+  it('stores multiple independent keys without conflict', async () => {
+    await repo.set('key_a', 'value_a', 1_000);
+    await repo.set('key_b', 'value_b', 2_000);
 
-    expect(repo.get('key_a')).toBe('value_a');
-    expect(repo.get('key_b')).toBe('value_b');
+    expect(await repo.get('key_a')).toBe('value_a');
+    expect(await repo.get('key_b')).toBe('value_b');
   });
 });

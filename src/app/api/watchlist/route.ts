@@ -6,9 +6,9 @@ import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/watchlist');
 
-export function GET(): NextResponse {
+export async function GET(): Promise<NextResponse> {
   const { watchlist } = getRepositories();
-  const ids = watchlist.findByUser(SYSTEM_USER_ID);
+  const ids = await watchlist.findByUser(SYSTEM_USER_ID);
   logger.info('GET watchlist', { count: ids.length });
   return NextResponse.json({ ids });
 }
@@ -29,7 +29,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const playerId = (body as { playerId: number }).playerId;
   const { watchlist } = getRepositories();
-  watchlist.add(SYSTEM_USER_ID, playerId);
+  await watchlist.add(SYSTEM_USER_ID, playerId);
   logger.info('POST watchlist: added', { playerId });
   return NextResponse.json({ ok: true });
 }

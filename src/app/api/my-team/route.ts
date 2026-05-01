@@ -62,11 +62,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Resolve target GW. We use currentGW − 1 (Option A per API.md §8 note).
   // Fall back to the max GW in confidence_snapshots when sync_meta hasn't been
   // written yet (legacy DBs synced before this key was added).
-  const gwRaw = repos.syncMeta.get('current_gameweek');
+  const gwRaw = await repos.syncMeta.get('current_gameweek');
   let currentGw = gwRaw ? parseInt(gwRaw, 10) : NaN;
 
   if (isNaN(currentGw)) {
-    const allSnapshots = repos.confidenceSnapshots.currentForAllPlayers();
+    const allSnapshots = await repos.confidenceSnapshots.currentForAllPlayers();
     const maxGw = allSnapshots.reduce((m, { snapshot }) => Math.max(m, snapshot.gameweek), 0);
     if (maxGw > 0) currentGw = maxGw;
   }
@@ -90,7 +90,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let isGw1FreeHit: boolean;
 
   if (gwOverride !== null) {
-    const cached = repos.managerSquads.listByTeamAndGameweek(SYSTEM_USER_ID, teamId, gwOverride);
+    const cached = await repos.managerSquads.listByTeamAndGameweek(
+      SYSTEM_USER_ID,
+      teamId,
+      gwOverride,
+    );
     if (cached.length > 0) {
       finalPicks = cached.map((p) => ({
         element: p.player_id,
@@ -112,7 +116,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         return errorResponse('SCHEMA_ERROR', 502);
       }
       finalPicks = fetchResult.value.picks;
-      repos.managerSquads.upsertMany(
+      await repos.managerSquads.upsertMany(
         finalPicks.map((p) => ({
           user_id: SYSTEM_USER_ID,
           team_id: teamId,
@@ -181,7 +185,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Upsert the squad to the manager_squads cache table (default path only;
   // the historical path upserts inside its cache-miss branch above).
   if (gwOverride === null) {
-    repos.managerSquads.upsertMany(
+    await repos.managerSquads.upsertMany(
       finalPicks.map((p) => ({
         user_id: SYSTEM_USER_ID,
         team_id: teamId,
@@ -196,8 +200,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // Build lookups.
-  const allPlayers = repos.players.listAll();
-  const allTeams = repos.teams.listAll();
+  const [allPlayers, allTeams] = await Promise.all([
+    repos.players.listAll(),
+    repos.teams.listAll(),
+  ]);
   const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
@@ -210,14 +216,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // players who didn't feature in a given GW still carry their most recent
     // confidence forward. snapshotsAtGameweek(N) returns nothing for players who
     // skipped N, causing them to fall back to confidence=0 (renders as 50%).
-    const historicalSnaps = repos.confidenceSnapshots.latestSnapshotsAtOrBeforeGameweek(targetGw);
+    const historicalSnaps =
+      await repos.confidenceSnapshots.latestSnapshotsAtOrBeforeGameweek(targetGw);
     for (const snap of historicalSnaps) {
       confidenceMap.set(snap.player_id, snap.confidence_after);
     }
     // Players with no snapshot at or before this GW (e.g. brand-new signings) keep 0.
   } else {
     for (const p of finalPicks) {
-      const snap = repos.confidenceSnapshots.currentByPlayer(
+      const snap = await repos.confidenceSnapshots.currentByPlayer(
         p.element as Parameters<typeof repos.confidenceSnapshots.currentByPlayer>[0],
       );
       confidenceMap.set(p.element, snap?.confidence_after ?? 0);
@@ -259,7 +266,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Hot streak: look back up to 2 GWs from the *viewed* GW (not the live GW)
   // so the flame reflects what was true at GW N, not at the current season GW.
   const minBoostGw = Math.max(1, targetGw - 2);
-  const boostMap = repos.confidenceSnapshots.recentBoostForAllPlayers(minBoostGw, targetGw);
+  const boostMap = await repos.confidenceSnapshots.recentBoostForAllPlayers(minBoostGw, targetGw);
 
   // Build squad player rows.
   const squadRows: SquadPlayerRow[] = finalPicks.map((p) => {
@@ -292,12 +299,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     .filter((r) => r.squadPosition > 11)
     .sort((a, b) => a.squadPosition - b.squadPosition);
 
-  const syncedAtRaw = repos.syncMeta.get('last_sync');
+  const [syncedAtRaw, availableGameweeks] = await Promise.all([
+    repos.syncMeta.get('last_sync'),
+    repos.managerSquads.listGameweeksForTeam(SYSTEM_USER_ID, teamId),
+  ]);
   const syncedAt = syncedAtRaw ? parseInt(syncedAtRaw, 10) : now;
-
-  // Collect available GWs for the scrubber timeline (after any upserts so the
-  // current fetch is included in the list).
-  const availableGameweeks = repos.managerSquads.listGameweeksForTeam(SYSTEM_USER_ID, teamId);
 
   const data: MyTeamData = {
     managerName: `${info.player_first_name} ${info.player_last_name}`,

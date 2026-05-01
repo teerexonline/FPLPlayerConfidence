@@ -18,15 +18,18 @@ interface DashboardResult {
   watchlistPlayers: readonly DashboardPlayer[];
 }
 
-function loadDashboard(): DashboardResult {
+async function loadDashboard(): Promise<DashboardResult> {
   const repos = getRepositories();
 
-  const allPlayers = repos.players.listAll();
-  const allTeams = repos.teams.listAll();
-  const currentSnapshots = repos.confidenceSnapshots.currentForAllPlayers();
-  const last5 = repos.confidenceSnapshots.listLast5ForAllPlayers();
+  const [allPlayers, allTeams, currentSnapshots, last5, watchlistIdList] = await Promise.all([
+    repos.players.listAll(),
+    repos.teams.listAll(),
+    repos.confidenceSnapshots.currentForAllPlayers(),
+    repos.confidenceSnapshots.listLast5ForAllPlayers(),
+    repos.watchlist.findByUser(SYSTEM_USER_ID),
+  ]);
 
-  const watchlistIds = new Set(repos.watchlist.findByUser(SYSTEM_USER_ID));
+  const watchlistIds = new Set(watchlistIdList);
 
   if (currentSnapshots.length === 0) {
     const emptyLeaderboard = { all: [], GK: [], DEF: [], MID: [], FWD: [] };
@@ -48,21 +51,21 @@ function loadDashboard(): DashboardResult {
 
   const maxGw = currentSnapshots.reduce((m, { snapshot }) => Math.max(m, snapshot.gameweek), 0);
 
-  const gwRaw = repos.syncMeta.get('current_gameweek');
+  const gwRaw = await repos.syncMeta.get('current_gameweek');
   const parsedGw = gwRaw ? parseInt(gwRaw, 10) : NaN;
   const currentGameweek = !isNaN(parsedGw) ? parsedGw : maxGw;
 
   // Stale indicator: count snapshots in the last 3 GW window per player.
   const minRecentGw = Math.max(1, currentGameweek - 2);
   const recentAppearancesMap =
-    repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
+    await repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
   // Hot streak: fetch recent snapshots (with reason) so buildMatchBriefs can expand DGW
   // rows into per-sub-match entries. computeHotStreak then counts matches, not GWs, which
   // correctly handles DGW boosts where the combined delta ≠ any single sub-match delta.
   const minStreakGw = Math.max(1, currentGameweek - 2);
   const recentSnapshotsMap =
-    repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
+    await repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
 
   const players: DashboardPlayer[] = currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const numericId = Number(pid);
@@ -126,7 +129,7 @@ export default async function DashboardPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<JSX.Element> {
   const resolved = await searchParams;
-  const { data, watchlistPlayers } = loadDashboard();
+  const { data, watchlistPlayers } = await loadDashboard();
 
   const rawTab = resolved['leaderboard'];
   const initialTab = typeof rawTab === 'string' ? rawTab : 'all';

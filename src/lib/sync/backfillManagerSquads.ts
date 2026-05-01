@@ -74,7 +74,7 @@ export async function backfillManagerSquads(params: BackfillParams): Promise<Bac
     onProgress,
   } = params;
 
-  const existingGws = new Set(repo.listGameweeksForTeam(userId, teamId));
+  const existingGws = new Set(await repo.listGameweeksForTeam(userId, teamId));
 
   const results: GwResult[] = [];
   let gwsUpserted = 0;
@@ -114,7 +114,7 @@ export async function backfillManagerSquads(params: BackfillParams): Promise<Bac
       const now = Date.now();
 
       if (!dryRun) {
-        repo.upsertMany(
+        await repo.upsertMany(
           picks.map((p) => ({
             user_id: userId,
             team_id: teamId,

@@ -9,6 +9,7 @@ interface SnapshotRow {
   confidence_after: number;
   delta: number;
   raw_delta: number;
+  event_magnitude: number;
   reason: string;
   fatigue_applied: number; // stored as 0 | 1
   motm_counter: number;
@@ -26,6 +27,7 @@ interface RecentSnapshotRow {
   gameweek: number;
   delta: number;
   raw_delta: number;
+  event_magnitude: number;
   reason: string;
 }
 
@@ -36,6 +38,7 @@ function rowToSnapshot(row: SnapshotRow): DbConfidenceSnapshot {
     confidence_after: row.confidence_after,
     delta: row.delta,
     raw_delta: row.raw_delta,
+    event_magnitude: row.event_magnitude,
     reason: row.reason,
     fatigue_applied: row.fatigue_applied !== 0,
     motm_counter: row.motm_counter,
@@ -45,11 +48,11 @@ function rowToSnapshot(row: SnapshotRow): DbConfidenceSnapshot {
 }
 
 const SELECT_COLS =
-  'player_id, gameweek, confidence_after, delta, raw_delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter';
+  'player_id, gameweek, confidence_after, delta, raw_delta, event_magnitude, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter';
 
 export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
   private readonly stmtUpsert: Database.Statement<
-    [number, number, number, number, number, string, number, number, number, number]
+    [number, number, number, number, number, number, string, number, number, number, number]
   >;
   private readonly stmtListByPlayer: Database.Statement<[number], SnapshotRow>;
   private readonly stmtCurrentByPlayer: Database.Statement<[number], SnapshotRow>;
@@ -71,8 +74,8 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
   constructor(private readonly db: Database.Database) {
     this.stmtUpsert = db.prepare(
       `INSERT OR REPLACE INTO confidence_snapshots
-       (player_id, gameweek, confidence_after, delta, raw_delta, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (player_id, gameweek, confidence_after, delta, raw_delta, event_magnitude, reason, fatigue_applied, motm_counter, defcon_counter, savecon_counter)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     this.stmtListByPlayer = db.prepare<[number], SnapshotRow>(
       `SELECT ${SELECT_COLS} FROM confidence_snapshots
@@ -122,40 +125,46 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
        WHERE gameweek >= ?
        GROUP BY player_id`,
     );
-    // v1.7: use raw_delta for boost detection so fatigue doesn't mask a qualifying boost.
+    // v1.7.2: use event_magnitude (pre-clamp) so ceiling absorption can't hide a hot boost.
+    // The GROUP BY picks the most recent qualifying row (MAX gameweek); boost_delta carries
+    // event_magnitude of that row so hotStreakAtGw produces the correct flame level.
     this.stmtRecentBoost = db.prepare<
       [number, number],
       { player_id: number; boost_gw: number; boost_delta: number }
     >(
-      `SELECT player_id, MAX(gameweek) AS boost_gw, raw_delta AS boost_delta
+      `SELECT player_id,
+              MAX(gameweek) AS boost_gw,
+              event_magnitude AS boost_delta
        FROM confidence_snapshots
-       WHERE raw_delta >= 3 AND gameweek >= ? AND gameweek <= ?
+       WHERE event_magnitude >= 3 AND gameweek >= ? AND gameweek <= ?
        GROUP BY player_id`,
     );
     this.stmtRecentSnapshots = db.prepare<[number], RecentSnapshotRow>(
-      `SELECT player_id, gameweek, delta, raw_delta, reason
+      `SELECT player_id, gameweek, delta, raw_delta, event_magnitude, reason
        FROM confidence_snapshots
        WHERE gameweek >= ?
        ORDER BY player_id, gameweek ASC`,
     );
   }
 
-  upsert(snapshot: DbConfidenceSnapshot): void {
+  upsert(snapshot: DbConfidenceSnapshot): Promise<void> {
     this.stmtUpsert.run(
       snapshot.player_id,
       snapshot.gameweek,
       snapshot.confidence_after,
       snapshot.delta,
       snapshot.raw_delta,
+      snapshot.event_magnitude,
       snapshot.reason,
       snapshot.fatigue_applied ? 1 : 0,
       snapshot.motm_counter,
       snapshot.defcon_counter,
       snapshot.savecon_counter,
     );
+    return Promise.resolve();
   }
 
-  upsertMany(snapshots: readonly DbConfidenceSnapshot[]): void {
+  upsertMany(snapshots: readonly DbConfidenceSnapshot[]): Promise<void> {
     const tx = this.db.transaction(() => {
       for (const s of snapshots) {
         this.stmtUpsert.run(
@@ -164,6 +173,7 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
           s.confidence_after,
           s.delta,
           s.raw_delta,
+          s.event_magnitude,
           s.reason,
           s.fatigue_applied ? 1 : 0,
           s.motm_counter,
@@ -173,25 +183,30 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
       }
     });
     tx();
+    return Promise.resolve();
   }
 
-  listByPlayer(pid: PlayerId): readonly DbConfidenceSnapshot[] {
-    return this.stmtListByPlayer.all(pid).map(rowToSnapshot);
+  listByPlayer(pid: PlayerId): Promise<readonly DbConfidenceSnapshot[]> {
+    return Promise.resolve(this.stmtListByPlayer.all(pid).map(rowToSnapshot));
   }
 
-  currentByPlayer(pid: PlayerId): DbConfidenceSnapshot | undefined {
+  currentByPlayer(pid: PlayerId): Promise<DbConfidenceSnapshot | undefined> {
     const row = this.stmtCurrentByPlayer.get(pid);
-    return row ? rowToSnapshot(row) : undefined;
+    return Promise.resolve(row ? rowToSnapshot(row) : undefined);
   }
 
-  currentForAllPlayers(): readonly { playerId: PlayerId; snapshot: DbConfidenceSnapshot }[] {
-    return this.stmtCurrentForAll.all().map((row) => ({
-      playerId: playerId(row.player_id),
-      snapshot: rowToSnapshot(row),
-    }));
+  currentForAllPlayers(): Promise<
+    readonly { playerId: PlayerId; snapshot: DbConfidenceSnapshot }[]
+  > {
+    return Promise.resolve(
+      this.stmtCurrentForAll.all().map((row) => ({
+        playerId: playerId(row.player_id),
+        snapshot: rowToSnapshot(row),
+      })),
+    );
   }
 
-  listLast5ForAllPlayers(): readonly { playerId: PlayerId; deltas: readonly number[] }[] {
+  listLast5ForAllPlayers(): Promise<readonly { playerId: PlayerId; deltas: readonly number[] }[]> {
     const rows = this.stmtLast5ForAll.all();
     const map = new Map<number, number[]>();
     for (const row of rows) {
@@ -202,34 +217,38 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
       }
       arr.push(row.delta);
     }
-    return Array.from(map.entries()).map(([pid, deltas]) => ({
-      playerId: playerId(pid),
-      deltas,
-    }));
+    return Promise.resolve(
+      Array.from(map.entries()).map(([pid, deltas]) => ({
+        playerId: playerId(pid),
+        deltas,
+      })),
+    );
   }
 
-  recentAppearancesForAllPlayers(minGw: number): ReadonlyMap<number, number> {
+  recentAppearancesForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
     const rows = this.stmtRecentAppearances.all(minGw);
     const map = new Map<number, number>();
     for (const row of rows) {
       map.set(row.player_id, row.count);
     }
-    return map;
+    return Promise.resolve(map);
   }
 
   recentBoostForAllPlayers(
     minGw: number,
     maxGw: number,
-  ): ReadonlyMap<number, { boostGw: number; boostDelta: number }> {
+  ): Promise<ReadonlyMap<number, { boostGw: number; boostDelta: number }>> {
     const rows = this.stmtRecentBoost.all(minGw, maxGw);
     const map = new Map<number, { boostGw: number; boostDelta: number }>();
     for (const row of rows) {
       map.set(row.player_id, { boostGw: row.boost_gw, boostDelta: row.boost_delta });
     }
-    return map;
+    return Promise.resolve(map);
   }
 
-  listRecentSnapshotsForAllPlayers(minGw: number): ReadonlyMap<number, readonly SnapshotBrief[]> {
+  listRecentSnapshotsForAllPlayers(
+    minGw: number,
+  ): Promise<ReadonlyMap<number, readonly SnapshotBrief[]>> {
     const rows = this.stmtRecentSnapshots.all(minGw);
     const map = new Map<number, SnapshotBrief[]>();
     for (const row of rows) {
@@ -242,21 +261,23 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
         gameweek: row.gameweek,
         delta: row.delta,
         rawDelta: row.raw_delta,
+        eventMagnitude: row.event_magnitude,
         reason: row.reason,
       });
     }
-    return map;
+    return Promise.resolve(map);
   }
 
-  snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
-    return this.stmtSnapshotsAtGameweek.all(gameweek).map(rowToSnapshot);
+  snapshotsAtGameweek(gameweek: number): Promise<readonly DbConfidenceSnapshot[]> {
+    return Promise.resolve(this.stmtSnapshotsAtGameweek.all(gameweek).map(rowToSnapshot));
   }
 
-  latestSnapshotsAtOrBeforeGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
-    return this.stmtLatestAtOrBefore.all(gameweek).map(rowToSnapshot);
+  latestSnapshotsAtOrBeforeGameweek(gameweek: number): Promise<readonly DbConfidenceSnapshot[]> {
+    return Promise.resolve(this.stmtLatestAtOrBefore.all(gameweek).map(rowToSnapshot));
   }
 
-  deleteByPlayer(pid: PlayerId): void {
+  deleteByPlayer(pid: PlayerId): Promise<void> {
     this.stmtDeleteByPlayer.run(pid);
+    return Promise.resolve();
   }
 }

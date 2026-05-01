@@ -15,23 +15,24 @@ import type { PlayerDetailData, SnapshotPoint } from './_components/types';
 
 export const dynamic = 'force-dynamic';
 
-function loadPlayer(rawId: string): PlayerDetailData {
+async function loadPlayer(rawId: string): Promise<PlayerDetailData> {
   const parsed = parseInt(rawId, 10);
   if (isNaN(parsed) || parsed <= 0) notFound();
 
   const repos = getRepositories();
-  const player = repos.players.findById(parsed);
+  const player = await repos.players.findById(parsed);
   if (!player) notFound();
 
-  const team = repos.teams.findById(player.team_id);
+  const team = await repos.teams.findById(player.team_id);
   if (!team) notFound();
 
-  const rawSnapshots = repos.confidenceSnapshots.listByPlayer(playerId(parsed));
+  const rawSnapshots = await repos.confidenceSnapshots.listByPlayer(playerId(parsed));
   const snapshots: readonly SnapshotPoint[] = rawSnapshots.map((s) => ({
     gameweek: s.gameweek,
     confidenceAfter: s.confidence_after,
     delta: s.delta,
     rawDelta: s.raw_delta,
+    eventMagnitude: s.event_magnitude,
     reason: s.reason,
     fatigueApplied: s.fatigue_applied,
     motmCounter: s.motm_counter,
@@ -47,17 +48,22 @@ function loadPlayer(rawId: string): PlayerDetailData {
 
   // Build match briefs with DGW-awareness: each DGW sub-match gets its own matchOrder,
   // so the live streak burns through sub-matches rather than gameweeks.
-  // rawDelta (pre-fatigue) is used for streak threshold and level.
+  // eventMagnitude (pre-clamp) is used for streak threshold and level.
   let matchCursor = 0;
   const matchBriefs: MatchBrief[] = [];
   for (const s of snapshots) {
     const dgwParts = parseDgwReason(s.reason);
     if (dgwParts !== null) {
+      // Assign s.eventMagnitude to the sub-match with the highest sub-delta (best proxy for
+      // the highest raw). Other sub-matches get Math.max(0, part.delta) as approximation.
+      const maxSubDelta = Math.max(...dgwParts.map((p) => p.delta));
       for (const part of dgwParts) {
+        const isTopSub = part.delta === maxSubDelta;
         matchBriefs.push({
           matchOrder: matchCursor,
           delta: part.delta,
           rawDelta: part.delta,
+          eventMagnitude: isTopSub ? s.eventMagnitude : Math.max(0, part.delta),
           gameweek: s.gameweek,
         });
         matchCursor++;
@@ -67,6 +73,7 @@ function loadPlayer(rawId: string): PlayerDetailData {
         matchOrder: matchCursor,
         delta: s.delta,
         rawDelta: s.rawDelta,
+        eventMagnitude: s.eventMagnitude,
         gameweek: s.gameweek,
       });
       matchCursor++;
@@ -100,7 +107,7 @@ export default async function PlayerDetailPage({
   readonly params: Promise<{ id: string }>;
 }): Promise<JSX.Element> {
   const { id } = await params;
-  const player = loadPlayer(id);
+  const player = await loadPlayer(id);
 
   return (
     <div className="bg-bg text-text min-h-screen font-sans">

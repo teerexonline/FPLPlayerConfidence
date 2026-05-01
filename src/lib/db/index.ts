@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import type postgres from 'postgres';
 import type { ConfidenceSnapshotRepository } from './repositories/ConfidenceSnapshotRepository';
 import type { ManagerSquadRepository } from './repositories/ManagerSquadRepository';
 import type { PlayerRepository } from './repositories/PlayerRepository';
@@ -6,6 +7,13 @@ import type { SyncMetaRepository } from './repositories/SyncMetaRepository';
 import type { TeamRepository } from './repositories/TeamRepository';
 import type { UserRepository } from './repositories/UserRepository';
 import type { WatchlistRepository } from './repositories/WatchlistRepository';
+import { PostgresConfidenceSnapshotRepository } from './repositories/postgres/PostgresConfidenceSnapshotRepository';
+import { PostgresManagerSquadRepository } from './repositories/postgres/PostgresManagerSquadRepository';
+import { PostgresPlayerRepository } from './repositories/postgres/PostgresPlayerRepository';
+import { PostgresSyncMetaRepository } from './repositories/postgres/PostgresSyncMetaRepository';
+import { PostgresTeamRepository } from './repositories/postgres/PostgresTeamRepository';
+import { PostgresUserRepository } from './repositories/postgres/PostgresUserRepository';
+import { PostgresWatchlistRepository } from './repositories/postgres/PostgresWatchlistRepository';
 import { SqliteConfidenceSnapshotRepository } from './repositories/sqlite/SqliteConfidenceSnapshotRepository';
 import { SqliteManagerSquadRepository } from './repositories/sqlite/SqliteManagerSquadRepository';
 import { SqlitePlayerRepository } from './repositories/sqlite/SqlitePlayerRepository';
@@ -47,7 +55,7 @@ export interface Repositories {
   readonly watchlist: WatchlistRepository;
 }
 
-/** Returns concrete repository instances backed by the provided database. */
+/** Returns SQLite-backed repository instances. */
 export function createRepositories(db: Database.Database): Repositories {
   return {
     players: new SqlitePlayerRepository(db),
@@ -57,5 +65,18 @@ export function createRepositories(db: Database.Database): Repositories {
     managerSquads: new SqliteManagerSquadRepository(db),
     users: new SqliteUserRepository(db),
     watchlist: new SqliteWatchlistRepository(db),
+  };
+}
+
+/** Returns Postgres-backed repository instances. */
+export function createPostgresRepositories(sql: postgres.Sql): Repositories {
+  return {
+    players: new PostgresPlayerRepository(sql),
+    teams: new PostgresTeamRepository(sql),
+    confidenceSnapshots: new PostgresConfidenceSnapshotRepository(sql),
+    syncMeta: new PostgresSyncMetaRepository(sql),
+    managerSquads: new PostgresManagerSquadRepository(sql),
+    users: new PostgresUserRepository(sql),
+    watchlist: new PostgresWatchlistRepository(sql),
   };
 }

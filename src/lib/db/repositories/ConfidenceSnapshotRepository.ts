@@ -7,47 +7,50 @@ import type { DbConfidenceSnapshot, PlayerId } from '../types';
 export interface SnapshotBrief {
   readonly gameweek: number;
   readonly delta: number;
-  readonly rawDelta: number; // pre-fatigue clamped delta — passed to buildMatchBriefs
+  readonly rawDelta: number; // pre-fatigue clamped delta (kept for backwards compat)
+  readonly eventMagnitude: number; // raw multiplier output before any clamp — true moment magnitude
   readonly reason: string;
 }
 
 export interface ConfidenceSnapshotRepository {
   /** Inserts or replaces a single confidence snapshot. */
-  upsert(snapshot: DbConfidenceSnapshot): void;
+  upsert(snapshot: DbConfidenceSnapshot): Promise<void>;
 
   /** Inserts or replaces multiple snapshots in a single transaction. */
-  upsertMany(snapshots: readonly DbConfidenceSnapshot[]): void;
+  upsertMany(snapshots: readonly DbConfidenceSnapshot[]): Promise<void>;
 
   /** Returns all snapshots for a player in gameweek order (ascending). */
-  listByPlayer(playerId: PlayerId): readonly DbConfidenceSnapshot[];
+  listByPlayer(playerId: PlayerId): Promise<readonly DbConfidenceSnapshot[]>;
 
   /**
    * Returns the snapshot with the highest gameweek number for a player —
    * the player's current confidence state.
    * Returns `undefined` if no snapshots exist for the player.
    */
-  currentByPlayer(playerId: PlayerId): DbConfidenceSnapshot | undefined;
+  currentByPlayer(playerId: PlayerId): Promise<DbConfidenceSnapshot | undefined>;
 
   /**
    * Returns the current snapshot (highest gameweek) for every player that
    * has at least one snapshot. Used by the players list page to load all
    * confidence values in a single query instead of N separate calls.
    */
-  currentForAllPlayers(): readonly { playerId: PlayerId; snapshot: DbConfidenceSnapshot }[];
+  currentForAllPlayers(): Promise<
+    readonly { playerId: PlayerId; snapshot: DbConfidenceSnapshot }[]
+  >;
 
   /**
    * Returns the last ≤5 per-gameweek deltas for every player in a single
    * query (window function), oldest-first within each player. Avoids the
    * N+1 problem of calling listByPlayer() per player on the list page.
    */
-  listLast5ForAllPlayers(): readonly { playerId: PlayerId; deltas: readonly number[] }[];
+  listLast5ForAllPlayers(): Promise<readonly { playerId: PlayerId; deltas: readonly number[] }[]>;
 
   /**
    * Returns all snapshots for a specific gameweek across all players.
    * Used by the historical GW scrubber to fetch confidence values at a point
    * in time without N separate `currentByPlayer` calls.
    */
-  snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[];
+  snapshotsAtGameweek(gameweek: number): Promise<readonly DbConfidenceSnapshot[]>;
 
   /**
    * Returns the most recent snapshot per player at or before `gameweek`.
@@ -57,25 +60,27 @@ export interface ConfidenceSnapshotRepository {
    * requiring an exact-GW match (which would return 0 for skipped weeks
    * and corrupt the confidence display).
    */
-  latestSnapshotsAtOrBeforeGameweek(gameweek: number): readonly DbConfidenceSnapshot[];
+  latestSnapshotsAtOrBeforeGameweek(gameweek: number): Promise<readonly DbConfidenceSnapshot[]>;
 
   /**
    * Returns a map of playerId → count of snapshots in gameweeks ≥ minGw.
    * Used to compute `recentAppearances` for the staleness indicator.
    * Players with no snapshots in that window are absent from the map (count = 0).
    */
-  recentAppearancesForAllPlayers(minGw: number): ReadonlyMap<number, number>;
+  recentAppearancesForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>>;
 
   /**
    * Returns a map of playerId → { boostGw, boostDelta } for the most recent boost
-   * (delta ≥ 3) in [minGw, maxGw]. Players with no qualifying boost are absent.
+   * (event_magnitude ≥ 3) in [minGw, maxGw]. Players with no qualifying boost are absent.
+   * boostDelta carries event_magnitude, not raw_delta, so flame level is independent
+   * of ceiling absorption.
    *
    * maxGw prevents returning future boosts when viewing a historical GW.
    */
   recentBoostForAllPlayers(
     minGw: number,
     maxGw: number,
-  ): ReadonlyMap<number, { boostGw: number; boostDelta: number }>;
+  ): Promise<ReadonlyMap<number, { boostGw: number; boostDelta: number }>>;
 
   /**
    * Returns a map of playerId → SnapshotBrief array (gameweek, delta, reason) for
@@ -89,11 +94,13 @@ export interface ConfidenceSnapshotRepository {
    * lets buildMatchBriefs expand DGW snapshots into per-sub-match MatchBrief entries,
    * fixing the DGW streak bug without any SQL-side parsing.
    */
-  listRecentSnapshotsForAllPlayers(minGw: number): ReadonlyMap<number, readonly SnapshotBrief[]>;
+  listRecentSnapshotsForAllPlayers(
+    minGw: number,
+  ): Promise<ReadonlyMap<number, readonly SnapshotBrief[]>>;
 
   /**
    * Deletes all snapshots for a player. Used by the Big Teams recompute
    * flow before re-running the confidence calculator with updated settings.
    */
-  deleteByPlayer(playerId: PlayerId): void;
+  deleteByPlayer(playerId: PlayerId): Promise<void>;
 }

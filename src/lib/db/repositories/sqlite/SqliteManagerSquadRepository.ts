@@ -67,7 +67,7 @@ export class SqliteManagerSquadRepository implements ManagerSquadRepository {
     );
   }
 
-  upsertMany(picks: readonly DbManagerSquadPick[]): void {
+  upsertMany(picks: readonly DbManagerSquadPick[]): Promise<void> {
     const tx = this.db.transaction(() => {
       for (const p of picks) {
         this.stmtUpsert.run(
@@ -83,22 +83,23 @@ export class SqliteManagerSquadRepository implements ManagerSquadRepository {
       }
     });
     tx();
+    return Promise.resolve();
   }
 
   listByTeamAndGameweek(
     userId: number,
     teamId: number,
     gameweek: number,
-  ): readonly DbManagerSquadPick[] {
-    return this.stmtListByTeamAndGw.all(userId, teamId, gameweek).map(rowToPick);
+  ): Promise<readonly DbManagerSquadPick[]> {
+    return Promise.resolve(this.stmtListByTeamAndGw.all(userId, teamId, gameweek).map(rowToPick));
   }
 
-  latestGameweekForTeam(userId: number, teamId: number): number | null {
+  latestGameweekForTeam(userId: number, teamId: number): Promise<number | null> {
     const row = this.stmtLatestGameweek.get(userId, teamId);
-    return row?.max_gw ?? null;
+    return Promise.resolve(row?.max_gw ?? null);
   }
 
-  listGameweeksForTeam(userId: number, teamId: number): readonly number[] {
-    return this.stmtListGameweeks.all(userId, teamId).map((r) => r.gameweek);
+  listGameweeksForTeam(userId: number, teamId: number): Promise<readonly number[]> {
+    return Promise.resolve(this.stmtListGameweeks.all(userId, teamId).map((r) => r.gameweek));
   }
 }

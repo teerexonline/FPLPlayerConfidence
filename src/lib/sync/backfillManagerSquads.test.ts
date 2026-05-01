@@ -32,10 +32,12 @@ function makeFakeRepo(existingGws: number[] = []): {
   const repo: ManagerSquadRepository = {
     upsertMany: (picks) => {
       upsertCalls.push([...picks]);
+      return Promise.resolve();
     },
-    listByTeamAndGameweek: () => [],
-    latestGameweekForTeam: () => (existingGws.length > 0 ? Math.max(...existingGws) : null),
-    listGameweeksForTeam: () => existingGws,
+    listByTeamAndGameweek: () => Promise.resolve([]),
+    latestGameweekForTeam: () =>
+      Promise.resolve(existingGws.length > 0 ? Math.max(...existingGws) : null),
+    listGameweeksForTeam: () => Promise.resolve(existingGws),
   };
   return { repo, upsertCalls };
 }

@@ -25,12 +25,12 @@ afterEach(() => {
 
 describe('SqliteUserRepository', () => {
   describe('findById', () => {
-    it('returns null for an id that does not exist', () => {
-      expect(repo.findById(9999)).toBeNull();
+    it('returns null for an id that does not exist', async () => {
+      expect(await repo.findById(9999)).toBeNull();
     });
 
-    it('returns SYSTEM_USER after createDb seeds the migration', () => {
-      const user = repo.findById(SYSTEM_USER_ID);
+    it('returns SYSTEM_USER after createDb seeds the migration', async () => {
+      const user = await repo.findById(SYSTEM_USER_ID);
 
       expect(user).not.toBeNull();
       expect(user?.id).toBe(SYSTEM_USER_ID);
@@ -41,8 +41,8 @@ describe('SqliteUserRepository', () => {
   });
 
   describe('listAll', () => {
-    it('returns exactly one user (SYSTEM_USER) on a fresh database', () => {
-      const users = repo.listAll();
+    it('returns exactly one user (SYSTEM_USER) on a fresh database', async () => {
+      const users = await repo.listAll();
 
       expect(users).toHaveLength(1);
       expect(users[0]?.id).toBe(SYSTEM_USER_ID);

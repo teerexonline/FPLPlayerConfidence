@@ -25,12 +25,12 @@ export class SqliteUserRepository implements UserRepository {
     );
   }
 
-  findById(id: number): DbUser | null {
+  findById(id: number): Promise<DbUser | null> {
     const row = this.stmtFindById.get(id);
-    return row !== undefined ? rowToUser(row) : null;
+    return Promise.resolve(row !== undefined ? rowToUser(row) : null);
   }
 
-  listAll(): readonly DbUser[] {
-    return this.stmtListAll.all().map(rowToUser);
+  listAll(): Promise<readonly DbUser[]> {
+    return Promise.resolve(this.stmtListAll.all().map(rowToUser));
   }
 }

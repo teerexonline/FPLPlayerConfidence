@@ -30,25 +30,27 @@ export class SqliteTeamRepository implements TeamRepository {
     );
   }
 
-  upsert(team: DbTeam): void {
+  upsert(team: DbTeam): Promise<void> {
     this.stmtUpsert.run(team.id, team.code, team.name, team.short_name);
+    return Promise.resolve();
   }
 
-  upsertMany(teams: readonly DbTeam[]): void {
+  upsertMany(teams: readonly DbTeam[]): Promise<void> {
     const tx = this.db.transaction(() => {
       for (const t of teams) {
         this.stmtUpsert.run(t.id, t.code, t.name, t.short_name);
       }
     });
     tx();
+    return Promise.resolve();
   }
 
-  findById(id: number): DbTeam | undefined {
+  findById(id: number): Promise<DbTeam | undefined> {
     const row = this.stmtFindById.get(id);
-    return row ? rowToTeam(row) : undefined;
+    return Promise.resolve(row ? rowToTeam(row) : undefined);
   }
 
-  listAll(): readonly DbTeam[] {
-    return this.stmtListAll.all().map(rowToTeam);
+  listAll(): Promise<readonly DbTeam[]> {
+    return Promise.resolve(this.stmtListAll.all().map(rowToTeam));
   }
 }

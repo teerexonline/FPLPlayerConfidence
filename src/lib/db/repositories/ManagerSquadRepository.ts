@@ -6,7 +6,7 @@ export interface ManagerSquadRepository {
    * transaction. Each pick must carry the owning `user_id`. The caller is
    * responsible for deleting stale rows if the squad has changed.
    */
-  upsertMany(picks: readonly DbManagerSquadPick[]): void;
+  upsertMany(picks: readonly DbManagerSquadPick[]): Promise<void>;
 
   /**
    * Returns all picks for a given user, manager team, and gameweek, ordered by
@@ -16,17 +16,17 @@ export interface ManagerSquadRepository {
     userId: number,
     teamId: number,
     gameweek: number,
-  ): readonly DbManagerSquadPick[];
+  ): Promise<readonly DbManagerSquadPick[]>;
 
   /**
    * Returns the highest gameweek number for which picks have been stored for
    * this user+team combination, or `null` if no squad has been synced yet.
    */
-  latestGameweekForTeam(userId: number, teamId: number): number | null;
+  latestGameweekForTeam(userId: number, teamId: number): Promise<number | null>;
 
   /**
    * Returns all gameweek numbers for which picks have been cached for this
    * user+team combination, sorted ascending. Used by the GW scrubber timeline.
    */
-  listGameweeksForTeam(userId: number, teamId: number): readonly number[];
+  listGameweeksForTeam(userId: number, teamId: number): Promise<readonly number[]>;
 }

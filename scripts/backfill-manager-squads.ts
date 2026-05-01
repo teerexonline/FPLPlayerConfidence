@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   const db = createDb(DB_PATH);
   const repos = createRepositories(db);
 
-  const gwRaw = repos.syncMeta.get('current_gameweek');
+  const gwRaw = await repos.syncMeta.get('current_gameweek');
   const currentGw = gwRaw ? parseInt(gwRaw, 10) : NaN;
 
   if (isNaN(currentGw) || currentGw < 2) {
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   const fromGw = 1;
   const toGw = currentGw - 1;
 
-  const existing = repos.managerSquads.listGameweeksForTeam(SYSTEM_USER_ID, teamId);
+  const existing = await repos.managerSquads.listGameweeksForTeam(SYSTEM_USER_ID, teamId);
   const missingCount = toGw - fromGw + 1 - existing.length;
 
   console.log(`Backfilling manager_squads for team ${teamId.toString()}`);

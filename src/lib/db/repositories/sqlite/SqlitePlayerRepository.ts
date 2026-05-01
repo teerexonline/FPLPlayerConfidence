@@ -86,7 +86,7 @@ export class SqlitePlayerRepository implements PlayerRepository {
     );
   }
 
-  upsert(player: DbPlayer): void {
+  upsert(player: DbPlayer): Promise<void> {
     this.stmtUpsert.run(
       player.id,
       player.web_name,
@@ -104,9 +104,10 @@ export class SqlitePlayerRepository implements PlayerRepository {
       player.minutes,
       player.next_fixture_fdr,
     );
+    return Promise.resolve();
   }
 
-  upsertMany(players: readonly DbPlayer[]): void {
+  upsertMany(players: readonly DbPlayer[]): Promise<void> {
     const tx = this.db.transaction(() => {
       for (const p of players) {
         this.stmtUpsert.run(
@@ -129,14 +130,15 @@ export class SqlitePlayerRepository implements PlayerRepository {
       }
     });
     tx();
+    return Promise.resolve();
   }
 
-  findById(id: number): DbPlayer | undefined {
+  findById(id: number): Promise<DbPlayer | undefined> {
     const row = this.stmtFindById.get(id);
-    return row ? rowToPlayer(row) : undefined;
+    return Promise.resolve(row ? rowToPlayer(row) : undefined);
   }
 
-  listAll(): readonly DbPlayer[] {
-    return this.stmtListAll.all().map(rowToPlayer);
+  listAll(): Promise<readonly DbPlayer[]> {
+    return Promise.resolve(this.stmtListAll.all().map(rowToPlayer));
   }
 }

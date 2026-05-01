@@ -20,11 +20,12 @@ export class SqliteSyncMetaRepository implements SyncMetaRepository {
     );
   }
 
-  get(key: string): string | undefined {
-    return this.stmtGet.get(key)?.value;
+  get(key: string): Promise<string | undefined> {
+    return Promise.resolve(this.stmtGet.get(key)?.value);
   }
 
-  set(key: string, value: string, updatedAt: number): void {
+  set(key: string, value: string, updatedAt: number): Promise<void> {
     this.stmtSet.run(key, value, updatedAt);
+    return Promise.resolve();
   }
 }

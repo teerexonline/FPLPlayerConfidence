@@ -3,13 +3,13 @@ import Link from 'next/link';
 import { getRepositories } from '@/lib/db/server';
 import { ThemeToggle } from './ThemeToggle';
 
-function resolveCurrentGameweek(): number {
+async function resolveCurrentGameweek(): Promise<number> {
   try {
     const repos = getRepositories();
-    const raw = repos.syncMeta.get('current_gameweek');
+    const raw = await repos.syncMeta.get('current_gameweek');
     if (!raw) {
       // Fall back to the max gameweek in snapshots
-      const currentForAll = repos.confidenceSnapshots.currentForAllPlayers();
+      const currentForAll = await repos.confidenceSnapshots.currentForAllPlayers();
       return currentForAll.reduce((m: number, { snapshot }) => Math.max(m, snapshot.gameweek), 0);
     }
     const parsed = parseInt(raw, 10);
@@ -19,8 +19,8 @@ function resolveCurrentGameweek(): number {
   }
 }
 
-export function Topbar(): JSX.Element {
-  const currentGameweek = resolveCurrentGameweek();
+export async function Topbar(): Promise<JSX.Element> {
+  const currentGameweek = await resolveCurrentGameweek();
 
   return (
     <header

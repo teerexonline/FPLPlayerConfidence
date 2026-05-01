@@ -12,13 +12,15 @@ import type { PlayerWithConfidence } from './_components/types';
 // TODO(v2/Step-12): Add a "Show inactive" toggle to this page so users can optionally
 // filter out stale players (>3 GWs without a snapshot). The dashboard already applies
 // this filter automatically, but the players list is intentionally a complete reference.
-function loadPlayers(): readonly PlayerWithConfidence[] {
+async function loadPlayers(): Promise<readonly PlayerWithConfidence[]> {
   const repos = getRepositories();
 
-  const allPlayers = repos.players.listAll();
-  const allTeams = repos.teams.listAll();
-  const currentSnapshots = repos.confidenceSnapshots.currentForAllPlayers();
-  const last5 = repos.confidenceSnapshots.listLast5ForAllPlayers();
+  const [allPlayers, allTeams, currentSnapshots, last5] = await Promise.all([
+    repos.players.listAll(),
+    repos.teams.listAll(),
+    repos.confidenceSnapshots.currentForAllPlayers(),
+    repos.confidenceSnapshots.listLast5ForAllPlayers(),
+  ]);
 
   if (currentSnapshots.length === 0) return [];
 
@@ -28,16 +30,16 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
 
   const maxGw = currentSnapshots.reduce((m, s) => Math.max(m, s.snapshot.gameweek), 0);
 
-  const gwRaw = repos.syncMeta.get('current_gameweek');
+  const gwRaw = await repos.syncMeta.get('current_gameweek');
   const parsedGw = gwRaw ? parseInt(gwRaw, 10) : NaN;
   const currentGameweek = !isNaN(parsedGw) ? parsedGw : maxGw;
   const minRecentGw = Math.max(1, currentGameweek - 2);
   const recentAppearancesMap =
-    repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
+    await repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
 
   const minStreakGw = Math.max(1, currentGameweek - 2);
   const recentSnapshotsMap =
-    repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
+    await repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
 
   return currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const player = playerMap.get(pid);
@@ -71,8 +73,8 @@ function loadPlayers(): readonly PlayerWithConfidence[] {
   });
 }
 
-export default function PlayersPage(): JSX.Element {
-  const players = loadPlayers();
+export default async function PlayersPage(): Promise<JSX.Element> {
+  const players = await loadPlayers();
 
   return (
     <div className="bg-bg text-text min-h-screen font-sans">

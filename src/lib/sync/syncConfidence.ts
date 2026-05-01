@@ -41,6 +41,8 @@ function collapseByGameweek(pid: number, history: readonly MatchDelta[]): DbConf
     if (last === undefined) continue;
     const totalDelta = entries.reduce((sum, e) => sum + e.delta, 0);
     const totalRawDelta = entries.reduce((sum, e) => sum + e.rawDelta, 0);
+    // DGW event_magnitude = best moment by raw magnitude — the "hottest" sub-match wins.
+    const eventMagnitude = Math.max(...entries.map((e) => e.eventMagnitude));
     const signedStr = (d: number): string => (d >= 0 ? `+${d.toString()}` : d.toString());
     const reason =
       entries.length === 1
@@ -53,6 +55,7 @@ function collapseByGameweek(pid: number, history: readonly MatchDelta[]): DbConf
       confidence_after: last.confidenceAfter,
       delta: totalDelta,
       raw_delta: totalRawDelta,
+      event_magnitude: eventMagnitude,
       reason,
       fatigue_applied: entries.some((e) => e.fatigueApplied),
       motm_counter: last.motmCounterAfter,
@@ -128,8 +131,8 @@ export async function syncConfidence(
   const nextFdrByTeam = buildNextFdrByTeam(fixturesResult.value, currentGw);
 
   // Step c: persist teams + players (upsert semantics — safe to re-run)
-  repos.teams.upsertMany(teams);
-  repos.players.upsertMany(
+  await repos.teams.upsertMany(teams);
+  await repos.players.upsertMany(
     elements.map((e) => ({
       id: e.id,
       web_name: e.web_name,
@@ -181,14 +184,14 @@ export async function syncConfidence(
     const { history } = calculateConfidence({ position, matches: matchEvents });
 
     const snapshots = collapseByGameweek(player.id, history);
-    repos.confidenceSnapshots.upsertMany(snapshots);
+    await repos.confidenceSnapshots.upsertMany(snapshots);
     snapshotsWritten += snapshots.length;
     playersProcessed++;
   }
 
   // Step h: record sync metadata
-  repos.syncMeta.set('last_sync', String(now), now);
-  repos.syncMeta.set('current_gameweek', String(currentGw), now);
+  await repos.syncMeta.set('last_sync', String(now), now);
+  await repos.syncMeta.set('current_gameweek', String(currentGw), now);
 
   return ok({
     playersProcessed,

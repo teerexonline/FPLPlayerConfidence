@@ -39,37 +39,44 @@ afterAll(() => {
 
 class FakePlayerRepository implements PlayerRepository {
   private readonly store = new Map<number, DbPlayer>();
-  upsert(player: DbPlayer): void {
+  upsert(player: DbPlayer): Promise<void> {
     this.store.set(player.id, player);
+    return Promise.resolve();
   }
-  upsertMany(players: readonly DbPlayer[]): void {
+  upsertMany(players: readonly DbPlayer[]): Promise<void> {
     players.forEach((p) => {
-      this.upsert(p);
+      this.store.set(p.id, p);
     });
+    return Promise.resolve();
   }
-  findById(id: number): DbPlayer | undefined {
-    return this.store.get(id);
+  findById(id: number): Promise<DbPlayer | undefined> {
+    return Promise.resolve(this.store.get(id));
   }
-  listAll(): readonly DbPlayer[] {
+  listAll(): Promise<readonly DbPlayer[]> {
+    return Promise.resolve([...this.store.values()]);
+  }
+  listAllSync(): readonly DbPlayer[] {
     return [...this.store.values()];
   }
 }
 
 class FakeTeamRepository implements TeamRepository {
   private readonly store = new Map<number, DbTeam>();
-  upsert(team: DbTeam): void {
+  upsert(team: DbTeam): Promise<void> {
     this.store.set(team.id, team);
+    return Promise.resolve();
   }
-  upsertMany(teams: readonly DbTeam[]): void {
+  upsertMany(teams: readonly DbTeam[]): Promise<void> {
     teams.forEach((t) => {
-      this.upsert(t);
+      this.store.set(t.id, t);
     });
+    return Promise.resolve();
   }
-  findById(id: number): DbTeam | undefined {
-    return this.store.get(id);
+  findById(id: number): Promise<DbTeam | undefined> {
+    return Promise.resolve(this.store.get(id));
   }
-  listAll(): readonly DbTeam[] {
-    return [...this.store.values()];
+  listAll(): Promise<readonly DbTeam[]> {
+    return Promise.resolve([...this.store.values()]);
   }
 }
 
@@ -80,24 +87,32 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
     return `${s.player_id.toString()}-${s.gameweek.toString()}`;
   }
 
-  upsert(snapshot: DbConfidenceSnapshot): void {
+  upsert(snapshot: DbConfidenceSnapshot): Promise<void> {
     this.store.set(this.key(snapshot), snapshot);
+    return Promise.resolve();
   }
-  upsertMany(snapshots: readonly DbConfidenceSnapshot[]): void {
+  upsertMany(snapshots: readonly DbConfidenceSnapshot[]): Promise<void> {
     snapshots.forEach((s) => {
-      this.upsert(s);
+      this.store.set(this.key(s), s);
     });
+    return Promise.resolve();
   }
-  listByPlayer(pid: PlayerId): readonly DbConfidenceSnapshot[] {
+  listByPlayer(pid: PlayerId): Promise<readonly DbConfidenceSnapshot[]> {
+    return Promise.resolve([...this.store.values()].filter((s) => s.player_id === pid));
+  }
+  listByPlayerSync(pid: PlayerId): readonly DbConfidenceSnapshot[] {
     return [...this.store.values()].filter((s) => s.player_id === pid);
   }
-  currentByPlayer(pid: PlayerId): DbConfidenceSnapshot | undefined {
-    return this.listByPlayer(pid).reduce<DbConfidenceSnapshot | undefined>(
+  currentByPlayer(pid: PlayerId): Promise<DbConfidenceSnapshot | undefined> {
+    const result = this.listByPlayerSync(pid).reduce<DbConfidenceSnapshot | undefined>(
       (best, s) => (best === undefined || s.gameweek > best.gameweek ? s : best),
       undefined,
     );
+    return Promise.resolve(result);
   }
-  currentForAllPlayers(): readonly { playerId: PlayerId; snapshot: DbConfidenceSnapshot }[] {
+  currentForAllPlayers(): Promise<
+    readonly { playerId: PlayerId; snapshot: DbConfidenceSnapshot }[]
+  > {
     const byPlayer = new Map<number, DbConfidenceSnapshot>();
     for (const s of this.store.values()) {
       const existing = byPlayer.get(s.player_id);
@@ -105,65 +120,83 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
         byPlayer.set(s.player_id, s);
       }
     }
-    return [...byPlayer.entries()].map(([pid, snapshot]) => ({
-      playerId: playerId(pid),
-      snapshot,
-    }));
+    return Promise.resolve(
+      [...byPlayer.entries()].map(([pid, snapshot]) => ({
+        playerId: playerId(pid),
+        snapshot,
+      })),
+    );
   }
-  listLast5ForAllPlayers(): readonly { playerId: PlayerId; deltas: readonly number[] }[] {
+  listLast5ForAllPlayers(): Promise<readonly { playerId: PlayerId; deltas: readonly number[] }[]> {
     const byPlayer = new Map<number, number[]>();
     for (const s of [...this.store.values()].sort((a, b) => a.gameweek - b.gameweek)) {
       const arr = byPlayer.get(s.player_id) ?? [];
       arr.push(s.delta);
       byPlayer.set(s.player_id, arr.slice(-5));
     }
-    return [...byPlayer.entries()].map(([pid, deltas]) => ({ playerId: playerId(pid), deltas }));
+    return Promise.resolve(
+      [...byPlayer.entries()].map(([pid, deltas]) => ({ playerId: playerId(pid), deltas })),
+    );
   }
-  recentAppearancesForAllPlayers(minGw: number): ReadonlyMap<number, number> {
+  recentAppearancesForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
     const map = new Map<number, number>();
     for (const s of this.store.values()) {
       if (s.gameweek >= minGw) {
         map.set(s.player_id, (map.get(s.player_id) ?? 0) + 1);
       }
     }
-    return map;
+    return Promise.resolve(map);
   }
-  snapshotsAtGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
-    return [...this.store.values()].filter((s) => s.gameweek === gameweek);
+  snapshotsAtGameweek(gameweek: number): Promise<readonly DbConfidenceSnapshot[]> {
+    return Promise.resolve([...this.store.values()].filter((s) => s.gameweek === gameweek));
   }
-  latestSnapshotsAtOrBeforeGameweek(gameweek: number): readonly DbConfidenceSnapshot[] {
+  latestSnapshotsAtOrBeforeGameweek(gameweek: number): Promise<readonly DbConfidenceSnapshot[]> {
     const latest = new Map<number, DbConfidenceSnapshot>();
     for (const s of this.store.values()) {
       if (s.gameweek > gameweek) continue;
       const existing = latest.get(s.player_id);
       if (!existing || s.gameweek > existing.gameweek) latest.set(s.player_id, s);
     }
-    return [...latest.values()];
+    return Promise.resolve([...latest.values()]);
   }
   recentBoostForAllPlayers(
     minGw: number,
     maxGw: number,
-  ): ReadonlyMap<number, { boostGw: number; boostDelta: number }> {
+  ): Promise<ReadonlyMap<number, { boostGw: number; boostDelta: number }>> {
     const map = new Map<number, { boostGw: number; boostDelta: number }>();
     for (const s of this.store.values()) {
-      if (s.raw_delta >= 3 && s.gameweek >= minGw && s.gameweek <= maxGw) {
+      if (s.event_magnitude >= 3 && s.gameweek >= minGw && s.gameweek <= maxGw) {
         const existing = map.get(s.player_id);
         if (existing === undefined || s.gameweek > existing.boostGw) {
-          map.set(s.player_id, { boostGw: s.gameweek, boostDelta: s.raw_delta });
+          map.set(s.player_id, { boostGw: s.gameweek, boostDelta: s.event_magnitude });
         }
       }
     }
-    return map;
+    return Promise.resolve(map);
   }
   listRecentSnapshotsForAllPlayers(
     minGw: number,
-  ): ReadonlyMap<
-    number,
-    readonly { gameweek: number; delta: number; rawDelta: number; reason: string }[]
+  ): Promise<
+    ReadonlyMap<
+      number,
+      readonly {
+        gameweek: number;
+        delta: number;
+        rawDelta: number;
+        eventMagnitude: number;
+        reason: string;
+      }[]
+    >
   > {
     const map = new Map<
       number,
-      { gameweek: number; delta: number; rawDelta: number; reason: string }[]
+      {
+        gameweek: number;
+        delta: number;
+        rawDelta: number;
+        eventMagnitude: number;
+        reason: string;
+      }[]
     >();
     const sorted = [...this.store.values()]
       .filter((s) => s.gameweek >= minGw)
@@ -174,14 +207,21 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
         arr = [];
         map.set(s.player_id, arr);
       }
-      arr.push({ gameweek: s.gameweek, delta: s.delta, rawDelta: s.raw_delta, reason: s.reason });
+      arr.push({
+        gameweek: s.gameweek,
+        delta: s.delta,
+        rawDelta: s.raw_delta,
+        eventMagnitude: s.event_magnitude,
+        reason: s.reason,
+      });
     }
-    return map;
+    return Promise.resolve(map);
   }
-  deleteByPlayer(pid: PlayerId): void {
+  deleteByPlayer(pid: PlayerId): Promise<void> {
     for (const [key, s] of this.store.entries()) {
       if (s.player_id === pid) this.store.delete(key);
     }
+    return Promise.resolve();
   }
   count(): number {
     return this.store.size;
@@ -190,54 +230,58 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
 
 class FakeSyncMetaRepository implements SyncMetaRepository {
   private readonly store = new Map<string, string>();
-  get(key: string): string | undefined {
+  get(key: string): Promise<string | undefined> {
+    return Promise.resolve(this.store.get(key));
+  }
+  getSync(key: string): string | undefined {
     return this.store.get(key);
   }
-  set(key: string, value: string, _updatedAt: number): void {
+  set(key: string, value: string, _updatedAt: number): Promise<void> {
     this.store.set(key, value);
+    return Promise.resolve();
   }
 }
 
 class FakeManagerSquadRepository implements ManagerSquadRepository {
-  upsertMany(_picks: readonly DbManagerSquadPick[]): void {
-    /* no-op stub */
+  upsertMany(_picks: readonly DbManagerSquadPick[]): Promise<void> {
+    return Promise.resolve();
   }
   listByTeamAndGameweek(
     _userId: number,
     _teamId: number,
     _gameweek: number,
-  ): readonly DbManagerSquadPick[] {
-    return [];
+  ): Promise<readonly DbManagerSquadPick[]> {
+    return Promise.resolve([]);
   }
-  latestGameweekForTeam(_userId: number, _teamId: number): number | null {
-    return null;
+  latestGameweekForTeam(_userId: number, _teamId: number): Promise<number | null> {
+    return Promise.resolve(null);
   }
-  listGameweeksForTeam(_userId: number, _teamId: number): readonly number[] {
-    return [];
+  listGameweeksForTeam(_userId: number, _teamId: number): Promise<readonly number[]> {
+    return Promise.resolve([]);
   }
 }
 
 class FakeUserRepository implements UserRepository {
-  findById(_id: number): DbUser | null {
-    return null;
+  findById(_id: number): Promise<DbUser | null> {
+    return Promise.resolve(null);
   }
-  listAll(): readonly DbUser[] {
-    return [];
+  listAll(): Promise<readonly DbUser[]> {
+    return Promise.resolve([]);
   }
 }
 
 class FakeWatchlistRepository implements WatchlistRepository {
-  findByUser(_userId: number): readonly number[] {
-    return [];
+  findByUser(_userId: number): Promise<readonly number[]> {
+    return Promise.resolve([]);
   }
-  add(_userId: number, _playerId: number): void {
-    // no-op
+  add(_userId: number, _playerId: number): Promise<void> {
+    return Promise.resolve();
   }
-  remove(_userId: number, _playerId: number): void {
-    // no-op
+  remove(_userId: number, _playerId: number): Promise<void> {
+    return Promise.resolve();
   }
-  contains(_userId: number, _playerId: number): boolean {
-    return false;
+  contains(_userId: number, _playerId: number): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }
 
@@ -390,11 +434,11 @@ describe('syncConfidence', () => {
     expect(result.value.playersSkipped).toBe(0);
     expect(result.value.snapshotsWritten).toBe(3);
     expect(result.value.errors).toHaveLength(0);
-    expect(syncMeta.get('last_sync')).toBe(String(CLOCK));
+    expect(syncMeta.getSync('last_sync')).toBe(String(CLOCK));
 
     // Each player: goals=1 vs FDR 3 (fallback) → MOTM → confidence_after=+2
     for (const element of BOOTSTRAP.elements) {
-      const snaps = confidenceSnapshots.listByPlayer(playerId(element.id));
+      const snaps = confidenceSnapshots.listByPlayerSync(playerId(element.id));
       expect(snaps).toHaveLength(1);
       expect(snaps[0]?.confidence_after).toBe(2);
     }
@@ -410,7 +454,7 @@ describe('syncConfidence', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.type).toBe('network_error');
-    expect(players.listAll()).toHaveLength(0);
+    expect(players.listAllSync()).toHaveLength(0);
     expect(api.fetchElementSummary).not.toHaveBeenCalled();
   });
 
@@ -505,7 +549,7 @@ describe('syncConfidence', () => {
     if (!result.ok) return;
     expect(result.value.playersSkipped).toBe(1);
     expect(result.value.playersProcessed).toBe(2);
-    expect(confidenceSnapshots.listByPlayer(playerId(1))).toHaveLength(0);
+    expect(confidenceSnapshots.listByPlayerSync(playerId(1))).toHaveLength(0);
   });
 
   it('running twice in a row produces identical DB state (idempotency)', async () => {
@@ -640,12 +684,17 @@ describe('syncConfidence', () => {
     const result = await syncConfidence({ api, repos, clock: () => CLOCK, throttleMs: 0 });
 
     expect(result.ok).toBe(true);
-    const snaps = confidenceSnapshots.listByPlayer(playerId(1));
+    const snaps = confidenceSnapshots.listByPlayerSync(playerId(1));
     expect(snaps).toHaveLength(1); // collapsed: 2 matches → 1 row
     expect(snaps[0]?.gameweek).toBe(33);
     expect(snaps[0]?.delta).toBe(5); // +3 (FDR 5) + +2 (FDR 3)
     expect(snaps[0]?.confidence_after).toBe(5); // 0 + 3 + 2 = +5
     expect(snaps[0]?.reason).toMatch(/^DGW:/);
+    // DGW event_magnitude = Math.max(raw sub-match magnitudes).
+    // Match 1: FWD MOTM vs Man City (BIG → effective FDR 5) → raw = 2 × 2.5 = 5.
+    // Match 2: FWD MOTM vs FDR 3 opponent → raw = 2 × 1.0 = 2.
+    // max(5, 2) = 5.
+    expect(snaps[0]?.event_magnitude).toBe(5);
   });
 
   it('Haaland GW33 regression: GW1 blank (−1) then DGW33 two MOTMs → collapsed delta=+6, confidence_after=+5', async () => {
@@ -747,7 +796,7 @@ describe('syncConfidence', () => {
     const result = await syncConfidence({ api, repos, clock: () => CLOCK, throttleMs: 0 });
 
     expect(result.ok).toBe(true);
-    const snaps = [...confidenceSnapshots.listByPlayer(playerId(1))].sort(
+    const snaps = [...confidenceSnapshots.listByPlayerSync(playerId(1))].sort(
       (a, b) => a.gameweek - b.gameweek,
     );
     expect(snaps).toHaveLength(2); // GW1 + GW33 (collapsed)

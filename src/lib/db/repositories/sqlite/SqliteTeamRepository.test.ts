@@ -28,36 +28,36 @@ afterEach(() => {
 });
 
 describe('SqliteTeamRepository', () => {
-  it('upsert stores a team and findById retrieves the correct row', () => {
-    repo.upsert(aTeam({ id: 1, code: 3, name: 'Arsenal', short_name: 'ARS' }));
+  it('upsert stores a team and findById retrieves the correct row', async () => {
+    await repo.upsert(aTeam({ id: 1, code: 3, name: 'Arsenal', short_name: 'ARS' }));
 
-    expect(repo.findById(1)).toMatchObject({ id: 1, code: 3, name: 'Arsenal' });
+    expect(await repo.findById(1)).toMatchObject({ id: 1, code: 3, name: 'Arsenal' });
   });
 
-  it('findById returns undefined when the team does not exist', () => {
-    expect(repo.findById(99)).toBeUndefined();
+  it('findById returns undefined when the team does not exist', async () => {
+    expect(await repo.findById(99)).toBeUndefined();
   });
 
-  it('upsert on the same id replaces the existing row', () => {
-    repo.upsert(aTeam({ id: 1, name: 'Arsenal' }));
-    repo.upsert(aTeam({ id: 1, name: 'Arsenal FC' }));
+  it('upsert on the same id replaces the existing row', async () => {
+    await repo.upsert(aTeam({ id: 1, name: 'Arsenal' }));
+    await repo.upsert(aTeam({ id: 1, name: 'Arsenal FC' }));
 
-    expect(repo.findById(1)?.name).toBe('Arsenal FC');
-    expect(repo.listAll()).toHaveLength(1);
+    expect((await repo.findById(1))?.name).toBe('Arsenal FC');
+    expect(await repo.listAll()).toHaveLength(1);
   });
 
-  it('upsertMany inserts all teams and listAll returns them ordered by id', () => {
-    repo.upsertMany([
+  it('upsertMany inserts all teams and listAll returns them ordered by id', async () => {
+    await repo.upsertMany([
       aTeam({ id: 3, name: 'Chelsea' }),
       aTeam({ id: 1, name: 'Arsenal' }),
       aTeam({ id: 2, name: 'Aston Villa' }),
     ]);
 
-    const names = repo.listAll().map((t) => t.name);
+    const names = (await repo.listAll()).map((t) => t.name);
     expect(names).toEqual(['Arsenal', 'Aston Villa', 'Chelsea']);
   });
 
-  it('listAll returns an empty array when no teams have been inserted', () => {
-    expect(repo.listAll()).toHaveLength(0);
+  it('listAll returns an empty array when no teams have been inserted', async () => {
+    expect(await repo.listAll()).toHaveLength(0);
   });
 });

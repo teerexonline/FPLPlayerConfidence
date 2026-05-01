@@ -30,20 +30,22 @@ export class SqliteWatchlistRepository implements WatchlistRepository {
     );
   }
 
-  findByUser(userId: number): readonly number[] {
-    return this.stmtFindByUser.all(userId).map((r) => r.player_id);
+  findByUser(userId: number): Promise<readonly number[]> {
+    return Promise.resolve(this.stmtFindByUser.all(userId).map((r) => r.player_id));
   }
 
-  add(userId: number, playerId: number): void {
+  add(userId: number, playerId: number): Promise<void> {
     this.stmtAdd.run(userId, playerId, Math.floor(Date.now() / 1000));
+    return Promise.resolve();
   }
 
-  remove(userId: number, playerId: number): void {
+  remove(userId: number, playerId: number): Promise<void> {
     this.stmtRemove.run(userId, playerId);
+    return Promise.resolve();
   }
 
-  contains(userId: number, playerId: number): boolean {
+  contains(userId: number, playerId: number): Promise<boolean> {
     const row = this.stmtContains.get(userId, playerId);
-    return (row?.cnt ?? 0) > 0;
+    return Promise.resolve((row?.cnt ?? 0) > 0);
   }
 }

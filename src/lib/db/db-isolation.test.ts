@@ -25,17 +25,17 @@ afterEach(() => {
 });
 
 describe('DB isolation: prod and test databases are separate files', () => {
-  it('data written to one database is never visible in the other', () => {
+  it('data written to one database is never visible in the other', async () => {
     const prodRepos = createRepositories(prodDb);
     const testRepos = createRepositories(testDb);
 
     // Write Liverpool (id=11) to prod as in 2024/25 seeded data
-    prodRepos.teams.upsert({ id: 11, code: 14, name: 'Liverpool', short_name: 'LIV' });
+    await prodRepos.teams.upsert({ id: 11, code: 14, name: 'Liverpool', short_name: 'LIV' });
     // Write Leeds (id=11) to test as in 2025/26 live API
-    testRepos.teams.upsert({ id: 11, code: 75, name: 'Leeds', short_name: 'LEE' });
+    await testRepos.teams.upsert({ id: 11, code: 75, name: 'Leeds', short_name: 'LEE' });
 
-    const prodTeam = prodRepos.teams.findById(11);
-    const testTeam = testRepos.teams.findById(11);
+    const prodTeam = await prodRepos.teams.findById(11);
+    const testTeam = await testRepos.teams.findById(11);
 
     // Each database sees only its own write — the root cause of the Salah-at-Leeds bug
     expect(prodTeam?.short_name).toBe('LIV');
@@ -46,7 +46,7 @@ describe('DB isolation: prod and test databases are separate files', () => {
     const prodRepos = createRepositories(prodDb);
 
     // Seed a fake "Salah" (id=9999) into prod only
-    prodRepos.teams.upsert({ id: 11, code: 14, name: 'Liverpool', short_name: 'LIV' });
+    void prodRepos.teams.upsert({ id: 11, code: 14, name: 'Liverpool', short_name: 'LIV' });
     prodDb
       .prepare(
         'INSERT INTO players (id, web_name, team_id, position, now_cost, total_points, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',

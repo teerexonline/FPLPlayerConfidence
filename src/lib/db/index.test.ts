@@ -32,32 +32,32 @@ describe('createRepositories', () => {
     expect(repos.users).toBeDefined();
   });
 
-  it('repositories are functional — basic round-trip through the factory', () => {
+  it('repositories are functional — basic round-trip through the factory', async () => {
     const repos = createRepositories(db);
 
-    repos.syncMeta.set('test_key', 'hello', 1_000);
-    expect(repos.syncMeta.get('test_key')).toBe('hello');
+    await repos.syncMeta.set('test_key', 'hello', 1_000);
+    expect(await repos.syncMeta.get('test_key')).toBe('hello');
   });
 });
 
 describe('createDb migrations', () => {
-  it('seeds SYSTEM_USER (id=1) in the users table on a fresh database', () => {
+  it('seeds SYSTEM_USER (id=1) in the users table on a fresh database', async () => {
     const repos = createRepositories(db);
-    const user = repos.users.findById(SYSTEM_USER_ID);
+    const user = await repos.users.findById(SYSTEM_USER_ID);
 
     expect(user).not.toBeNull();
     expect(user?.id).toBe(SYSTEM_USER_ID);
     expect(user?.email).toBe('system@fpltool.internal');
   });
 
-  it('seeds SYSTEM_USER idempotently — calling createDb twice does not duplicate the row', () => {
+  it('seeds SYSTEM_USER idempotently — calling createDb twice does not duplicate the row', async () => {
     // Close the first connection and re-open the same file to simulate a restart.
     const savedPath = dbPath;
     db.close();
     const db2 = createDb(savedPath);
     const repos2 = createRepositories(db2);
 
-    const users = repos2.users.listAll();
+    const users = await repos2.users.listAll();
     db2.close();
 
     expect(users).toHaveLength(1);
