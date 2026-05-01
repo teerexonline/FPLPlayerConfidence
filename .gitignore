@@ -54,3 +54,11 @@ next-env.d.ts
 
 # dev utilities
 /screenshots/
+
+# Local SQLite database and backups
+data/*.db
+data/*.db-*
+data/*.bak*
+
+# Screenshot files at root
+screenshot-*.png
