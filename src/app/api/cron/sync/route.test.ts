@@ -25,19 +25,20 @@ vi.mock('@/lib/logger/logger', () => ({
   }),
 }));
 
-vi.mock('@vercel/functions', () => ({
-  waitUntil: vi.fn(),
-}));
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>();
+  return { ...actual, after: vi.fn() };
+});
 
 import { getRepositories } from '@/lib/db/server';
 import { fetchBootstrapStatic, fetchFixtures, fetchElementSummary } from '@/lib/fpl/api';
-import { waitUntil } from '@vercel/functions';
+import { after } from 'next/server';
 
 const mockGetRepositories = vi.mocked(getRepositories);
 const mockFetchBootstrapStatic = vi.mocked(fetchBootstrapStatic);
 const mockFetchFixtures = vi.mocked(fetchFixtures);
 const mockFetchElementSummary = vi.mocked(fetchElementSummary);
-const mockWaitUntil = vi.mocked(waitUntil);
+const mockAfter = vi.mocked(after);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -278,23 +279,23 @@ describe('GET /api/cron/sync — state transitions', () => {
   });
 });
 
-// ─── waitUntil behaviour ──────────────────────────────────────────────────────
+// ─── after chaining behaviour ─────────────────────────────────────────────────
 
-describe('GET /api/cron/sync — waitUntil chaining', () => {
+describe('GET /api/cron/sync — after chaining', () => {
   beforeEach(() => {
     vi.stubEnv('CRON_SECRET', VALID_SECRET);
     vi.stubEnv('VERCEL_URL', '');
     mockFetchBootstrapStatic.mockResolvedValue(ok(BOOTSTRAP));
     mockFetchFixtures.mockResolvedValue(ok(FIXTURES));
     mockFetchElementSummary.mockResolvedValue(ok(ELEMENT_SUMMARY));
-    mockWaitUntil.mockReset();
+    mockAfter.mockReset();
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it('calls waitUntil to chain the next batch when done=false (idle → player_history)', async () => {
+  it('calls after to chain the next batch when done=false (idle → player_history)', async () => {
     // idle → player_history is done=false: pipeline must continue
     const repos = makeRepos(undefined);
     mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
@@ -302,13 +303,13 @@ describe('GET /api/cron/sync — waitUntil chaining', () => {
     const { GET } = await import('./route');
     await GET(makeRequest(VALID_SECRET));
 
-    expect(mockWaitUntil).toHaveBeenCalledOnce();
-    const arg: unknown = mockWaitUntil.mock.calls[0]?.[0];
-    // waitUntil receives a Promise (the in-flight fetch)
+    expect(mockAfter).toHaveBeenCalledOnce();
+    const arg: unknown = mockAfter.mock.calls[0]?.[0];
+    // after receives a Promise (the in-flight fetch)
     expect(arg).toBeInstanceOf(Promise);
   });
 
-  it('does not call waitUntil when done=true (complete → idle)', async () => {
+  it('does not call after when done=true (complete → idle)', async () => {
     // complete → idle is done=true: pipeline has finished, no next batch needed
     const completeState: CronSyncState = {
       phase: 'complete',
@@ -326,6 +327,6 @@ describe('GET /api/cron/sync — waitUntil chaining', () => {
     const { GET } = await import('./route');
     await GET(makeRequest(VALID_SECRET));
 
-    expect(mockWaitUntil).not.toHaveBeenCalled();
+    expect(mockAfter).not.toHaveBeenCalled();
   });
 });

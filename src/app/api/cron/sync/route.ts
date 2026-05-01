@@ -1,4 +1,4 @@
-import { waitUntil } from '@vercel/functions';
+import { after } from 'next/server';
 import { getRepositories } from '@/lib/db/server';
 import { fetchBootstrapStatic, fetchElementSummary, fetchFixtures } from '@/lib/fpl/api';
 import { createLogger } from '@/lib/logger/logger';
@@ -34,13 +34,15 @@ function isAuthorized(request: Request): boolean {
  * Fires the next batch invocation as a background fetch guaranteed to be
  * delivered before Vercel tears down the function context.
  *
- * `waitUntil` keeps the instance alive until the fetch resolves, so the
- * HTTP request is always dispatched even after the Response has been sent.
- * Without it, Vercel may cancel the in-flight request when it sees the
- * response, stalling the chain.
+ * `after` (next/server) is the Next.js-native post-response lifecycle hook
+ * for Route Handlers. It keeps the function instance alive until the given
+ * promise resolves, guaranteeing the self-trigger fetch is dispatched even
+ * after the Response has been sent. `waitUntil` from @vercel/functions is
+ * designed for Edge/Middleware and does not integrate with the Next.js Route
+ * Handler lifecycle — it dropped triggers after ~4 consecutive rapid hops.
  */
 function triggerNextBatch(baseUrl: string, secret: string): void {
-  waitUntil(
+  after(
     fetch(`${baseUrl}/api/cron/sync`, {
       headers: { authorization: `Bearer ${secret}` },
     }).catch(() => undefined),
