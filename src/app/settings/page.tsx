@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { JSX } from 'react';
 import { getRepositories } from '@/lib/db/server';
+import { SYNC_STATE_KEY, parseCronSyncState } from '@/lib/sync/cronSync';
 import { SettingsShell } from './_components/SettingsShell';
 import { ThemeSelector } from './_components/ThemeSelector';
 import { DataSyncSection } from './_components/DataSyncSection';
@@ -11,25 +12,27 @@ export const metadata: Metadata = {
   description: 'Manage appearance, data sync, and your FPL team connection.',
 };
 
-async function readLastSync(): Promise<number | null> {
+async function readSyncInfo(): Promise<{
+  lastSync: number | null;
+  phase: import('@/lib/sync/cronSync').CronSyncPhase;
+}> {
   try {
     const repos = getRepositories();
-    const raw = await repos.syncMeta.get('last_sync');
-    if (!raw) return null;
-    const parsed = parseInt(raw, 10);
-    return isNaN(parsed) ? null : parsed;
+    const [rawState] = await Promise.all([repos.syncMeta.get(SYNC_STATE_KEY)]);
+    const state = parseCronSyncState(rawState);
+    return { lastSync: state.completedAt, phase: state.phase };
   } catch {
-    return null;
+    return { lastSync: null, phase: 'idle' };
   }
 }
 
 export default async function SettingsPage(): Promise<JSX.Element> {
-  const lastSync = await readLastSync();
+  const { lastSync, phase } = await readSyncInfo();
 
   return (
     <SettingsShell
       appearanceSection={<ThemeSelector />}
-      dataSyncSection={<DataSyncSection initialLastSync={lastSync} />}
+      dataSyncSection={<DataSyncSection initialLastSync={lastSync} initialPhase={phase} />}
       teamSection={<TeamConnectionSection />}
     />
   );

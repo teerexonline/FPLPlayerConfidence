@@ -1,39 +1,48 @@
 'use server';
 
-import { getRepositories } from '@/lib/db/server';
-import { fetchBootstrapStatic, fetchElementSummary, fetchFixtures } from '@/lib/fpl/api';
-import { syncConfidence } from '@/lib/sync';
-import type { SyncResult } from '@/lib/sync/types';
+import { createLogger } from '@/lib/logger/logger';
 
-export type SyncActionResult =
-  | { ok: true; result: SyncResult; syncedAt: number }
-  | { ok: false; error: string };
+const logger = createLogger('settings/actions');
 
-export async function triggerSync(): Promise<SyncActionResult> {
+export type ManualSyncResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Kicks off a new chunked sync run by calling the cron endpoint server-side.
+ * Returns immediately — the pipeline self-chains via fire-and-forget fetches.
+ * The client polls /api/sync-status to track progress.
+ */
+export async function triggerManualSync(): Promise<ManualSyncResult> {
+  const secret = process.env['CRON_SECRET'];
+  if (!secret) {
+    logger.error('triggerManualSync: CRON_SECRET not configured');
+    return { ok: false, error: 'Sync not configured. Contact support.' };
+  }
+
+  const baseUrl = process.env['VERCEL_URL']
+    ? `https://${process.env['VERCEL_URL']}`
+    : 'http://localhost:3000';
+
   try {
-    const repos = getRepositories();
-    const now = Date.now();
-
-    const outcome = await syncConfidence({
-      api: { fetchBootstrapStatic, fetchElementSummary, fetchFixtures },
-      repos,
-      clock: () => Date.now(),
-      throttleMs: 200,
+    const response = await fetch(`${baseUrl}/api/cron/sync`, {
+      headers: { authorization: `Bearer ${secret}` },
     });
 
-    if (!outcome.ok) {
-      const e = outcome.error;
-      const errMsg =
-        e.type === 'not_found'
-          ? 'not_found'
-          : e.type === 'http_error'
-            ? `http_error: ${e.status.toString()}`
-            : `${e.type}: ${e.message}`;
-      return { ok: false, error: errMsg };
+    if (!response.ok) {
+      const text = await response.text();
+      logger.warn('triggerManualSync: cron endpoint returned non-200', {
+        status: response.status,
+        body: text,
+      });
+      return { ok: false, error: `Sync endpoint returned ${response.status.toString()}` };
     }
 
-    return { ok: true, result: outcome.value, syncedAt: now };
+    logger.info('triggerManualSync: first batch triggered successfully');
+    return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Unknown sync error' };
+    const message = e instanceof Error ? e.message : 'Network error';
+    logger.error('triggerManualSync: fetch threw', { error: message });
+    return { ok: false, error: message };
   }
 }
