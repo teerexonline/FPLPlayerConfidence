@@ -25,20 +25,13 @@ vi.mock('@/lib/logger/logger', () => ({
   }),
 }));
 
-vi.mock('next/server', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('next/server')>();
-  return { ...actual, after: vi.fn() };
-});
-
 import { getRepositories } from '@/lib/db/server';
 import { fetchBootstrapStatic, fetchFixtures, fetchElementSummary } from '@/lib/fpl/api';
-import { after } from 'next/server';
 
 const mockGetRepositories = vi.mocked(getRepositories);
 const mockFetchBootstrapStatic = vi.mocked(fetchBootstrapStatic);
 const mockFetchFixtures = vi.mocked(fetchFixtures);
 const mockFetchElementSummary = vi.mocked(fetchElementSummary);
-const mockAfter = vi.mocked(after);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,6 +43,7 @@ function makeRequest(secret?: string): Request {
   return new Request('http://localhost:3000/api/cron/sync', { headers });
 }
 
+// Minimal bootstrap with ONE active player — keeps the full-pipeline tests fast.
 const BOOTSTRAP = {
   teams: [{ id: 1, code: 3, name: 'Arsenal', short_name: 'ARS' }],
   elements: [
@@ -125,7 +119,7 @@ function makeRepos(syncStateRaw?: string) {
   };
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// ─── Auth tests ───────────────────────────────────────────────────────────────
 
 describe('GET /api/cron/sync — auth', () => {
   beforeEach(() => {
@@ -168,7 +162,13 @@ describe('GET /api/cron/sync — auth', () => {
   });
 });
 
-describe('GET /api/cron/sync — state transitions', () => {
+// ─── Full pipeline tests ───────────────────────────────────────────────────────
+//
+// The route now drives the entire sync pipeline in a single invocation (loop).
+// Individual phase-transition logic is unit-tested in cronSync.test.ts.
+// These tests verify the route's loop, error handling, and final state.
+
+describe('GET /api/cron/sync — full pipeline', () => {
   beforeEach(() => {
     vi.stubEnv('CRON_SECRET', VALID_SECRET);
     vi.stubEnv('VERCEL_URL', '');
@@ -181,27 +181,49 @@ describe('GET /api/cron/sync — state transitions', () => {
     vi.unstubAllEnvs();
   });
 
-  it('transitions idle → player_history and persists new state', async () => {
+  it('runs idle → complete → idle in a single invocation and returns 200', async () => {
+    // BOOTSTRAP has 1 active player → 1 batch → pipeline completes in:
+    //   bootstrap step + player_history step + complete step = 3 loop iterations
     const repos = makeRepos(undefined); // undefined → parseCronSyncState returns idle
+    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+
+    const { GET } = await import('./route');
+    const res = await GET(makeRequest(VALID_SECRET));
+    expect(res.status).toBe(200);
+
+    // Final persisted state must be idle with completedAt set
+    type SetCall = [key: string, value: string, ts: number];
+    const setCalls = (repos.syncMeta.set as unknown as { mock: { calls: SetCall[] } }).mock.calls;
+    const allSyncStateWrites = setCalls.filter(([k]) => k === SYNC_STATE_KEY);
+    // Must have written state at least 3 times (bootstrap, batch, complete)
+    expect(allSyncStateWrites.length).toBeGreaterThanOrEqual(3);
+
+    const lastWrite = allSyncStateWrites[allSyncStateWrites.length - 1];
+    if (lastWrite === undefined) throw new Error('No sync_state writes found');
+    const finalState = parseCronSyncState(lastWrite[1]);
+    expect(finalState.phase).toBe('idle');
+    expect(finalState.completedAt).toBeTypeOf('number');
+    expect(finalState.error).toBeNull();
+  });
+
+  it('writes last_sync to sync_meta on completion', async () => {
+    const repos = makeRepos(undefined);
     mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
 
     const { GET } = await import('./route');
     await GET(makeRequest(VALID_SECRET));
 
-    // Verify sync_state was written with player_history phase
-    type SetCall = [key: string, value: string, ts: number];
-    const setCalls = (repos.syncMeta.set as unknown as { mock: { calls: SetCall[] } }).mock.calls;
-    const found = setCalls.find(([k]) => k === SYNC_STATE_KEY);
-    if (found === undefined) throw new Error('sync_state write not found');
-    const [key, raw] = found;
-    expect(key).toBe(SYNC_STATE_KEY);
-    const written = parseCronSyncState(raw);
-    expect(written.phase).toBe('player_history');
-    expect(written.batchIndex).toBe(0);
-    expect(written.playerIds).toHaveLength(1); // one active player in BOOTSTRAP
+    const allSets = (repos.syncMeta.set as ReturnType<typeof vi.fn>).mock.calls as [
+      string,
+      string,
+      number,
+    ][];
+    const lastSyncCall = allSets.find(([k]) => k === 'last_sync');
+    expect(lastSyncCall).toBeDefined();
+    expect(lastSyncCall?.[0]).toBe('last_sync');
   });
 
-  it('transitions player_history (final batch) → complete and persists state', async () => {
+  it('resumes from player_history state and completes without re-bootstrapping', async () => {
     const playerHistoryState: CronSyncState = {
       phase: 'player_history',
       batchIndex: 0,
@@ -216,49 +238,19 @@ describe('GET /api/cron/sync — state transitions', () => {
     mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
 
     const { GET } = await import('./route');
-    await GET(makeRequest(VALID_SECRET));
+    const res = await GET(makeRequest(VALID_SECRET));
+    expect(res.status).toBe(200);
 
     type SetCall = [key: string, value: string, ts: number];
     const setCalls = (repos.syncMeta.set as unknown as { mock: { calls: SetCall[] } }).mock.calls;
-    const found = setCalls.find(([k]) => k === SYNC_STATE_KEY);
-    if (found === undefined) throw new Error('sync_state write not found');
-    const written = parseCronSyncState(found[1]);
-    expect(written.phase).toBe('complete');
+    const syncStateCalls = setCalls.filter(([k]) => k === SYNC_STATE_KEY);
+    const lastWrite = syncStateCalls[syncStateCalls.length - 1];
+    if (lastWrite === undefined) throw new Error('No sync_state writes');
+    const finalState = parseCronSyncState(lastWrite[1]);
+    expect(finalState.phase).toBe('idle');
   });
 
-  it('transitions complete → idle and writes last_sync to sync_meta', async () => {
-    const completeState: CronSyncState = {
-      phase: 'complete',
-      batchIndex: 0,
-      totalBatches: 1,
-      playerIds: [1],
-      currentGw: 33,
-      startedAt: 1_000_000,
-      completedAt: null,
-      error: null,
-    };
-    const repos = makeRepos(JSON.stringify(completeState));
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
-
-    const { GET } = await import('./route');
-    await GET(makeRequest(VALID_SECRET));
-
-    const allSets = (repos.syncMeta.set as ReturnType<typeof vi.fn>).mock.calls as [
-      string,
-      string,
-      number,
-    ][];
-    const lastSyncCall = allSets.find(([k]) => k === 'last_sync');
-    expect(lastSyncCall).toBeDefined();
-    expect(lastSyncCall?.[0]).toBe('last_sync');
-
-    const syncStateCall = allSets.find(([k]) => k === SYNC_STATE_KEY);
-    const written = parseCronSyncState(syncStateCall?.[1]);
-    expect(written.phase).toBe('idle');
-    expect(written.completedAt).toBeTypeOf('number');
-  });
-
-  it('returns failed state when FPL API errors during bootstrap', async () => {
+  it('stops at failed phase and returns 200 (pipeline records error, not HTTP 5xx)', async () => {
     mockFetchBootstrapStatic.mockResolvedValue(
       err({ type: 'network_error' as const, message: 'FPL down' }),
     );
@@ -268,7 +260,7 @@ describe('GET /api/cron/sync — state transitions', () => {
     const { GET } = await import('./route');
     const res = await GET(makeRequest(VALID_SECRET));
 
-    // Route returns 200 even on failed state — done=true, sync pipeline stops
+    // Route returns 200 even on failed state — done=true, pipeline stops cleanly
     expect(res.status).toBe(200);
     type SetCall = [key: string, value: string, ts: number];
     const setCalls = (repos.syncMeta.set as unknown as { mock: { calls: SetCall[] } }).mock.calls;
@@ -276,57 +268,5 @@ describe('GET /api/cron/sync — state transitions', () => {
     if (found === undefined) throw new Error('sync_state write not found');
     const written = parseCronSyncState(found[1]);
     expect(written.phase).toBe('failed');
-  });
-});
-
-// ─── after chaining behaviour ─────────────────────────────────────────────────
-
-describe('GET /api/cron/sync — after chaining', () => {
-  beforeEach(() => {
-    vi.stubEnv('CRON_SECRET', VALID_SECRET);
-    vi.stubEnv('VERCEL_URL', '');
-    mockFetchBootstrapStatic.mockResolvedValue(ok(BOOTSTRAP));
-    mockFetchFixtures.mockResolvedValue(ok(FIXTURES));
-    mockFetchElementSummary.mockResolvedValue(ok(ELEMENT_SUMMARY));
-    mockAfter.mockReset();
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it('calls after to chain the next batch when done=false (idle → player_history)', async () => {
-    // idle → player_history is done=false: pipeline must continue
-    const repos = makeRepos(undefined);
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
-
-    const { GET } = await import('./route');
-    await GET(makeRequest(VALID_SECRET));
-
-    expect(mockAfter).toHaveBeenCalledOnce();
-    const arg: unknown = mockAfter.mock.calls[0]?.[0];
-    // after receives a Promise (the in-flight fetch)
-    expect(arg).toBeInstanceOf(Promise);
-  });
-
-  it('does not call after when done=true (complete → idle)', async () => {
-    // complete → idle is done=true: pipeline has finished, no next batch needed
-    const completeState: CronSyncState = {
-      phase: 'complete',
-      batchIndex: 0,
-      totalBatches: 1,
-      playerIds: [1],
-      currentGw: 33,
-      startedAt: 1_000_000,
-      completedAt: null,
-      error: null,
-    };
-    const repos = makeRepos(JSON.stringify(completeState));
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
-
-    const { GET } = await import('./route');
-    await GET(makeRequest(VALID_SECRET));
-
-    expect(mockAfter).not.toHaveBeenCalled();
   });
 });

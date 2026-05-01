@@ -1,4 +1,3 @@
-import { after } from 'next/server';
 import { getRepositories } from '@/lib/db/server';
 import { fetchBootstrapStatic, fetchElementSummary, fetchFixtures } from '@/lib/fpl/api';
 import { createLogger } from '@/lib/logger/logger';
@@ -11,16 +10,18 @@ import {
 
 const logger = createLogger('api/cron/sync');
 
-// Vercel Hobby: 10-second hard limit. Each invocation handles one phase/batch,
-// then fires the next via self-fetch so the pipeline chains without a long-running function.
-export const maxDuration = 10;
+// Fluid Compute default is 300 s on all plans — sufficient for a full sync
+// (~35 batches × ~2 s each from Next.js Data Cache ≈ 70 s total).
+// No explicit maxDuration needed; do NOT cap at 10 s (previous approach used
+// self-chaining to work around the 10 s limit, but Vercel Hobby burst-limits
+// rapid self-invocations to ~5 consecutive calls, causing the chain to stall).
 
 /**
  * Verifies that the request carries the expected bearer token.
  *
  * Vercel automatically sends `Authorization: Bearer ${CRON_SECRET}` when
- * invoking cron endpoints. We use the same header for self-recursive calls
- * and manual triggers from the Settings page Server Action.
+ * invoking cron endpoints. We use the same header for manual triggers from
+ * the Settings page Server Action.
  *
  * Fails closed: if CRON_SECRET is not configured, all requests are rejected.
  */
@@ -31,24 +32,19 @@ function isAuthorized(request: Request): boolean {
 }
 
 /**
- * Fires the next batch invocation as a background fetch guaranteed to be
- * delivered before Vercel tears down the function context.
+ * Drives the full sync pipeline to completion in a single invocation.
  *
- * `after` (next/server) is the Next.js-native post-response lifecycle hook
- * for Route Handlers. It keeps the function instance alive until the given
- * promise resolves, guaranteeing the self-trigger fetch is dispatched even
- * after the Response has been sent. `waitUntil` from @vercel/functions is
- * designed for Edge/Middleware and does not integrate with the Next.js Route
- * Handler lifecycle — it dropped triggers after ~4 consecutive rapid hops.
+ * Each loop iteration advances one step (bootstrap, player-history batch, or
+ * finalize). State is persisted to sync_meta after every step so the
+ * /api/sync-status polling endpoint can show live progress in the UI.
+ *
+ * If a step returns phase=failed the loop stops early and the error is
+ * recorded in sync_meta for display. Any thrown exception is caught, written
+ * as a failed state, and returned as HTTP 500.
+ *
+ * On Hobby the Fluid Compute default (300 s) is enough for the full pipeline.
+ * On Pro/Enterprise the limit is 800 s.
  */
-function triggerNextBatch(baseUrl: string, secret: string): void {
-  after(
-    fetch(`${baseUrl}/api/cron/sync`, {
-      headers: { authorization: `Bearer ${secret}` },
-    }).catch(() => undefined),
-  );
-}
-
 export async function GET(request: Request): Promise<Response> {
   if (!isAuthorized(request)) {
     logger.warn('Unauthorized cron request rejected');
@@ -57,47 +53,46 @@ export async function GET(request: Request): Promise<Response> {
 
   const repos = getRepositories();
   const rawState = await repos.syncMeta.get(SYNC_STATE_KEY);
-  const state = parseCronSyncState(rawState);
+  let state = parseCronSyncState(rawState);
 
-  logger.info('Cron sync step starting', {
+  logger.info('Cron sync starting', {
     phase: state.phase,
     batchIndex: state.batchIndex,
     totalBatches: state.totalBatches,
   });
 
-  let nextState;
-  let done: boolean;
-  let message: string;
+  const deps = {
+    api: { fetchBootstrapStatic, fetchElementSummary, fetchFixtures },
+    repos,
+    clock: () => Date.now(),
+  };
+
+  let lastMessage = 'Sync complete.';
 
   try {
-    ({ nextState, done, message } = await executeSyncStep(state, {
-      api: { fetchBootstrapStatic, fetchElementSummary, fetchFixtures },
-      repos,
-      clock: () => Date.now(),
-    }));
+    for (;;) {
+      const { nextState, done, message } = await executeSyncStep(state, deps);
+
+      await repos.syncMeta.set(SYNC_STATE_KEY, serializeCronSyncState(nextState), Date.now());
+      lastMessage = message;
+
+      if (nextState.phase === 'failed') {
+        logger.error('Cron sync failed', { phase: state.phase, error: nextState.error });
+        return new Response(message, { status: 200 });
+      }
+
+      logger.info('Cron sync step complete', { nextPhase: nextState.phase, message });
+
+      if (done) break;
+      state = nextState;
+    }
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : 'Unknown error';
-    logger.error('Cron sync step threw unexpectedly', { phase: state.phase, error: errMsg });
+    logger.error('Cron sync threw unexpectedly', { phase: state.phase, error: errMsg });
     const failedState = { ...state, phase: 'failed' as const, error: errMsg };
     await repos.syncMeta.set(SYNC_STATE_KEY, serializeCronSyncState(failedState), Date.now());
-    return new Response(`Sync step threw: ${errMsg}`, { status: 500 });
+    return new Response(`Sync threw: ${errMsg}`, { status: 500 });
   }
 
-  await repos.syncMeta.set(SYNC_STATE_KEY, serializeCronSyncState(nextState), Date.now());
-
-  if (nextState.phase === 'failed') {
-    logger.error('Cron sync step failed', { phase: state.phase, error: nextState.error });
-  } else {
-    logger.info('Cron sync step complete', { nextPhase: nextState.phase, message });
-  }
-
-  if (!done) {
-    const secret = process.env['CRON_SECRET'] ?? '';
-    const baseUrl = process.env['VERCEL_URL']
-      ? `https://${process.env['VERCEL_URL']}`
-      : 'http://localhost:3000';
-    triggerNextBatch(baseUrl, secret);
-  }
-
-  return new Response(message, { status: 200 });
+  return new Response(lastMessage, { status: 200 });
 }
