@@ -25,13 +25,19 @@ vi.mock('@/lib/logger/logger', () => ({
   }),
 }));
 
+vi.mock('@vercel/functions', () => ({
+  waitUntil: vi.fn(),
+}));
+
 import { getRepositories } from '@/lib/db/server';
 import { fetchBootstrapStatic, fetchFixtures, fetchElementSummary } from '@/lib/fpl/api';
+import { waitUntil } from '@vercel/functions';
 
 const mockGetRepositories = vi.mocked(getRepositories);
 const mockFetchBootstrapStatic = vi.mocked(fetchBootstrapStatic);
 const mockFetchFixtures = vi.mocked(fetchFixtures);
 const mockFetchElementSummary = vi.mocked(fetchElementSummary);
+const mockWaitUntil = vi.mocked(waitUntil);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -269,5 +275,57 @@ describe('GET /api/cron/sync — state transitions', () => {
     if (found === undefined) throw new Error('sync_state write not found');
     const written = parseCronSyncState(found[1]);
     expect(written.phase).toBe('failed');
+  });
+});
+
+// ─── waitUntil behaviour ──────────────────────────────────────────────────────
+
+describe('GET /api/cron/sync — waitUntil chaining', () => {
+  beforeEach(() => {
+    vi.stubEnv('CRON_SECRET', VALID_SECRET);
+    vi.stubEnv('VERCEL_URL', '');
+    mockFetchBootstrapStatic.mockResolvedValue(ok(BOOTSTRAP));
+    mockFetchFixtures.mockResolvedValue(ok(FIXTURES));
+    mockFetchElementSummary.mockResolvedValue(ok(ELEMENT_SUMMARY));
+    mockWaitUntil.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('calls waitUntil to chain the next batch when done=false (idle → player_history)', async () => {
+    // idle → player_history is done=false: pipeline must continue
+    const repos = makeRepos(undefined);
+    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+
+    const { GET } = await import('./route');
+    await GET(makeRequest(VALID_SECRET));
+
+    expect(mockWaitUntil).toHaveBeenCalledOnce();
+    const arg: unknown = mockWaitUntil.mock.calls[0]?.[0];
+    // waitUntil receives a Promise (the in-flight fetch)
+    expect(arg).toBeInstanceOf(Promise);
+  });
+
+  it('does not call waitUntil when done=true (complete → idle)', async () => {
+    // complete → idle is done=true: pipeline has finished, no next batch needed
+    const completeState: CronSyncState = {
+      phase: 'complete',
+      batchIndex: 0,
+      totalBatches: 1,
+      playerIds: [1],
+      currentGw: 33,
+      startedAt: 1_000_000,
+      completedAt: null,
+      error: null,
+    };
+    const repos = makeRepos(JSON.stringify(completeState));
+    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+
+    const { GET } = await import('./route');
+    await GET(makeRequest(VALID_SECRET));
+
+    expect(mockWaitUntil).not.toHaveBeenCalled();
   });
 });

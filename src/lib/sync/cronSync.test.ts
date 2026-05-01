@@ -256,7 +256,7 @@ describe('computeTotalBatches', () => {
   });
 
   it('computes correct batches for 830 players', () => {
-    // 830 players / 30 per batch = ceil(27.66) = 28
+    // 830 players / 15 per batch = ceil(55.33) = 56
     expect(computeTotalBatches(830)).toBe(Math.ceil(830 / PLAYERS_PER_BATCH));
   });
 });
@@ -277,7 +277,7 @@ describe('executeSyncStep — bootstrap from idle', () => {
     expect(done).toBe(false);
     expect(nextState.phase).toBe('player_history');
     expect(nextState.batchIndex).toBe(0);
-    expect(nextState.totalBatches).toBe(1); // 2 active players ÷ 30 = 1 batch
+    expect(nextState.totalBatches).toBe(1); // 2 active players ÷ 15 = 1 batch
     expect(nextState.playerIds).toHaveLength(2);
     expect(nextState.startedAt).toBe(1_000_000);
     expect(nextState.error).toBeNull();
@@ -473,8 +473,8 @@ describe('executeSyncStep — player_history batch', () => {
   });
 
   it('only processes players in the current batch slice', async () => {
-    // 3 players, batch size 30, but we're on batch index 0 with totalBatches=2
-    // playerIds = [1, 2, 3] where only the first PLAYERS_PER_BATCH are processed
+    // batch size 15, but we're on batch index 0 with totalBatches=2
+    // playerIds = [1..16] where only the first PLAYERS_PER_BATCH are processed
     const ids = Array.from({ length: PLAYERS_PER_BATCH + 1 }, (_, i) => i + 1);
     // Make all elements available in bootstrap
     const bigBootstrap: BootstrapStatic = {

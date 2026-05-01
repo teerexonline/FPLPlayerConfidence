@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions';
 import { getRepositories } from '@/lib/db/server';
 import { fetchBootstrapStatic, fetchElementSummary, fetchFixtures } from '@/lib/fpl/api';
 import { createLogger } from '@/lib/logger/logger';
@@ -30,16 +31,20 @@ function isAuthorized(request: Request): boolean {
 }
 
 /**
- * Fires the next batch invocation as a background fetch (fire-and-forget).
- * The current response is returned before this fetch completes, satisfying
- * the 10-second constraint while keeping the pipeline progressing.
+ * Fires the next batch invocation as a background fetch guaranteed to be
+ * delivered before Vercel tears down the function context.
+ *
+ * `waitUntil` keeps the instance alive until the fetch resolves, so the
+ * HTTP request is always dispatched even after the Response has been sent.
+ * Without it, Vercel may cancel the in-flight request when it sees the
+ * response, stalling the chain.
  */
 function triggerNextBatch(baseUrl: string, secret: string): void {
-  fetch(`${baseUrl}/api/cron/sync`, {
-    headers: { authorization: `Bearer ${secret}` },
-  }).catch(() => {
-    // Intentionally swallowed — the next Vercel cron run will recover if this fails.
-  });
+  waitUntil(
+    fetch(`${baseUrl}/api/cron/sync`, {
+      headers: { authorization: `Bearer ${secret}` },
+    }).catch(() => undefined),
+  );
 }
 
 export async function GET(request: Request): Promise<Response> {

@@ -13,11 +13,11 @@ import {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-/** Players processed per cron invocation. 30 × 150 ms throttle ≈ 4.4 s wait + overhead ≈ 7–8 s total. */
-export const PLAYERS_PER_BATCH = 30;
+/** Players processed per cron invocation. 15 × 50 ms throttle ≈ 700 ms wait + overhead ≈ 8 s total — fits Hobby 10 s limit. */
+export const PLAYERS_PER_BATCH = 15;
 
 /** Throttle between FPL element-summary requests (ms). */
-export const CRON_THROTTLE_MS = 150;
+export const CRON_THROTTLE_MS = 50;
 
 /** sync_meta key that stores the JSON-serialised CronSyncState. */
 export const SYNC_STATE_KEY = 'sync_state';
