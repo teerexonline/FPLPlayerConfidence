@@ -41,6 +41,8 @@ function phaseLabel(phase: CronSyncPhase, batchIndex: number, totalBatches: numb
       const total = totalBatches;
       return `Syncing players (batch ${current.toString()} of ${total.toString()})…`;
     }
+    case 'bootstrap':
+      return 'Starting sync…';
     case 'complete':
       return 'Finishing up…';
     case 'failed':
@@ -49,7 +51,7 @@ function phaseLabel(phase: CronSyncPhase, batchIndex: number, totalBatches: numb
 }
 
 function isSyncing(phase: CronSyncPhase): boolean {
-  return phase === 'player_history' || phase === 'complete';
+  return phase === 'bootstrap' || phase === 'player_history' || phase === 'complete';
 }
 
 type UIState =

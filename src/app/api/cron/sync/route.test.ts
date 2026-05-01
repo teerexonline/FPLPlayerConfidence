@@ -107,7 +107,7 @@ const ELEMENT_SUMMARY = {
   ],
 };
 
-function makeRepos(syncStateRaw?: string) {
+function makeRepos(syncStateRaw?: string, claimResult = true) {
   return {
     teams: { upsertMany: vi.fn().mockResolvedValue(undefined) },
     players: { upsertMany: vi.fn().mockResolvedValue(undefined) },
@@ -115,6 +115,7 @@ function makeRepos(syncStateRaw?: string) {
     syncMeta: {
       get: vi.fn().mockResolvedValue(syncStateRaw),
       set: vi.fn().mockResolvedValue(undefined),
+      tryClaimSync: vi.fn().mockResolvedValue(claimResult),
     },
   };
 }
@@ -159,6 +160,53 @@ describe('GET /api/cron/sync — auth', () => {
     const { GET } = await import('./route');
     const res = await GET(makeRequest(VALID_SECRET));
     expect(res.status).toBe(200);
+  });
+});
+
+// ─── Concurrency guard tests ──────────────────────────────────────────────────
+
+describe('GET /api/cron/sync — concurrency guard', () => {
+  beforeEach(() => {
+    vi.stubEnv('CRON_SECRET', VALID_SECRET);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns 409 immediately when tryClaimSync returns false (active sync in flight)', async () => {
+    // Simulate a sync already in progress: claim returns false.
+    const repos = makeRepos(undefined, false);
+    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+
+    const { GET } = await import('./route');
+    const res = await GET(makeRequest(VALID_SECRET));
+
+    expect(res.status).toBe(409);
+    expect(await res.text()).toBe('Sync already in progress');
+    // Must not start the pipeline — no DB writes beyond the claim attempt.
+    expect(repos.syncMeta.set).not.toHaveBeenCalled();
+  });
+
+  it('proceeds when tryClaimSync returns true and completes with 200', async () => {
+    const repos = makeRepos(undefined, true);
+    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockFetchBootstrapStatic.mockResolvedValue(ok(BOOTSTRAP));
+    mockFetchFixtures.mockResolvedValue(ok(FIXTURES));
+    mockFetchElementSummary.mockResolvedValue(ok(ELEMENT_SUMMARY));
+
+    const { GET } = await import('./route');
+    const res = await GET(makeRequest(VALID_SECRET));
+
+    expect(res.status).toBe(200);
+    // Claim was called exactly once with the sync_state key.
+    expect(repos.syncMeta.tryClaimSync).toHaveBeenCalledOnce();
+    expect(repos.syncMeta.tryClaimSync).toHaveBeenCalledWith(
+      'sync_state',
+      expect.stringContaining('"phase":"bootstrap"'),
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 });
 

@@ -22,9 +22,21 @@ export const CRON_THROTTLE_MS = 50;
 /** sync_meta key that stores the JSON-serialised CronSyncState. */
 export const SYNC_STATE_KEY = 'sync_state';
 
+/**
+ * A running sync that has not written a step update within this window is
+ * considered crashed. tryClaimSync will override the stale lock and restart.
+ */
+export const STALE_LOCK_MS = 10 * 60 * 1_000; // 10 minutes
+
 // ─── State types ─────────────────────────────────────────────────────────────
 
-export type CronSyncPhase = 'idle' | 'player_history' | 'complete' | 'failed';
+/**
+ * 'bootstrap' is the lock-claimed phase: written atomically when a handler
+ * acquires the concurrency guard and immediately overwritten by the first loop
+ * iteration. It ensures a racing second invocation sees a non-idle phase and
+ * is rejected with 409. Treated as 'idle' by executeSyncStep (full restart).
+ */
+export type CronSyncPhase = 'idle' | 'bootstrap' | 'player_history' | 'complete' | 'failed';
 
 export interface CronSyncState {
   /** Current phase of the chunked sync pipeline. */
@@ -60,7 +72,11 @@ export const IDLE_CRON_SYNC_STATE: CronSyncState = {
 
 function isCronSyncPhase(value: unknown): value is CronSyncPhase {
   return (
-    value === 'idle' || value === 'player_history' || value === 'complete' || value === 'failed'
+    value === 'idle' ||
+    value === 'bootstrap' ||
+    value === 'player_history' ||
+    value === 'complete' ||
+    value === 'failed'
   );
 }
 
@@ -191,8 +207,10 @@ export async function executeSyncStep(
   const throttleMs = deps.throttleMs ?? CRON_THROTTLE_MS;
   const now = clock();
 
-  // ── Bootstrap phase (idle or failed → player_history) ──────────────────────
-  if (state.phase === 'idle' || state.phase === 'failed') {
+  // ── Bootstrap phase (idle / bootstrap / failed → player_history) ───────────
+  // 'bootstrap' is the lock-claimed marker written by tryClaimSync; treat it
+  // identically to 'idle' so stale-lock recovery restarts cleanly.
+  if (state.phase === 'idle' || state.phase === 'bootstrap' || state.phase === 'failed') {
     const fetched = await fetchBootstrapAndFixtures(api);
     if (!fetched.ok) {
       return {

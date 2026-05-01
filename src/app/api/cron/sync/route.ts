@@ -2,6 +2,7 @@ import { getRepositories } from '@/lib/db/server';
 import { fetchBootstrapStatic, fetchElementSummary, fetchFixtures } from '@/lib/fpl/api';
 import { createLogger } from '@/lib/logger/logger';
 import {
+  STALE_LOCK_MS,
   SYNC_STATE_KEY,
   executeSyncStep,
   parseCronSyncState,
@@ -54,6 +55,25 @@ export async function GET(request: Request): Promise<Response> {
   const repos = getRepositories();
   const rawState = await repos.syncMeta.get(SYNC_STATE_KEY);
   let state = parseCronSyncState(rawState);
+  const now = Date.now();
+
+  // Atomically claim the sync lock. The DB is updated from 'idle'/'failed' (or
+  // a stale lock) to 'bootstrap' in a single conditional UPSERT. If another
+  // invocation is already in flight the claim returns false and we 409 fast.
+  const claimedState = { ...state, phase: 'bootstrap' as const, startedAt: now };
+  const claimed = await repos.syncMeta.tryClaimSync(
+    SYNC_STATE_KEY,
+    serializeCronSyncState(claimedState),
+    now,
+    STALE_LOCK_MS,
+  );
+  if (!claimed) {
+    logger.warn('Sync already in progress — rejecting concurrent request', {
+      phase: state.phase,
+      startedAt: state.startedAt,
+    });
+    return new Response('Sync already in progress', { status: 409 });
+  }
 
   logger.info('Cron sync starting', {
     phase: state.phase,

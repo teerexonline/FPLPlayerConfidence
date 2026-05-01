@@ -199,6 +199,15 @@ describe('parseCronSyncState', () => {
   it('returns idle for JSON array', () => {
     expect(parseCronSyncState('[]')).toEqual(IDLE_CRON_SYNC_STATE);
   });
+
+  it('parses a bootstrap (lock-claimed) state', () => {
+    const state: CronSyncState = {
+      ...IDLE_CRON_SYNC_STATE,
+      phase: 'bootstrap',
+      startedAt: 1_000_000,
+    };
+    expect(parseCronSyncState(JSON.stringify(state))).toEqual(state);
+  });
 });
 
 // ─── serializeCronSyncState ───────────────────────────────────────────────────
@@ -338,6 +347,20 @@ describe('executeSyncStep — bootstrap from idle', () => {
   it('transitions failed → player_history (retry)', async () => {
     const failedState: CronSyncState = { ...IDLE_CRON_SYNC_STATE, phase: 'failed', error: 'boom' };
     const { nextState, done } = await executeSyncStep(failedState, deps);
+    expect(done).toBe(false);
+    expect(nextState.phase).toBe('player_history');
+    expect(nextState.error).toBeNull();
+  });
+
+  it('transitions bootstrap → player_history (stale-lock recovery restarts cleanly)', async () => {
+    // 'bootstrap' is the lock-claimed phase; treating it like 'idle' ensures
+    // a previously crashed claim doesn't permanently block future syncs.
+    const bootstrapState: CronSyncState = {
+      ...IDLE_CRON_SYNC_STATE,
+      phase: 'bootstrap',
+      startedAt: 1_000_000,
+    };
+    const { nextState, done } = await executeSyncStep(bootstrapState, deps);
     expect(done).toBe(false);
     expect(nextState.phase).toBe('player_history');
     expect(nextState.error).toBeNull();
