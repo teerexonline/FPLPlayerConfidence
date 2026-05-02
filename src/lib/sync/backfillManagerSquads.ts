@@ -12,7 +12,6 @@ export interface GwResult {
 
 export interface BackfillParams {
   readonly teamId: number;
-  readonly userId: number;
   readonly fromGw: number;
   readonly toGw: number;
   readonly fetchPicks: (gameweek: number) => Promise<Result<EntryPicks, FetchError>>;
@@ -64,7 +63,6 @@ function formatFetchError(error: FetchError): string {
 export async function backfillManagerSquads(params: BackfillParams): Promise<BackfillSummary> {
   const {
     teamId,
-    userId,
     fromGw,
     toGw,
     fetchPicks,
@@ -74,7 +72,7 @@ export async function backfillManagerSquads(params: BackfillParams): Promise<Bac
     onProgress,
   } = params;
 
-  const existingGws = new Set(await repo.listGameweeksForTeam(userId, teamId));
+  const existingGws = new Set(await repo.listGameweeksForTeam(teamId));
 
   const results: GwResult[] = [];
   let gwsUpserted = 0;
@@ -116,7 +114,6 @@ export async function backfillManagerSquads(params: BackfillParams): Promise<Bac
       if (!dryRun) {
         await repo.upsertMany(
           picks.map((p) => ({
-            user_id: userId,
             team_id: teamId,
             gameweek: gw,
             player_id: p.element,

@@ -1,19 +1,33 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import { getRepositories } from '@/lib/db/server';
-import { SYSTEM_USER_ID } from '@/lib/db/constants';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/watchlist');
 
 export async function GET(): Promise<NextResponse> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Anonymous users always get an empty watchlist — no error, just empty.
+  if (!user) return NextResponse.json({ ids: [] });
+
   const { watchlist } = getRepositories();
-  const ids = await watchlist.findByUser(SYSTEM_USER_ID);
+  const ids = await watchlist.findByAuthUser(user.id);
   logger.info('GET watchlist', { count: ids.length });
   return NextResponse.json({ ids });
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const body = (await request.json()) as unknown;
   if (
     typeof body !== 'object' ||
@@ -29,7 +43,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const playerId = (body as { playerId: number }).playerId;
   const { watchlist } = getRepositories();
-  await watchlist.add(SYSTEM_USER_ID, playerId);
+  await watchlist.addForAuthUser(user.id, playerId);
   logger.info('POST watchlist: added', { playerId });
   return NextResponse.json({ ok: true });
 }

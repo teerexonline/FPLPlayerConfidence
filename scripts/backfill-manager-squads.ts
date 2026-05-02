@@ -20,7 +20,6 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createDb, createRepositories } from '@/lib/db';
 import { fetchEntryPicks } from '@/lib/fpl/api';
-import { SYSTEM_USER_ID } from '@/lib/db/constants';
 import { backfillManagerSquads } from '@/lib/sync/backfillManagerSquads';
 import type { GwResult } from '@/lib/sync/backfillManagerSquads';
 interface GwCountRow {
@@ -62,7 +61,7 @@ async function main(): Promise<void> {
   const fromGw = 1;
   const toGw = currentGw - 1;
 
-  const existing = await repos.managerSquads.listGameweeksForTeam(SYSTEM_USER_ID, teamId);
+  const existing = await repos.managerSquads.listGameweeksForTeam(teamId);
   const missingCount = toGw - fromGw + 1 - existing.length;
 
   console.log(`Backfilling manager_squads for team ${teamId.toString()}`);
@@ -98,7 +97,6 @@ async function main(): Promise<void> {
 
   const summary = await backfillManagerSquads({
     teamId,
-    userId: SYSTEM_USER_ID,
     fromGw,
     toGw,
     fetchPicks: (gw) => fetchEntryPicks(teamId, gw),

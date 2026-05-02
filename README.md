@@ -22,6 +22,22 @@ npm run test:e2e     # playwright (requires dev or preview server)
 
 Data lives in a single SQLite file at `data/fpl.db`. Run a sync via Settings → Refresh data to populate it on first use.
 
+## Before merging Supabase migration changes
+
+Run the RLS verification suite against the live database:
+
+```bash
+npm run test:rls
+```
+
+This applies `supabase/migrations/0002_phase4_auth_rls.sql` (idempotent) and runs 20 assertions verifying that:
+
+- Anonymous users can read public tables (`players`, `teams`, `confidence_snapshots`) and are blocked from everything else
+- Authenticated users can read/write only their own `watchlist` rows and cannot spoof another user's `auth_user_id`
+- `user_profiles` is service-role-only for INSERT; authenticated users can SELECT and UPDATE their own row
+
+**How it works:** The script reads `.env.local` for `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `DATABASE_URL`. Test users (User A and User B) are created per-run via the Supabase Admin API and deleted at the end — no hardcoded accounts, no shared state between runs. Anyone with repo access and a valid `.env.local` can reproduce the results.
+
 ## v1 scope (shipped)
 
 - **Dashboard** — Biggest Risers/Fallers, Watchlist placeholder, My Team confidence widget, position-tabbed Leaderboard (All/GK/DEF/MID/FWD)

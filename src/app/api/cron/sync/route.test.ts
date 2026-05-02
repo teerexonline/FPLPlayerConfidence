@@ -107,6 +107,11 @@ const ELEMENT_SUMMARY = {
   ],
 };
 
+// Minimal test double — stubs only the subset of repository methods the cron
+// sync route actually calls. `as unknown as ReturnType<typeof getRepositories>`
+// acknowledges that intentional gap; the remaining interfaces (managerSquads,
+// users, watchlist) are present only to satisfy the structural type but are
+// never invoked during a sync run.
 function makeRepos(syncStateRaw?: string, claimResult = true) {
   return {
     teams: { upsertMany: vi.fn().mockResolvedValue(undefined) },
@@ -116,6 +121,25 @@ function makeRepos(syncStateRaw?: string, claimResult = true) {
       get: vi.fn().mockResolvedValue(syncStateRaw),
       set: vi.fn().mockResolvedValue(undefined),
       tryClaimSync: vi.fn().mockResolvedValue(claimResult),
+    },
+    managerSquads: {
+      upsertMany: vi.fn().mockResolvedValue(undefined),
+      listByTeamAndGameweek: vi.fn().mockResolvedValue([]),
+      latestGameweekForTeam: vi.fn().mockResolvedValue(null),
+      listGameweeksForTeam: vi.fn().mockResolvedValue([]),
+    },
+    users: {
+      findById: vi.fn().mockResolvedValue(null),
+      listAll: vi.fn().mockResolvedValue([]),
+    },
+    watchlist: {
+      findByUser: vi.fn().mockResolvedValue([]),
+      add: vi.fn().mockResolvedValue(undefined),
+      remove: vi.fn().mockResolvedValue(undefined),
+      contains: vi.fn().mockResolvedValue(false),
+      findByAuthUser: vi.fn().mockResolvedValue([]),
+      addForAuthUser: vi.fn().mockResolvedValue(undefined),
+      removeForAuthUser: vi.fn().mockResolvedValue(undefined),
     },
   };
 }
@@ -152,7 +176,7 @@ describe('GET /api/cron/sync — auth', () => {
 
   it('returns 200 when Authorization header matches CRON_SECRET', async () => {
     const repos = makeRepos();
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockGetRepositories.mockReturnValue(repos as unknown as ReturnType<typeof getRepositories>);
     mockFetchBootstrapStatic.mockResolvedValue(ok(BOOTSTRAP));
     mockFetchFixtures.mockResolvedValue(ok(FIXTURES));
     mockFetchElementSummary.mockResolvedValue(ok(ELEMENT_SUMMARY));
@@ -177,7 +201,7 @@ describe('GET /api/cron/sync — concurrency guard', () => {
   it('returns 409 immediately when tryClaimSync returns false (active sync in flight)', async () => {
     // Simulate a sync already in progress: claim returns false.
     const repos = makeRepos(undefined, false);
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockGetRepositories.mockReturnValue(repos as unknown as ReturnType<typeof getRepositories>);
 
     const { GET } = await import('./route');
     const res = await GET(makeRequest(VALID_SECRET));
@@ -190,7 +214,7 @@ describe('GET /api/cron/sync — concurrency guard', () => {
 
   it('proceeds when tryClaimSync returns true and completes with 200', async () => {
     const repos = makeRepos(undefined, true);
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockGetRepositories.mockReturnValue(repos as unknown as ReturnType<typeof getRepositories>);
     mockFetchBootstrapStatic.mockResolvedValue(ok(BOOTSTRAP));
     mockFetchFixtures.mockResolvedValue(ok(FIXTURES));
     mockFetchElementSummary.mockResolvedValue(ok(ELEMENT_SUMMARY));
@@ -233,7 +257,7 @@ describe('GET /api/cron/sync — full pipeline', () => {
     // BOOTSTRAP has 1 active player → 1 batch → pipeline completes in:
     //   bootstrap step + player_history step + complete step = 3 loop iterations
     const repos = makeRepos(undefined); // undefined → parseCronSyncState returns idle
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockGetRepositories.mockReturnValue(repos as unknown as ReturnType<typeof getRepositories>);
 
     const { GET } = await import('./route');
     const res = await GET(makeRequest(VALID_SECRET));
@@ -256,7 +280,7 @@ describe('GET /api/cron/sync — full pipeline', () => {
 
   it('writes last_sync to sync_meta on completion', async () => {
     const repos = makeRepos(undefined);
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockGetRepositories.mockReturnValue(repos as unknown as ReturnType<typeof getRepositories>);
 
     const { GET } = await import('./route');
     await GET(makeRequest(VALID_SECRET));
@@ -283,7 +307,7 @@ describe('GET /api/cron/sync — full pipeline', () => {
       error: null,
     };
     const repos = makeRepos(JSON.stringify(playerHistoryState));
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockGetRepositories.mockReturnValue(repos as unknown as ReturnType<typeof getRepositories>);
 
     const { GET } = await import('./route');
     const res = await GET(makeRequest(VALID_SECRET));
@@ -303,7 +327,7 @@ describe('GET /api/cron/sync — full pipeline', () => {
       err({ type: 'network_error' as const, message: 'FPL down' }),
     );
     const repos = makeRepos(undefined);
-    mockGetRepositories.mockReturnValue(repos as ReturnType<typeof getRepositories>);
+    mockGetRepositories.mockReturnValue(repos as unknown as ReturnType<typeof getRepositories>);
 
     const { GET } = await import('./route');
     const res = await GET(makeRequest(VALID_SECRET));

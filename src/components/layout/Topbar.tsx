@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import Link from 'next/link';
 import { getRepositories } from '@/lib/db/server';
+import { AuthButton } from '@/components/auth/AuthButton';
 import { ThemeToggle } from './ThemeToggle';
 
 async function resolveCurrentGameweek(): Promise<number> {
@@ -53,6 +54,10 @@ export async function Topbar(): Promise<JSX.Element> {
               GW {currentGameweek.toString()}
             </span>
           )}
+
+          <div className="border-border h-4 w-px border-l" aria-hidden="true" />
+
+          <AuthButton />
 
           <div className="border-border h-4 w-px border-l" aria-hidden="true" />
 

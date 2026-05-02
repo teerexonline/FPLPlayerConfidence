@@ -48,4 +48,18 @@ export class SqliteWatchlistRepository implements WatchlistRepository {
     const row = this.stmtContains.get(userId, playerId);
     return Promise.resolve((row?.cnt ?? 0) > 0);
   }
+
+  // Auth-user methods are no-ops in SQLite mode: local dev has no Supabase auth
+  // and the auth_user_id column is not present in the SQLite schema.
+  findByAuthUser(_authUserId: string): Promise<readonly number[]> {
+    return Promise.resolve([]);
+  }
+
+  addForAuthUser(_authUserId: string, _playerId: number): Promise<void> {
+    return Promise.resolve();
+  }
+
+  removeForAuthUser(_authUserId: string, _playerId: number): Promise<void> {
+    return Promise.resolve();
+  }
 }

@@ -51,7 +51,7 @@ describe('backfillManagerSquads', () => {
 
     const summary = await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 3,
       fetchPicks,
@@ -68,13 +68,12 @@ describe('backfillManagerSquads', () => {
     expect(upsertCalls[0]).toHaveLength(15);
   });
 
-  it('stores picks with correct team_id, user_id, gameweek, and pick fields', async () => {
+  it('stores picks with correct team_id, gameweek, and pick fields', async () => {
     const { repo, upsertCalls } = makeFakeRepo([]);
     const fetchPicks = vi.fn().mockResolvedValue(ok(makeEntryPicks()));
 
     await backfillManagerSquads({
       teamId: 99999,
-      userId: 7,
       fromGw: 5,
       toGw: 5,
       fetchPicks,
@@ -84,7 +83,6 @@ describe('backfillManagerSquads', () => {
 
     const firstPick = upsertCalls[0]?.[0];
     expect(firstPick).toMatchObject({
-      user_id: 7,
       team_id: 99999,
       gameweek: 5,
       player_id: 100,
@@ -100,7 +98,7 @@ describe('backfillManagerSquads', () => {
 
     const summary = await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 5,
       fetchPicks,
@@ -124,7 +122,7 @@ describe('backfillManagerSquads', () => {
 
     const summary = await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 3,
       fetchPicks,
@@ -152,7 +150,7 @@ describe('backfillManagerSquads', () => {
 
     const summary = await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 3,
       fetchPicks,
@@ -175,7 +173,7 @@ describe('backfillManagerSquads', () => {
 
     const summary = await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 3,
       fetchPicks,
@@ -201,7 +199,7 @@ describe('backfillManagerSquads', () => {
 
     await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 3,
       fetchPicks,
@@ -222,7 +220,7 @@ describe('backfillManagerSquads', () => {
 
     await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 5,
       toGw: 5,
       fetchPicks,
@@ -243,7 +241,7 @@ describe('backfillManagerSquads', () => {
 
     await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 1,
       fetchPicks,
@@ -264,7 +262,7 @@ describe('backfillManagerSquads', () => {
 
     const summary = await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 1,
       toGw: 3,
       fetchPicks,
@@ -284,7 +282,7 @@ describe('backfillManagerSquads', () => {
 
     const summary = await backfillManagerSquads({
       teamId: 12345,
-      userId: 1,
+
       fromGw: 10,
       toGw: 5,
       fetchPicks,

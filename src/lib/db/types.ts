@@ -65,7 +65,6 @@ export interface DbUser {
 }
 
 export interface DbManagerSquadPick {
-  readonly user_id: number;
   readonly team_id: number;
   readonly gameweek: number;
   readonly player_id: number;

@@ -247,7 +247,6 @@ async function smokeManagerSquads(repo: PostgresManagerSquadRepository): Promise
 
   const picks = [
     {
-      user_id: TEST_USER_ID,
       team_id: TEST_MANAGER_TEAM_ID,
       gameweek: SMOKE_GW,
       player_id: TEST_PLAYER_ID,
@@ -257,7 +256,6 @@ async function smokeManagerSquads(repo: PostgresManagerSquadRepository): Promise
       fetched_at: CLOCK, // ① BIGINT
     },
     {
-      user_id: TEST_USER_ID,
       team_id: TEST_MANAGER_TEAM_ID,
       gameweek: SMOKE_GW,
       player_id: TEST_PLAYER_ID,
@@ -269,7 +267,7 @@ async function smokeManagerSquads(repo: PostgresManagerSquadRepository): Promise
   ];
 
   await repo.upsertMany(picks);
-  const found = await repo.listByTeamAndGameweek(TEST_USER_ID, TEST_MANAGER_TEAM_ID, SMOKE_GW);
+  const found = await repo.listByTeamAndGameweek(TEST_MANAGER_TEAM_ID, SMOKE_GW);
   assertEqual('listByTeamAndGameweek returns 2 picks', found.length, 2);
 
   const captain = found.find((p) => p.squad_position === 1);
@@ -291,11 +289,7 @@ async function smokeManagerSquads(repo: PostgresManagerSquadRepository): Promise
     fetched_at: CLOCK + 99,
   }));
   await repo.upsertMany(updated);
-  const afterUpdate = await repo.listByTeamAndGameweek(
-    TEST_USER_ID,
-    TEST_MANAGER_TEAM_ID,
-    SMOKE_GW,
-  );
+  const afterUpdate = await repo.listByTeamAndGameweek(TEST_MANAGER_TEAM_ID, SMOKE_GW);
   assertEqual('③ ON CONFLICT DO UPDATE: still 2 rows (not 4)', afterUpdate.length, 2);
   assertEqual(
     '③ ON CONFLICT DO UPDATE: player_id updated',
@@ -309,11 +303,11 @@ async function smokeManagerSquads(repo: PostgresManagerSquadRepository): Promise
   );
 
   // latestGameweekForTeam
-  const latest = await repo.latestGameweekForTeam(TEST_USER_ID, TEST_MANAGER_TEAM_ID);
+  const latest = await repo.latestGameweekForTeam(TEST_MANAGER_TEAM_ID);
   assertEqual('latestGameweekForTeam returns SMOKE_GW', latest, SMOKE_GW);
 
   // listGameweeksForTeam
-  const gws = await repo.listGameweeksForTeam(TEST_USER_ID, TEST_MANAGER_TEAM_ID);
+  const gws = await repo.listGameweeksForTeam(TEST_MANAGER_TEAM_ID);
   assertEqual('listGameweeksForTeam returns [SMOKE_GW]', gws.length, 1);
   assertEqual('listGameweeksForTeam[0] is SMOKE_GW', gws[0], SMOKE_GW);
 }

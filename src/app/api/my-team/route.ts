@@ -4,7 +4,6 @@ import type { NextRequest } from 'next/server';
 import { fetchEntryInfo, fetchEntryPicks } from '@/lib/fpl/api';
 import { resolveSquadPicks } from '@/lib/fpl/resolveSquadPicks';
 import { getRepositories } from '@/lib/db/server';
-import { SYSTEM_USER_ID } from '@/lib/db/constants';
 import { calculateTeamConfidence, confidenceToPercent } from '@/lib/team-confidence';
 import { hotStreakAtGw } from '@/lib/confidence/hotStreak';
 import { createLogger } from '@/lib/logger';
@@ -90,11 +89,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let isGw1FreeHit: boolean;
 
   if (gwOverride !== null) {
-    const cached = await repos.managerSquads.listByTeamAndGameweek(
-      SYSTEM_USER_ID,
-      teamId,
-      gwOverride,
-    );
+    const cached = await repos.managerSquads.listByTeamAndGameweek(teamId, gwOverride);
     if (cached.length > 0) {
       finalPicks = cached.map((p) => ({
         element: p.player_id,
@@ -118,7 +113,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       finalPicks = fetchResult.value.picks;
       await repos.managerSquads.upsertMany(
         finalPicks.map((p) => ({
-          user_id: SYSTEM_USER_ID,
           team_id: teamId,
           gameweek: gwOverride,
           player_id: p.element,
@@ -187,7 +181,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (gwOverride === null) {
     await repos.managerSquads.upsertMany(
       finalPicks.map((p) => ({
-        user_id: SYSTEM_USER_ID,
         team_id: teamId,
         gameweek: targetGw,
         player_id: p.element,
@@ -301,7 +294,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const [syncedAtRaw, availableGameweeks] = await Promise.all([
     repos.syncMeta.get('last_sync'),
-    repos.managerSquads.listGameweeksForTeam(SYSTEM_USER_ID, teamId),
+    repos.managerSquads.listGameweeksForTeam(teamId),
   ]);
   const syncedAt = syncedAtRaw ? parseInt(syncedAtRaw, 10) : now;
 

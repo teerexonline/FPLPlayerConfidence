@@ -3,7 +3,6 @@ import type { DbManagerSquadPick } from '../../types';
 import type { ManagerSquadRepository } from '../ManagerSquadRepository';
 
 interface ManagerSquadRow {
-  user_id: number;
   team_id: number;
   gameweek: number;
   player_id: number;
@@ -23,7 +22,6 @@ interface GameweekRow {
 
 function rowToPick(row: ManagerSquadRow): DbManagerSquadPick {
   return {
-    user_id: row.user_id,
     team_id: row.team_id,
     gameweek: row.gameweek,
     player_id: row.player_id,
@@ -35,35 +33,33 @@ function rowToPick(row: ManagerSquadRow): DbManagerSquadPick {
 }
 
 const SELECT_COLS =
-  'user_id, team_id, gameweek, player_id, squad_position, is_captain, is_vice_captain, fetched_at';
+  'team_id, gameweek, player_id, squad_position, is_captain, is_vice_captain, fetched_at';
 
 export class SqliteManagerSquadRepository implements ManagerSquadRepository {
   private readonly stmtUpsert: Database.Statement<
-    [number, number, number, number, number, number, number, number]
+    [number, number, number, number, number, number, number]
   >;
-  private readonly stmtListByTeamAndGw: Database.Statement<
-    [number, number, number],
-    ManagerSquadRow
-  >;
-  private readonly stmtLatestGameweek: Database.Statement<[number, number], MaxGameweekRow>;
-  private readonly stmtListGameweeks: Database.Statement<[number, number], GameweekRow>;
+  private readonly stmtListByTeamAndGw: Database.Statement<[number, number], ManagerSquadRow>;
+  private readonly stmtLatestGameweek: Database.Statement<[number], MaxGameweekRow>;
+  private readonly stmtListGameweeks: Database.Statement<[number], GameweekRow>;
 
   constructor(private readonly db: Database.Database) {
+    // user_id hardcoded to 1 (vestigial column, NOT NULL DEFAULT 1 in schema).
     this.stmtUpsert = db.prepare(
       `INSERT OR REPLACE INTO manager_squads
        (user_id, team_id, gameweek, player_id, squad_position, is_captain, is_vice_captain, fetched_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?)`,
     );
-    this.stmtListByTeamAndGw = db.prepare<[number, number, number], ManagerSquadRow>(
+    this.stmtListByTeamAndGw = db.prepare<[number, number], ManagerSquadRow>(
       `SELECT ${SELECT_COLS} FROM manager_squads
-       WHERE user_id = ? AND team_id = ? AND gameweek = ?
+       WHERE team_id = ? AND gameweek = ?
        ORDER BY squad_position ASC`,
     );
-    this.stmtLatestGameweek = db.prepare<[number, number], MaxGameweekRow>(
-      'SELECT MAX(gameweek) AS max_gw FROM manager_squads WHERE user_id = ? AND team_id = ?',
+    this.stmtLatestGameweek = db.prepare<[number], MaxGameweekRow>(
+      'SELECT MAX(gameweek) AS max_gw FROM manager_squads WHERE team_id = ?',
     );
-    this.stmtListGameweeks = db.prepare<[number, number], GameweekRow>(
-      'SELECT DISTINCT gameweek FROM manager_squads WHERE user_id = ? AND team_id = ? ORDER BY gameweek ASC',
+    this.stmtListGameweeks = db.prepare<[number], GameweekRow>(
+      'SELECT DISTINCT gameweek FROM manager_squads WHERE team_id = ? ORDER BY gameweek ASC',
     );
   }
 
@@ -71,7 +67,6 @@ export class SqliteManagerSquadRepository implements ManagerSquadRepository {
     const tx = this.db.transaction(() => {
       for (const p of picks) {
         this.stmtUpsert.run(
-          p.user_id,
           p.team_id,
           p.gameweek,
           p.player_id,
@@ -86,20 +81,16 @@ export class SqliteManagerSquadRepository implements ManagerSquadRepository {
     return Promise.resolve();
   }
 
-  listByTeamAndGameweek(
-    userId: number,
-    teamId: number,
-    gameweek: number,
-  ): Promise<readonly DbManagerSquadPick[]> {
-    return Promise.resolve(this.stmtListByTeamAndGw.all(userId, teamId, gameweek).map(rowToPick));
+  listByTeamAndGameweek(teamId: number, gameweek: number): Promise<readonly DbManagerSquadPick[]> {
+    return Promise.resolve(this.stmtListByTeamAndGw.all(teamId, gameweek).map(rowToPick));
   }
 
-  latestGameweekForTeam(userId: number, teamId: number): Promise<number | null> {
-    const row = this.stmtLatestGameweek.get(userId, teamId);
+  latestGameweekForTeam(teamId: number): Promise<number | null> {
+    const row = this.stmtLatestGameweek.get(teamId);
     return Promise.resolve(row?.max_gw ?? null);
   }
 
-  listGameweeksForTeam(userId: number, teamId: number): Promise<readonly number[]> {
-    return Promise.resolve(this.stmtListGameweeks.all(userId, teamId).map((r) => r.gameweek));
+  listGameweeksForTeam(teamId: number): Promise<readonly number[]> {
+    return Promise.resolve(this.stmtListGameweeks.all(teamId).map((r) => r.gameweek));
   }
 }

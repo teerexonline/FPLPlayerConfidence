@@ -37,6 +37,9 @@ export const SQL_MIGRATIONS: readonly string[] = [
   // v1.7.2: raw multiplier output before any clamp — used for streak trigger and level
   // so ceiling absorption cannot hide a hot boost (e.g. rawDelta=4 when raw=5 at ceiling).
   `ALTER TABLE confidence_snapshots ADD COLUMN event_magnitude INTEGER NOT NULL DEFAULT 0`,
+  // Phase 4: watchlist auth identity. Nullable TEXT (no FK — SQLite has no auth.users).
+  // Only populated in Postgres (production) via Supabase auth; SQLite auth stubs return [].
+  `ALTER TABLE watchlist ADD COLUMN auth_user_id TEXT`,
 ];
 
 export const SQL_SCHEMA = `
