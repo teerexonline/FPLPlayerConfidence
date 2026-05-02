@@ -1,7 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useReducedMotion,
+} from 'motion/react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import type { MyTeamViewMode } from './types';
@@ -78,7 +84,11 @@ export function MyTeamHero({
 
   const prefersReducedMotion = useReducedMotion() ?? false;
   const motionValue = useMotionValue(prefersReducedMotion ? targetValue : fallbackStart);
-  const displayText = useTransform(motionValue, (v) => (isProjected ? formatXp(v) : formatPct(v)));
+  // Mirror the motion value into React state so the text node is typed as a ReactNode
+  // (rendering MotionValue<string> directly is supported at runtime but not by motion's types).
+  const [animValue, setAnimValue] = useState<number>(() => motionValue.get());
+  useMotionValueEvent(motionValue, 'change', setAnimValue);
+  const displayText = isProjected ? formatXp(animValue) : formatPct(animValue);
   const mounted = useRef(false);
 
   useEffect(() => {
