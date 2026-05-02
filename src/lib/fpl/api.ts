@@ -25,7 +25,18 @@ async function fetchJson(url: string, revalidate: number): Promise<Result<unknow
   let response: Response;
 
   try {
-    response = await fetch(url, { next: { revalidate } });
+    response = await fetch(url, {
+      next: { revalidate },
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'application/json, text/plain, */*',
+        'Accept-Language': 'en-GB,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        Referer: 'https://fantasy.premierleague.com/',
+        Origin: 'https://fantasy.premierleague.com',
+      },
+    });
   } catch (error) {
     return err({
       type: 'network_error',
