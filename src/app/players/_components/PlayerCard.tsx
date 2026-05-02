@@ -26,6 +26,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
   const {
     id,
     webName,
+    teamCode,
     teamShortName,
     position,
     nowCost,
@@ -50,9 +51,18 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
       onClick={handleClick}
       className="border-border hover:border-l-accent hover:bg-bg relative cursor-pointer border-b px-4 py-3 last:border-0 hover:border-l-2"
     >
-      {/* Line 1: name | metric + indicators — role="cell" satisfies aria-required-children */}
+      {/* Line 1: jersey + name | metric + indicators — role="cell" satisfies aria-required-children */}
       <div role="cell" className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/jerseys/${teamCode.toString()}`}
+            alt=""
+            aria-hidden="true"
+            width={28}
+            height={36}
+            className="h-7 w-7 shrink-0 object-contain"
+          />
           <span
             className={cn(
               'min-w-0 truncate text-[15px] leading-tight font-semibold',
