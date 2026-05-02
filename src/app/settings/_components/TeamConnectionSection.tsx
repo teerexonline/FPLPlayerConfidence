@@ -1,15 +1,25 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
-import type { JSX } from 'react';
+import { useState, useSyncExternalStore, type JSX } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { updateFplManagerIdAction } from '@/app/actions/updateFplManagerId';
 
 const LS_KEY = 'fpl-team-id';
 
-type SectionState = { kind: 'disconnected' } | { kind: 'connected'; teamId: number };
+export interface TeamConnectionSectionProps {
+  /** True when a Supabase session is active (server-rendered). */
+  readonly isAuthenticated: boolean;
+  /**
+   * fpl_manager_id from user_profiles (server-rendered).
+   * Null when unauthenticated or when the profile row has no team ID.
+   * Takes precedence over localStorage when non-null.
+   */
+  readonly profileTeamId: number | null;
+}
 
 type DisconnectState = 'idle' | 'confirming' | 'disconnecting';
+type SaveState = 'idle' | 'saving' | 'error';
 
 function getStoredTeamId(): number | null {
   const stored = localStorage.getItem(LS_KEY);
@@ -23,27 +33,63 @@ function getStoredTeamId(): number | null {
   return teamId;
 }
 
-export function TeamConnectionSection(): JSX.Element {
+export function TeamConnectionSection({
+  isAuthenticated,
+  profileTeamId,
+}: TeamConnectionSectionProps): JSX.Element {
   const router = useRouter();
-  // useSyncExternalStore returns a primitive (number | null) to avoid infinite re-render
-  // loops that occur when getSnapshot returns a new object reference on each call.
+
+  // Auth users: state is driven by profileTeamId (server prop) and updated by
+  // actions. storedTeamId is the SSR-safe localStorage read for anonymous users.
+  const [authTeamId, setAuthTeamId] = useState<number | null>(profileTeamId);
+
   const storedTeamId = useSyncExternalStore(
     () => (): void => undefined,
     getStoredTeamId,
     () => null,
   );
-  const state: SectionState =
-    storedTeamId !== null ? { kind: 'connected', teamId: storedTeamId } : { kind: 'disconnected' };
+
+  // Profile value takes precedence when authenticated; localStorage drives anon.
+  const teamId = isAuthenticated ? authTeamId : storedTeamId;
+
+  const [inputValue, setInputValue] = useState('');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   const [disconnectState, setDisconnectState] = useState<DisconnectState>('idle');
 
-  function handleDisconnect(): void {
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
+  async function handleConnect(): Promise<void> {
+    const parsed = parseInt(inputValue.trim(), 10);
+    if (isNaN(parsed) || parsed <= 0) return;
+
+    setSaveState('saving');
+    const { error } = await updateFplManagerIdAction(parsed);
+    if (error !== null) {
+      setSaveState('error');
+      return;
+    }
+    localStorage.setItem(LS_KEY, String(parsed));
+    setAuthTeamId(parsed);
+    setInputValue('');
+    setSaveState('idle');
+  }
+
+  async function handleDisconnect(): Promise<void> {
     if (disconnectState === 'idle') {
       setDisconnectState('confirming');
       return;
     }
-    if (disconnectState === 'confirming') {
-      setDisconnectState('disconnecting');
-      localStorage.removeItem(LS_KEY);
+    if (disconnectState !== 'confirming') return;
+
+    setDisconnectState('disconnecting');
+    localStorage.removeItem(LS_KEY);
+
+    if (isAuthenticated) {
+      await updateFplManagerIdAction(null);
+      setAuthTeamId(null);
+      setDisconnectState('idle');
+      // Stay on settings so the user can reconnect inline.
+    } else {
       router.push('/');
     }
   }
@@ -52,7 +98,75 @@ export function TeamConnectionSection(): JSX.Element {
     setDisconnectState('idle');
   }
 
-  if (state.kind === 'disconnected') {
+  // ── Disconnected state ───────────────────────────────────────────────────────
+
+  if (teamId === null) {
+    if (isAuthenticated) {
+      return (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleConnect();
+          }}
+          className="space-y-3"
+        >
+          <div>
+            <p className="text-text font-sans text-[14px] font-medium">No team connected</p>
+            <p className="text-muted mt-0.5 font-sans text-[13px]">
+              Enter your FPL manager ID to see personalised confidence data.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="fpl-manager-id-input"
+                className="text-muted font-sans text-[12px] font-medium"
+              >
+                FPL Manager ID
+              </label>
+              <input
+                id="fpl-manager-id-input"
+                type="number"
+                min="1"
+                value={inputValue}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setSaveState('idle');
+                }}
+                placeholder="e.g. 231177"
+                disabled={saveState === 'saving'}
+                className={[
+                  'border-border bg-surface text-text rounded-[6px] border px-3 font-sans text-[13px]',
+                  'h-9 w-40 focus:ring-2 focus:ring-offset-1 focus:outline-none',
+                  'focus:ring-accent disabled:opacity-50',
+                  saveState === 'error' ? 'border-negative focus:ring-negative' : '',
+                ].join(' ')}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={saveState === 'saving' || !inputValue.trim()}
+              className={[
+                'bg-accent h-9 rounded-[6px] px-4 font-sans text-[13px] font-medium text-white',
+                'flex shrink-0 cursor-pointer items-center transition-opacity',
+                'hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none',
+                'focus-visible:ring-accent focus-visible:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              ].join(' ')}
+            >
+              {saveState === 'saving' ? 'Connecting…' : 'Connect'}
+            </button>
+          </div>
+          {saveState === 'error' && (
+            <p className="text-negative font-sans text-[12px]">
+              Failed to connect. Please try again.
+            </p>
+          )}
+        </form>
+      );
+    }
+
+    // Anonymous user: link to /my-team (existing behaviour).
     return (
       <div className="flex items-center justify-between">
         <div>
@@ -76,14 +190,14 @@ export function TeamConnectionSection(): JSX.Element {
     );
   }
 
-  // Connected state
+  // ── Connected state ──────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-text font-sans text-[14px] font-medium">
-            Team ID{' '}
-            <span className="text-muted font-mono text-[13px] font-normal">{state.teamId}</span>
+            Team ID <span className="text-muted font-mono text-[13px] font-normal">{teamId}</span>
           </p>
           <p className="text-muted mt-0.5 font-sans text-[13px]">Your FPL team is connected.</p>
         </div>
@@ -103,7 +217,7 @@ export function TeamConnectionSection(): JSX.Element {
 
           <button
             type="button"
-            onClick={handleDisconnect}
+            onClick={() => void handleDisconnect()}
             disabled={disconnectState === 'disconnecting'}
             className={[
               'h-9 rounded-[6px] border px-4 font-sans text-[13px] font-medium',
