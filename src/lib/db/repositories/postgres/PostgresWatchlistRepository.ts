@@ -55,10 +55,15 @@ export class PostgresWatchlistRepository implements WatchlistRepository {
   }
 
   async addForAuthUser(authUserId: string, playerId: number): Promise<void> {
+    // hashtext() derives a stable 32-bit int from the UUID, giving each auth
+    // user a distinct (user_id, player_id) namespace in the legacy PK so
+    // inserts never collide with other users. The partial UNIQUE index on
+    // (auth_user_id, player_id) WHERE auth_user_id IS NOT NULL is the real
+    // per-user idempotency guard (migration 0003).
     await this.sql`
       INSERT INTO watchlist (user_id, player_id, added_at, auth_user_id)
-      VALUES (1, ${playerId}, ${Math.floor(Date.now() / 1000)}, ${authUserId})
-      ON CONFLICT (user_id, player_id) DO NOTHING
+      VALUES (hashtext(${authUserId}), ${playerId}, ${Math.floor(Date.now() / 1000)}, ${authUserId})
+      ON CONFLICT (auth_user_id, player_id) WHERE auth_user_id IS NOT NULL DO NOTHING
     `;
   }
 
