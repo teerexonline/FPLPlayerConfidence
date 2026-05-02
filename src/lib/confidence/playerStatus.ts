@@ -6,10 +6,10 @@
  * Mirrors the color semantics of PlayerStatusIndicator's dot variants so the
  * name color and the dot always agree on severity.
  */
-export function getPlayerNameColorClass(status: string, recentAppearances: number): string {
+export function getPlayerNameColorClass(status: string, isStale: boolean): string {
   if (status === 'i' || status === 's') return 'text-status-danger';
   if (status === 'd' || status === 'n') return 'text-status-warning';
   if (status === 'u') return 'text-muted';
-  if (recentAppearances < 2) return 'text-muted';
+  if (isStale) return 'text-muted';
   return 'text-text';
 }

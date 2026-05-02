@@ -138,11 +138,12 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
       [...byPlayer.entries()].map(([pid, deltas]) => ({ playerId: playerId(pid), deltas })),
     );
   }
-  recentAppearancesForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
+  lastAppearanceGwForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
     const map = new Map<number, number>();
     for (const s of this.store.values()) {
       if (s.gameweek >= minGw) {
-        map.set(s.player_id, (map.get(s.player_id) ?? 0) + 1);
+        const prev = map.get(s.player_id) ?? 0;
+        if (s.gameweek > prev) map.set(s.player_id, s.gameweek);
       }
     }
     return Promise.resolve(map);
@@ -174,9 +175,7 @@ class FakeConfidenceSnapshotRepository implements ConfidenceSnapshotRepository {
     }
     return Promise.resolve(map);
   }
-  listRecentSnapshotsForAllPlayers(
-    minGw: number,
-  ): Promise<
+  listRecentSnapshotsForAllPlayers(minGw: number): Promise<
     ReadonlyMap<
       number,
       readonly {
@@ -240,6 +239,15 @@ class FakeSyncMetaRepository implements SyncMetaRepository {
     this.store.set(key, value);
     return Promise.resolve();
   }
+  tryClaimSync(
+    key: string,
+    claimedValue: string,
+    _updatedAt: number,
+    _staleMs: number,
+  ): Promise<boolean> {
+    this.store.set(key, claimedValue);
+    return Promise.resolve(true);
+  }
 }
 
 class FakeManagerSquadRepository implements ManagerSquadRepository {
@@ -247,16 +255,15 @@ class FakeManagerSquadRepository implements ManagerSquadRepository {
     return Promise.resolve();
   }
   listByTeamAndGameweek(
-    _userId: number,
     _teamId: number,
     _gameweek: number,
   ): Promise<readonly DbManagerSquadPick[]> {
     return Promise.resolve([]);
   }
-  latestGameweekForTeam(_userId: number, _teamId: number): Promise<number | null> {
+  latestGameweekForTeam(_teamId: number): Promise<number | null> {
     return Promise.resolve(null);
   }
-  listGameweeksForTeam(_userId: number, _teamId: number): Promise<readonly number[]> {
+  listGameweeksForTeam(_teamId: number): Promise<readonly number[]> {
     return Promise.resolve([]);
   }
 }
@@ -282,6 +289,15 @@ class FakeWatchlistRepository implements WatchlistRepository {
   }
   contains(_userId: number, _playerId: number): Promise<boolean> {
     return Promise.resolve(false);
+  }
+  findByAuthUser(_authUserId: string): Promise<readonly number[]> {
+    return Promise.resolve([]);
+  }
+  addForAuthUser(_authUserId: string, _playerId: number): Promise<void> {
+    return Promise.resolve();
+  }
+  removeForAuthUser(_authUserId: string, _playerId: number): Promise<void> {
+    return Promise.resolve();
   }
 }
 

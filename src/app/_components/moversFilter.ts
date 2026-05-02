@@ -3,21 +3,20 @@ import type { DashboardPlayer } from './types';
 /** Minimum fields required to assess mover eligibility. */
 interface MoverCandidate {
   readonly status: string;
-  readonly recentAppearances: number;
+  readonly isStale: boolean;
 }
 
 /**
  * A player qualifies for Risers/Fallers only when they are available (status
- * 'a') AND have fresh data (appeared in ≥ 2 of the last 3 GWs). Any other
- * status — injured ('i'), doubtful ('d'), suspended ('s'), etc. — is excluded
- * because their delta reflects past form they can no longer sustain, making
- * the card misleading.
+ * 'a') AND have fresh data (isStale=false). Any other status — injured ('i'),
+ * doubtful ('d'), suspended ('s'), etc. — is excluded because their delta
+ * reflects past form they can no longer sustain, making the card misleading.
  *
  * The structural `MoverCandidate` parameter type means this function works
  * with both DashboardPlayer and PlayerWithConfidence — both satisfy it.
  */
 export function isEligibleMover(player: MoverCandidate): boolean {
-  return player.status === 'a' && player.recentAppearances >= 2;
+  return player.status === 'a' && !player.isStale;
 }
 
 /** Top `count` eligible players with a positive delta, delta descending. */

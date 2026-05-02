@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { getRepositories } from '@/lib/db/server';
 import { teamId as brandTeamId } from '@/lib/db';
 import { buildMatchBriefs, computeHotStreak } from '@/lib/confidence/hotStreak';
+import { computeIsStale } from '@/lib/confidence/staleness';
 import { PlayersShell } from './_components/PlayersShell';
 import type { PlayerWithConfidence } from './_components/types';
 
@@ -34,8 +35,8 @@ async function loadPlayers(): Promise<readonly PlayerWithConfidence[]> {
   const parsedGw = gwRaw ? parseInt(gwRaw, 10) : NaN;
   const currentGameweek = !isNaN(parsedGw) ? parsedGw : maxGw;
   const minRecentGw = Math.max(1, currentGameweek - 2);
-  const recentAppearancesMap =
-    await repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
+  const lastAppearanceGwMap =
+    await repos.confidenceSnapshots.lastAppearanceGwForAllPlayers(minRecentGw);
 
   const minStreakGw = Math.max(1, currentGameweek - 2);
   const recentSnapshotsMap =
@@ -65,7 +66,7 @@ async function loadPlayers(): Promise<readonly PlayerWithConfidence[]> {
         status: player.status,
         chanceOfPlaying: player.chance_of_playing_next_round,
         news: player.news,
-        recentAppearances: recentAppearancesMap.get(pid) ?? 0,
+        isStale: computeIsStale(currentGameweek, lastAppearanceGwMap.get(pid) ?? null),
         hotStreak,
         totalPoints: player.total_points,
       },

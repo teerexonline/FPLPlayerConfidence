@@ -16,7 +16,7 @@ export function makePlayer(overrides: Partial<PlayerWithConfidence> = {}): Playe
     status: 'a',
     chanceOfPlaying: null,
     news: '',
-    recentAppearances: 3,
+    isStale: false,
     hotStreak: null,
     totalPoints: 100,
     ...overrides,

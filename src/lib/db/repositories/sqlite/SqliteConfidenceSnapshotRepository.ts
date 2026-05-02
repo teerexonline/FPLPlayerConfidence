@@ -63,7 +63,7 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
   private readonly stmtLatestAtOrBefore: Database.Statement<[number], SnapshotRow>;
   private readonly stmtRecentAppearances: Database.Statement<
     [number],
-    { player_id: number; count: number }
+    { player_id: number; last_gw: number }
   >;
   private readonly stmtRecentBoost: Database.Statement<
     [number, number],
@@ -119,8 +119,8 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
          WHERE gameweek <= ?
        ) WHERE rn = 1`,
     );
-    this.stmtRecentAppearances = db.prepare<[number], { player_id: number; count: number }>(
-      `SELECT player_id, COUNT(*) AS count
+    this.stmtRecentAppearances = db.prepare<[number], { player_id: number; last_gw: number }>(
+      `SELECT player_id, MAX(gameweek) AS last_gw
        FROM confidence_snapshots
        WHERE gameweek >= ?
        GROUP BY player_id`,
@@ -225,11 +225,11 @@ export class SqliteConfidenceSnapshotRepository implements ConfidenceSnapshotRep
     );
   }
 
-  recentAppearancesForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
+  lastAppearanceGwForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
     const rows = this.stmtRecentAppearances.all(minGw);
     const map = new Map<number, number>();
     for (const row of rows) {
-      map.set(row.player_id, row.count);
+      map.set(row.player_id, row.last_gw);
     }
     return Promise.resolve(map);
   }

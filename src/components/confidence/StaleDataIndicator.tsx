@@ -1,23 +1,18 @@
 import type { JSX } from 'react';
 
 interface StaleDataIndicatorProps {
-  /** Count of snapshots in the last 3 GW window (0–3). */
-  readonly recentAppearances: number;
+  /** True when the player's last snapshot is more than STALE_GW_THRESHOLD GWs behind current. */
+  readonly isStale: boolean;
 }
 
 /**
- * A muted clock icon shown when a player has fewer than 2 snapshots in the
- * most recent 3-gameweek window. Signals that the confidence value may not
- * reflect the player's current form.
- *
- * Returns null when recentAppearances >= 2 (signal is considered fresh).
+ * A muted clock icon shown when `isStale` is true. Signals that the confidence
+ * value may not reflect the player's current form.
  */
-export function StaleDataIndicator({
-  recentAppearances,
-}: StaleDataIndicatorProps): JSX.Element | null {
-  if (recentAppearances >= 2) return null;
+export function StaleDataIndicator({ isStale }: StaleDataIndicatorProps): JSX.Element | null {
+  if (!isStale) return null;
 
-  const tooltip = `Played ${recentAppearances.toString()}/3 recent gameweeks · Confidence may not reflect current form`;
+  const tooltip = 'Confidence data may be stale · May not reflect current form';
 
   return (
     <span

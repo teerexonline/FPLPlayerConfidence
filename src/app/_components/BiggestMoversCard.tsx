@@ -79,7 +79,7 @@ function MoverRow({ player, variant, rank }: MoverRowProps): JSX.Element {
           <p
             className={cn(
               'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
-              getPlayerNameColorClass(player.status, player.recentAppearances),
+              getPlayerNameColorClass(player.status, player.isStale),
             )}
           >
             {player.webName}
@@ -88,7 +88,7 @@ function MoverRow({ player, variant, rank }: MoverRowProps): JSX.Element {
             hotStreak={player.hotStreak}
             size="sm"
             status={player.status}
-            isStale={player.recentAppearances < 2}
+            isStale={player.isStale}
           />
         </div>
         <p className="text-muted font-sans text-[11px] leading-tight">

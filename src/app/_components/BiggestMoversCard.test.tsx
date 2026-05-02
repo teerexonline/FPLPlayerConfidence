@@ -11,6 +11,16 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/watchlist/WatchlistContext', () => ({
   useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
 }));
+vi.mock('@/components/auth/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isPanelOpen: false,
+    openPanel: vi.fn(),
+    closePanel: vi.fn(),
+    signOut: vi.fn(),
+  }),
+}));
 
 function makePlayer(overrides: Partial<DashboardPlayer> = {}): DashboardPlayer {
   return {
@@ -26,7 +36,7 @@ function makePlayer(overrides: Partial<DashboardPlayer> = {}): DashboardPlayer {
     status: 'a',
     chanceOfPlaying: null,
     news: '',
-    recentAppearances: 3,
+    isStale: false,
     hotStreak: null,
     totalPoints: 100,
     ...overrides,

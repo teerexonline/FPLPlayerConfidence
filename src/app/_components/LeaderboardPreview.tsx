@@ -88,7 +88,7 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
             <p
               className={cn(
                 'group-hover:text-accent truncate font-sans text-[14px] leading-tight font-medium transition-colors',
-                getPlayerNameColorClass(player.status, player.recentAppearances),
+                getPlayerNameColorClass(player.status, player.isStale),
               )}
             >
               {player.webName}
@@ -97,7 +97,7 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
               hotStreak={player.hotStreak}
               size="sm"
               status={player.status}
-              isStale={player.recentAppearances < 2}
+              isStale={player.isStale}
             />
           </div>
           <p className="text-muted font-sans text-[11px] leading-tight">{player.teamShortName}</p>
@@ -123,7 +123,7 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
       {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex shrink-0 items-center gap-1.5">
         <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
-        <StaleDataIndicator recentAppearances={player.recentAppearances} />
+        <StaleDataIndicator isStale={player.isStale} />
         <PlayerStatusIndicator
           status={player.status}
           chanceOfPlaying={player.chanceOfPlaying}

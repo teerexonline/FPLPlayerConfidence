@@ -13,6 +13,16 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/watchlist/WatchlistContext', () => ({
   useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
 }));
+vi.mock('@/components/auth/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isPanelOpen: false,
+    openPanel: vi.fn(),
+    closePanel: vi.fn(),
+    signOut: vi.fn(),
+  }),
+}));
 
 function makePlayer(id: number, position: DashboardPlayer['position']): DashboardPlayer {
   return {
@@ -28,7 +38,7 @@ function makePlayer(id: number, position: DashboardPlayer['position']): Dashboar
     status: 'a',
     chanceOfPlaying: null,
     news: '',
-    recentAppearances: 3,
+    isStale: false,
     hotStreak: null,
     totalPoints: 100,
   };

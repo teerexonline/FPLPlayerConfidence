@@ -16,7 +16,7 @@ function makePlayer(overrides: Partial<DashboardPlayer> = {}): DashboardPlayer {
     status: 'a',
     chanceOfPlaying: null,
     news: '',
-    recentAppearances: 3,
+    isStale: false,
     hotStreak: null,
     totalPoints: 100,
     ...overrides,
@@ -27,39 +27,31 @@ function makePlayer(overrides: Partial<DashboardPlayer> = {}): DashboardPlayer {
 
 describe('isEligibleMover', () => {
   it('returns true for available player with fresh data', () => {
-    expect(isEligibleMover(makePlayer({ status: 'a', recentAppearances: 3 }))).toBe(true);
-  });
-
-  it('returns true at the minimum fresh threshold (recentAppearances = 2)', () => {
-    expect(isEligibleMover(makePlayer({ status: 'a', recentAppearances: 2 }))).toBe(true);
+    expect(isEligibleMover(makePlayer({ status: 'a', isStale: false }))).toBe(true);
   });
 
   it('returns false for injured player (status = "i")', () => {
-    expect(isEligibleMover(makePlayer({ status: 'i', recentAppearances: 3 }))).toBe(false);
+    expect(isEligibleMover(makePlayer({ status: 'i', isStale: false }))).toBe(false);
   });
 
   it('returns false for doubtful player (status = "d")', () => {
-    expect(isEligibleMover(makePlayer({ status: 'd', recentAppearances: 3 }))).toBe(false);
+    expect(isEligibleMover(makePlayer({ status: 'd', isStale: false }))).toBe(false);
   });
 
   it('returns false for suspended player (status = "s")', () => {
-    expect(isEligibleMover(makePlayer({ status: 's', recentAppearances: 3 }))).toBe(false);
+    expect(isEligibleMover(makePlayer({ status: 's', isStale: false }))).toBe(false);
   });
 
   it('returns false for unavailable player (status = "u")', () => {
-    expect(isEligibleMover(makePlayer({ status: 'u', recentAppearances: 3 }))).toBe(false);
+    expect(isEligibleMover(makePlayer({ status: 'u', isStale: false }))).toBe(false);
   });
 
   it('returns false for non-playing player (status = "n")', () => {
-    expect(isEligibleMover(makePlayer({ status: 'n', recentAppearances: 3 }))).toBe(false);
+    expect(isEligibleMover(makePlayer({ status: 'n', isStale: false }))).toBe(false);
   });
 
-  it('returns false for stale player (recentAppearances = 1) even when status is "a"', () => {
-    expect(isEligibleMover(makePlayer({ status: 'a', recentAppearances: 1 }))).toBe(false);
-  });
-
-  it('returns false for stale player with recentAppearances = 0', () => {
-    expect(isEligibleMover(makePlayer({ status: 'a', recentAppearances: 0 }))).toBe(false);
+  it('returns false for stale player even when status is "a"', () => {
+    expect(isEligibleMover(makePlayer({ status: 'a', isStale: true }))).toBe(false);
   });
 });
 
@@ -87,7 +79,7 @@ describe('selectRisers', () => {
       makePlayer({ id: 1, latestDelta: 5 }),
       makePlayer({ id: 2, latestDelta: 4, status: 'i' }), // excluded
       makePlayer({ id: 3, latestDelta: 3 }),
-      makePlayer({ id: 4, latestDelta: 2, recentAppearances: 1 }), // stale — excluded
+      makePlayer({ id: 4, latestDelta: 2, isStale: true }), // stale — excluded
       makePlayer({ id: 5, latestDelta: 1 }),
       makePlayer({ id: 6, latestDelta: 6 }),
     ];
@@ -114,7 +106,7 @@ describe('selectRisers', () => {
 
   it('excludes stale players even with the largest delta', () => {
     const players = [
-      makePlayer({ id: 1, latestDelta: 10, recentAppearances: 0 }),
+      makePlayer({ id: 1, latestDelta: 10, isStale: true }),
       makePlayer({ id: 2, latestDelta: 3 }),
     ];
     expect(selectRisers(players, 5).map((p) => p.id)).toEqual([2]);
@@ -137,7 +129,7 @@ describe('selectRisers', () => {
   it('returns empty array when no eligible risers exist', () => {
     const players = [
       makePlayer({ id: 1, latestDelta: 3, status: 'i' }),
-      makePlayer({ id: 2, latestDelta: 2, recentAppearances: 0 }),
+      makePlayer({ id: 2, latestDelta: 2, isStale: true }),
     ];
     expect(selectRisers(players, 5)).toHaveLength(0);
   });
@@ -200,7 +192,7 @@ describe('selectFallers', () => {
 
   it('excludes stale players even with the largest negative delta', () => {
     const players = [
-      makePlayer({ id: 1, latestDelta: -10, recentAppearances: 1 }),
+      makePlayer({ id: 1, latestDelta: -10, isStale: true }),
       makePlayer({ id: 2, latestDelta: -3 }),
     ];
     expect(selectFallers(players, 5).map((p) => p.id)).toEqual([2]);
@@ -223,7 +215,7 @@ describe('selectFallers', () => {
   it('returns empty array when no eligible fallers exist', () => {
     const players = [
       makePlayer({ id: 1, latestDelta: -3, status: 'd' }),
-      makePlayer({ id: 2, latestDelta: -2, recentAppearances: 0 }),
+      makePlayer({ id: 2, latestDelta: -2, isStale: true }),
     ];
     expect(selectFallers(players, 5)).toHaveLength(0);
   });

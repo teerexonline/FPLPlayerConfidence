@@ -78,7 +78,7 @@ function StarterRow({ player }: { player: SquadPlayerRow }): JSX.Element {
             <p
               className={cn(
                 'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
-                getPlayerNameColorClass(player.status, 99),
+                getPlayerNameColorClass(player.status, false),
               )}
             >
               {player.webName}

@@ -47,7 +47,7 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
               className={cn(
                 'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
                 player.status !== 'a' && player.status !== ''
-                  ? getPlayerNameColorClass(player.status, 99)
+                  ? getPlayerNameColorClass(player.status, false)
                   : 'text-muted',
               )}
             >

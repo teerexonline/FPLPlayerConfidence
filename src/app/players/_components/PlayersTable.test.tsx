@@ -30,6 +30,16 @@ vi.mock('@tanstack/react-virtual', () => ({
 vi.mock('@/components/watchlist/WatchlistContext', () => ({
   useWatchlist: () => ({ ids: new Set(), isLoading: false, toggle: vi.fn() }),
 }));
+vi.mock('@/components/auth/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isPanelOpen: false,
+    openPanel: vi.fn(),
+    closePanel: vi.fn(),
+    signOut: vi.fn(),
+  }),
+}));
 
 afterEach(() => {
   mockSearchParams.forEach((_, k) => {
@@ -162,12 +172,12 @@ describe('PlayersTable', () => {
 
   it('filters with onlyEligible — excludes injured and stale players', () => {
     mockSearchParams.set('onlyEligible', 'true');
-    const injured = makePlayer({ webName: 'Injured Player', status: 'i', recentAppearances: 3 });
-    const stale = makePlayer({ webName: 'Stale Player', status: 'a', recentAppearances: 1 });
+    const injured = makePlayer({ webName: 'Injured Player', status: 'i', isStale: false });
+    const stale = makePlayer({ webName: 'Stale Player', status: 'a', isStale: true });
     renderTable([...SMOKE_PLAYERS, injured, stale]);
     expect(screen.queryByText('Injured Player')).not.toBeInTheDocument();
     expect(screen.queryByText('Stale Player')).not.toBeInTheDocument();
-    // All SMOKE_PLAYERS are status='a' and recentAppearances=3 — they pass
+    // All SMOKE_PLAYERS are status='a' and isStale=false — they pass
     expect(screen.getAllByText('M. Salah').length).toBeGreaterThanOrEqual(1);
   });
 

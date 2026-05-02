@@ -33,7 +33,7 @@ interface RecentSnapshotRow {
 
 interface AppearanceRow {
   player_id: number;
-  count: string;
+  last_gw: string;
 }
 
 interface BoostRow {
@@ -198,16 +198,16 @@ export class PostgresConfidenceSnapshotRepository implements ConfidenceSnapshotR
     return rows.map(rowToSnapshot);
   }
 
-  async recentAppearancesForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
+  async lastAppearanceGwForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>> {
     const rows = await this.sql<AppearanceRow[]>`
-      SELECT player_id, COUNT(*) AS count
+      SELECT player_id, MAX(gameweek) AS last_gw
       FROM confidence_snapshots
       WHERE gameweek >= ${minGw}
       GROUP BY player_id
     `;
     const map = new Map<number, number>();
     for (const row of rows) {
-      map.set(row.player_id, Number(row.count));
+      map.set(row.player_id, Number(row.last_gw));
     }
     return map;
   }

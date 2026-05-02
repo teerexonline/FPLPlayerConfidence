@@ -61,7 +61,7 @@ export function PlayerHeader({ player }: PlayerHeaderProps): JSX.Element {
       <div className="text-center sm:text-left">
         {/* The only Fraunces moment in the product — a nameplate, not decoration */}
         <h1
-          className={cn('leading-[1.1] tracking-[-0.01em]', getPlayerNameColorClass(status, 99))}
+          className={cn('leading-[1.1] tracking-[-0.01em]', getPlayerNameColorClass(status, false))}
           style={{
             fontFamily: 'var(--font-fraunces), ui-serif, Georgia, serif',
             fontSize: 'clamp(32px, 5vw, 44px)',

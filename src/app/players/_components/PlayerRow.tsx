@@ -31,7 +31,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     status,
     chanceOfPlaying,
     news,
-    recentAppearances,
+    isStale,
     hotStreak,
   } = player;
   const router = useRouter();
@@ -71,7 +71,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
         <span
           className={cn(
             'truncate text-[14px] font-medium',
-            getPlayerNameColorClass(status, recentAppearances),
+            getPlayerNameColorClass(status, isStale),
           )}
         >
           {webName}
@@ -80,7 +80,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
           hotStreak={hotStreak}
           size="sm"
           status={status}
-          isStale={recentAppearances < 2}
+          isStale={isStale}
         />
       </div>
 
@@ -105,7 +105,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex items-center gap-1.5">
         <ConfidenceNumber value={confidence} mode="c" size="sm" animated={false} />
-        <StaleDataIndicator recentAppearances={recentAppearances} />
+        <StaleDataIndicator isStale={isStale} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
       </div>
 

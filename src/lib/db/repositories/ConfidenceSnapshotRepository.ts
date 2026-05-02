@@ -63,11 +63,11 @@ export interface ConfidenceSnapshotRepository {
   latestSnapshotsAtOrBeforeGameweek(gameweek: number): Promise<readonly DbConfidenceSnapshot[]>;
 
   /**
-   * Returns a map of playerId → count of snapshots in gameweeks ≥ minGw.
-   * Used to compute `recentAppearances` for the staleness indicator.
-   * Players with no snapshots in that window are absent from the map (count = 0).
+   * Returns a map of playerId → last gameweek they appeared in (MAX gameweek)
+   * among snapshots with gameweek ≥ minGw.  Used to compute staleness via
+   * `computeIsStale`.  Players with no snapshots in that window are absent.
    */
-  recentAppearancesForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>>;
+  lastAppearanceGwForAllPlayers(minGw: number): Promise<ReadonlyMap<number, number>>;
 
   /**
    * Returns a map of playerId → { boostGw, boostDelta } for the most recent boost

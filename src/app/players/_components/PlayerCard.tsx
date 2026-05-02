@@ -32,7 +32,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     status,
     chanceOfPlaying,
     news,
-    recentAppearances,
+    isStale,
     hotStreak,
   } = player;
   const price = `£${(nowCost / 10).toFixed(1)}m`;
@@ -48,7 +48,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
           <span
             className={cn(
               'min-w-0 truncate text-[15px] leading-tight font-semibold',
-              getPlayerNameColorClass(status, recentAppearances),
+              getPlayerNameColorClass(status, isStale),
             )}
           >
             {webName}
@@ -57,12 +57,12 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
             hotStreak={hotStreak}
             size="sm"
             status={status}
-            isStale={recentAppearances < 2}
+            isStale={isStale}
           />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />
-          <StaleDataIndicator recentAppearances={recentAppearances} />
+          <StaleDataIndicator isStale={isStale} />
           <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
           <StarButton playerId={player.id} playerName={webName} size="sm" />
         </div>

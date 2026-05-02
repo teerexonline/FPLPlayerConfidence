@@ -1,8 +1,9 @@
 import 'server-only';
 import type { JSX } from 'react';
 import { getRepositories } from '@/lib/db/server';
-import { SYSTEM_USER_ID } from '@/lib/db/constants';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildMatchBriefs, computeHotStreak } from '@/lib/confidence/hotStreak';
+import { computeIsStale } from '@/lib/confidence/staleness';
 import { BiggestMoversCard } from './_components/BiggestMoversCard';
 import { WatchlistCard } from './_components/WatchlistCard';
 import { LeaderboardPreview } from './_components/LeaderboardPreview';
@@ -16,17 +17,27 @@ export const dynamic = 'force-dynamic';
 interface DashboardResult {
   data: DashboardData;
   watchlistPlayers: readonly DashboardPlayer[];
+  isAuthenticated: boolean;
 }
 
 async function loadDashboard(): Promise<DashboardResult> {
   const repos = getRepositories();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const authUserId = user?.id ?? null;
+
+  const watchlistPromise = authUserId
+    ? repos.watchlist.findByAuthUser(authUserId)
+    : Promise.resolve([] as readonly number[]);
 
   const [allPlayers, allTeams, currentSnapshots, last5, watchlistIdList] = await Promise.all([
     repos.players.listAll(),
     repos.teams.listAll(),
     repos.confidenceSnapshots.currentForAllPlayers(),
     repos.confidenceSnapshots.listLast5ForAllPlayers(),
-    repos.watchlist.findByUser(SYSTEM_USER_ID),
+    watchlistPromise,
   ]);
 
   const watchlistIds = new Set(watchlistIdList);
@@ -42,6 +53,7 @@ async function loadDashboard(): Promise<DashboardResult> {
         isEmpty: true,
       },
       watchlistPlayers: [],
+      isAuthenticated: authUserId !== null,
     };
   }
 
@@ -55,10 +67,10 @@ async function loadDashboard(): Promise<DashboardResult> {
   const parsedGw = gwRaw ? parseInt(gwRaw, 10) : NaN;
   const currentGameweek = !isNaN(parsedGw) ? parsedGw : maxGw;
 
-  // Stale indicator: count snapshots in the last 3 GW window per player.
+  // Stale indicator: find the most recent gameweek each player appeared in.
   const minRecentGw = Math.max(1, currentGameweek - 2);
-  const recentAppearancesMap =
-    await repos.confidenceSnapshots.recentAppearancesForAllPlayers(minRecentGw);
+  const lastAppearanceGwMap =
+    await repos.confidenceSnapshots.lastAppearanceGwForAllPlayers(minRecentGw);
 
   // Hot streak: fetch recent snapshots (with reason) so buildMatchBriefs can expand DGW
   // rows into per-sub-match entries. computeHotStreak then counts matches, not GWs, which
@@ -90,7 +102,7 @@ async function loadDashboard(): Promise<DashboardResult> {
         status: player.status,
         chanceOfPlaying: player.chance_of_playing_next_round,
         news: player.news,
-        recentAppearances: recentAppearancesMap.get(numericId) ?? 0,
+        isStale: computeIsStale(currentGameweek, lastAppearanceGwMap.get(numericId) ?? null),
         hotStreak,
         totalPoints: player.total_points,
       },
@@ -120,6 +132,7 @@ async function loadDashboard(): Promise<DashboardResult> {
       isEmpty: false,
     },
     watchlistPlayers,
+    isAuthenticated: authUserId !== null,
   };
 }
 
@@ -129,7 +142,7 @@ export default async function DashboardPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<JSX.Element> {
   const resolved = await searchParams;
-  const { data, watchlistPlayers } = await loadDashboard();
+  const { data, watchlistPlayers, isAuthenticated } = await loadDashboard();
 
   const rawTab = resolved['leaderboard'];
   const initialTab = typeof rawTab === 'string' ? rawTab : 'all';
@@ -176,7 +189,7 @@ export default async function DashboardPage({
               ariaLabel="Biggest confidence fallers this gameweek"
               viewAllHref="/players?sort=delta&order=asc&onlyEligible=true"
             />
-            <WatchlistCard players={watchlistPlayers} />
+            <WatchlistCard players={watchlistPlayers} isAuthenticated={isAuthenticated} />
             <TeamConfidenceHero />
           </div>
         </section>

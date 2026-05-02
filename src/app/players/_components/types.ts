@@ -25,8 +25,8 @@ export interface PlayerWithConfidence {
   readonly chanceOfPlaying: number | null;
   /** Injury/availability news text from FPL (may be empty string). */
   readonly news: string;
-  /** Snapshot count in the window [currentGW-2, currentGW]. 0–3. */
-  readonly recentAppearances: number;
+  /** True when the player's last snapshot is more than STALE_GW_THRESHOLD gameweeks behind currentGw. */
+  readonly isStale: boolean;
   readonly hotStreak: HotStreakInfo | null;
   /** Season total FPL points — used as a tiebreaker when primary sort values are equal. */
   readonly totalPoints: number;
