@@ -1,11 +1,13 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { describe, expect, it, vi } from 'vitest';
 import { PlayerCard } from './PlayerCard';
 import { SALAH, PICKFORD, HAALAND } from './__fixtures__/players';
 
+const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  useRouter: vi.fn(() => ({ push: mockPush })),
 }));
 
 vi.mock('@/components/watchlist/WatchlistContext', () => ({
@@ -52,6 +54,21 @@ describe('PlayerCard', () => {
   it('displays the correct price for each player', () => {
     render(<PlayerCard player={HAALAND} />);
     expect(screen.getByText('MCI · FWD · £14.5m')).toBeInTheDocument();
+  });
+
+  it('navigates to the player detail page on click', async () => {
+    render(<PlayerCard player={SALAH} />);
+    await userEvent.click(screen.getByRole('row'));
+    expect(mockPush).toHaveBeenCalledWith(`/players/${SALAH.id.toString()}`);
+  });
+
+  it('does not navigate when the star button is clicked', async () => {
+    mockPush.mockClear();
+    render(<PlayerCard player={SALAH} />);
+    // In the unauthenticated mock context the label is "Sign in to add to watchlist".
+    const star = screen.getByRole('button', { name: /sign in to add to watchlist/i });
+    await userEvent.click(star);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('has role="row" for accessible table semantics', () => {

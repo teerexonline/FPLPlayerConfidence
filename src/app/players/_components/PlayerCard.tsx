@@ -1,6 +1,7 @@
 'use client';
 
 import type { JSX } from 'react';
+import { useRouter } from 'next/navigation';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
@@ -23,6 +24,7 @@ interface PlayerCardProps {
  */
 export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
   const {
+    id,
     webName,
     teamShortName,
     position,
@@ -35,12 +37,18 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     isStale,
     hotStreak,
   } = player;
+  const router = useRouter();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
+
+  function handleClick(): void {
+    router.push(`/players/${id.toString()}`);
+  }
 
   return (
     <div
       role="row"
-      className="border-border hover:border-l-accent hover:bg-bg relative border-b px-4 py-3 last:border-0 hover:border-l-2"
+      onClick={handleClick}
+      className="border-border hover:border-l-accent hover:bg-bg relative cursor-pointer border-b px-4 py-3 last:border-0 hover:border-l-2"
     >
       {/* Line 1: name | metric + indicators — role="cell" satisfies aria-required-children */}
       <div role="cell" className="flex items-center justify-between gap-3">
@@ -64,7 +72,13 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
           <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />
           <StaleDataIndicator isStale={isStale} />
           <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
-          <StarButton playerId={player.id} playerName={webName} size="sm" />
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <StarButton playerId={id} playerName={webName} size="sm" />
+          </span>
         </div>
       </div>
 

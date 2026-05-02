@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface WatchlistContextValue {
   /** Set of player IDs currently on the watchlist. Empty while loading. */
@@ -18,6 +19,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }): JSX.El
   const [isLoading, setIsLoading] = useState(true);
   // Tracks in-flight requests so concurrent toggles don't race.
   const pendingRef = useRef<Set<number>>(new Set());
+  const router = useRouter();
 
   useEffect(() => {
     fetch('/api/watchlist')
@@ -58,8 +60,13 @@ export function WatchlistProvider({ children }: { children: ReactNode }): JSX.El
           });
 
       request
+        .then(() => {
+          // Invalidate the Next.js Router Cache so the dashboard's server-rendered
+          // WatchlistCard reflects the new state on the next navigation to '/'.
+          router.refresh();
+        })
         .catch(() => {
-          // Rollback on failure.
+          // Rollback optimistic update on failure.
           setIds((prev) => {
             const next = new Set(prev);
             if (wasWatchlisted) {
@@ -74,7 +81,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }): JSX.El
           pendingRef.current.delete(playerId);
         });
     },
-    [ids],
+    [ids, router],
   );
 
   return (
