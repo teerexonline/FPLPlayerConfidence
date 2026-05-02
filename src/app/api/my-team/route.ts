@@ -28,6 +28,24 @@ const logger = createLogger('api/my-team');
 // Alias so call sites remain readable.
 const toPercent = confidenceToPercent;
 
+/**
+ * Runs an optional read query and returns `fallback` if it throws. Used to
+ * gate features that depend on tables or rows that may not exist yet
+ * (e.g. before migration 0004 is applied or before the first sync populates
+ * the fixtures table). The route's core response — manager info, picks,
+ * confidence — must never depend on this; only auxiliary projections do.
+ */
+async function safeQuery<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    return await promise;
+  } catch (err) {
+    logger.warn(`degraded: ${label}`, {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return fallback;
+  }
+}
+
 function errorResponse(code: MyTeamApiError, status: number): NextResponse {
   return NextResponse.json({ error: code }, { status });
 }
@@ -351,9 +369,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // The strip shows fixtures *after* the viewed GW so the user can see what's
   // coming for each player. Fetch a 10-GW window once; trim to 3 per team.
   const nextStripFromGw = targetGw + 1;
-  const nextStripWindowRows = await repos.fixtures.listInGameweekRange(
-    nextStripFromGw,
-    nextStripFromGw + 9,
+  const nextStripWindowRows = await safeQuery<readonly DbFixture[]>(
+    repos.fixtures.listInGameweekRange(nextStripFromGw, nextStripFromGw + 9),
+    [],
+    'fixtures.listInGameweekRange',
   );
   const nextFixturesByTeam = new Map<number, NextFixture[]>();
   for (const f of nextStripWindowRows) {
@@ -378,7 +397,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let projectedTeamXp: number | null = null;
 
   if (viewMode === 'projected') {
-    const viewedGwFixtures = await repos.fixtures.listForGameweek(targetGw);
+    const viewedGwFixtures = await safeQuery<readonly DbFixture[]>(
+      repos.fixtures.listForGameweek(targetGw),
+      [],
+      'fixtures.listForGameweek',
+    );
     const fixturesByTeam = new Map<number, DbFixture[]>();
     for (const f of viewedGwFixtures) {
       const list = fixturesByTeam.get(f.team_id) ?? [];
@@ -386,8 +409,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       fixturesByTeam.set(f.team_id, list);
     }
 
-    const allBucketAverages = await repos.playerFdrAverages.averagesForPlayers(
-      finalPicks.map((p) => p.element),
+    const allBucketAverages = await safeQuery<
+      ReadonlyMap<number, ReadonlyMap<FdrBucketName, number>>
+    >(
+      repos.playerFdrAverages.averagesForPlayers(finalPicks.map((p) => p.element)),
+      new Map<number, ReadonlyMap<FdrBucketName, number>>(),
+      'playerFdrAverages.averagesForPlayers',
     );
 
     const xpStarters: {
@@ -483,7 +510,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const [syncedAtRaw, availableGameweeks, lastSeasonGameweekRaw] = await Promise.all([
     repos.syncMeta.get('last_sync'),
     repos.managerSquads.listGameweeksForTeam(teamId),
-    repos.fixtures.latestGameweek(),
+    safeQuery<number | null>(repos.fixtures.latestGameweek(), null, 'fixtures.latestGameweek'),
   ]);
   const syncedAt = syncedAtRaw ? parseInt(syncedAtRaw, 10) : now;
   const lastSeasonGameweek = lastSeasonGameweekRaw ?? currentGw;
