@@ -52,7 +52,12 @@ async function fetchJson(url: string, revalidate: number): Promise<Result<unknow
     return err({ type: 'http_error', status: response.status, message: response.statusText });
   }
 
-  const json: unknown = await response.json();
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    return err({ type: 'invalid_response', message: 'Response body is not valid JSON' });
+  }
   return ok(json);
 }
 

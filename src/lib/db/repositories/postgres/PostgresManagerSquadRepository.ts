@@ -49,12 +49,10 @@ export class PostgresManagerSquadRepository implements ManagerSquadRepository {
       is_vice_captain: p.is_vice_captain,
       fetched_at: p.fetched_at,
     }));
-    // user_id omitted — DB DEFAULT (1) applies. Column is vestigial and will be
-    // dropped in a future migration once manager_squads is re-architected.
+    // user_id omitted — DB DEFAULT (1) applies. sql(values) derives the column
+    // list from object keys, so user_id is not included in the INSERT.
     await this.sql`
-      INSERT INTO manager_squads
-        (team_id, gameweek, player_id, squad_position, is_captain, is_vice_captain, fetched_at)
-      ${this.sql(values)}
+      INSERT INTO manager_squads ${this.sql(values)}
       ON CONFLICT (team_id, gameweek, squad_position) DO UPDATE SET
         player_id       = EXCLUDED.player_id,
         is_captain      = EXCLUDED.is_captain,
