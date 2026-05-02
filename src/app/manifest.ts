@@ -1,5 +1,12 @@
 import type { MetadataRoute } from 'next';
 
+// Theme colors resolved from globals.css:
+//   Topbar uses bg-bg class → --bg token
+//   Light mode:  --bg: #fafaf9
+//   Dark mode:   --bg: #0a0a0a
+// Manifest supports a single theme_color (no media queries); use light-mode
+// value. Dark-mode override is handled via metadata.themeColor in layout.tsx.
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'FPL Confidence',
@@ -8,21 +15,28 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    orientation: 'portrait-primary',
-    background_color: '#0A0A0A',
-    theme_color: '#1E40AF',
+    orientation: 'portrait',
+    background_color: '#fafaf9',
+    theme_color: '#fafaf9',
+    categories: ['sports', 'utilities'],
     icons: [
       {
-        src: '/icon.svg',
-        sizes: 'any',
-        type: 'image/svg+xml',
+        src: '/icon/192',
+        sizes: '192x192',
+        type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/apple-icon',
-        sizes: '180x180',
+        src: '/icon/512',
+        sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
+      },
+      {
+        src: '/icon-maskable',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
       },
     ],
   };

@@ -17,10 +17,13 @@ const fraunces = Fraunces({
   axes: ['opsz'],
 });
 
+// Resolved from globals.css: Topbar uses bg-bg → --bg token.
+// Light: --bg: #fafaf9  |  Dark: --bg: #0a0a0a
 export const viewport: Viewport = {
-  themeColor: '#1E40AF',
-  width: 'device-width',
-  initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fafaf9' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -30,7 +33,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'FPL Conf',
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
   },
   formatDetection: {
     telephone: false,
