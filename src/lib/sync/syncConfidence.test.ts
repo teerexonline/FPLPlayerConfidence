@@ -3,11 +3,16 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type {
   ConfidenceSnapshotRepository,
   DbConfidenceSnapshot,
+  DbFixture,
   DbManagerSquadPick,
   DbPlayer,
+  DbPlayerFdrAverage,
   DbTeam,
   DbUser,
+  FdrBucketName,
+  FixtureRepository,
   ManagerSquadRepository,
+  PlayerFdrAverageRepository,
   PlayerRepository,
   Repositories,
   SyncMetaRepository,
@@ -301,17 +306,63 @@ class FakeWatchlistRepository implements WatchlistRepository {
   }
 }
 
+class FakeFixtureRepository implements FixtureRepository {
+  rows: DbFixture[] = [];
+  upsertMany(fixtures: readonly DbFixture[]): Promise<void> {
+    this.rows.push(...fixtures);
+    return Promise.resolve();
+  }
+  listForTeamInRange(): Promise<readonly DbFixture[]> {
+    return Promise.resolve([]);
+  }
+  listForGameweek(): Promise<readonly DbFixture[]> {
+    return Promise.resolve([]);
+  }
+  listInGameweekRange(): Promise<readonly DbFixture[]> {
+    return Promise.resolve([]);
+  }
+  latestGameweek(): Promise<number | null> {
+    return Promise.resolve(null);
+  }
+  deleteAll(): Promise<void> {
+    this.rows = [];
+    return Promise.resolve();
+  }
+}
+
+class FakePlayerFdrAverageRepository implements PlayerFdrAverageRepository {
+  rows: DbPlayerFdrAverage[] = [];
+  upsertMany(rows: readonly DbPlayerFdrAverage[]): Promise<void> {
+    this.rows.push(...rows);
+    return Promise.resolve();
+  }
+  listForPlayer(): Promise<readonly DbPlayerFdrAverage[]> {
+    return Promise.resolve([]);
+  }
+  averagesForPlayers(): Promise<ReadonlyMap<number, ReadonlyMap<FdrBucketName, number>>> {
+    return Promise.resolve(new Map());
+  }
+  deleteAll(): Promise<void> {
+    this.rows = [];
+    return Promise.resolve();
+  }
+}
+
 function makeRepos(): {
   repos: Repositories;
   players: FakePlayerRepository;
   confidenceSnapshots: FakeConfidenceSnapshotRepository;
   syncMeta: FakeSyncMetaRepository;
+  fixtures: FakeFixtureRepository;
+  playerFdrAverages: FakePlayerFdrAverageRepository;
 } {
   const players = new FakePlayerRepository();
   const teams = new FakeTeamRepository();
   const confidenceSnapshots = new FakeConfidenceSnapshotRepository();
   const syncMeta = new FakeSyncMetaRepository();
   const managerSquads = new FakeManagerSquadRepository();
+  const fixtures = new FakeFixtureRepository();
+  const playerFdrAverages = new FakePlayerFdrAverageRepository();
   const users = new FakeUserRepository();
   const watchlist = new FakeWatchlistRepository();
   const repos: Repositories = {
@@ -320,10 +371,12 @@ function makeRepos(): {
     confidenceSnapshots,
     syncMeta,
     managerSquads,
+    fixtures,
+    playerFdrAverages,
     users,
     watchlist,
   };
-  return { repos, players, confidenceSnapshots, syncMeta };
+  return { repos, players, confidenceSnapshots, syncMeta, fixtures, playerFdrAverages };
 }
 
 // ── Test fixtures ───────────────────────────────────────────────────────────
@@ -852,5 +905,81 @@ describe('syncConfidence', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('persists per-team fixture rows projected from the fixtures endpoint', async () => {
+    const { repos, fixtures } = makeRepos();
+    const api = makeApi({
+      fixtures: ok([
+        {
+          id: 100,
+          event: 36,
+          team_h: 1,
+          team_a: 7,
+          team_h_difficulty: 2,
+          team_a_difficulty: 4,
+          finished: false,
+          kickoff_time: '2026-05-10T14:00:00Z',
+        },
+      ]),
+    });
+
+    await syncConfidence({ api, repos, clock: () => CLOCK, throttleMs: 0 });
+
+    // Two rows per scheduled fixture (one per team perspective).
+    expect(fixtures.rows).toHaveLength(2);
+    const team1 = fixtures.rows.find((r) => r.team_id === 1);
+    expect(team1).toMatchObject({
+      fixture_id: 100,
+      team_id: 1,
+      opponent_team_id: 7,
+      is_home: true,
+      fdr: 2,
+      gameweek: 36,
+    });
+  });
+
+  it('persists per-player FDR bucket averages from history', async () => {
+    const { repos, playerFdrAverages } = makeRepos();
+
+    // Fixture: GW1, team 1 (home) vs team 99 (away). FDR for team 1 = 2 → LOW bucket.
+    const fixturesData: Fixtures = [
+      {
+        id: 1,
+        event: 1,
+        team_h: 1,
+        team_a: 99,
+        team_h_difficulty: 2,
+        team_a_difficulty: 4,
+        finished: true,
+        kickoff_time: null,
+      },
+    ];
+
+    // Salah (id=2, team 1) scored 8 points in that LOW-difficulty match.
+    const api = makeApi({
+      fixtures: ok(fixturesData),
+      summary: (id) =>
+        ok(
+          makeSummary({
+            round: 1,
+            opponent_team: 99,
+            was_home: true,
+            minutes: 90,
+            goals_scored: 1,
+            total_points: id === 2 ? 8 : 5,
+          }),
+        ),
+    });
+
+    await syncConfidence({ api, repos, clock: () => CLOCK, throttleMs: 0 });
+
+    const salah = playerFdrAverages.rows.find((r) => r.player_id === 2);
+    expect(salah).toMatchObject({
+      player_id: 2,
+      bucket: 'LOW',
+      avg_points: 8,
+      sample_count: 1,
+    });
   });
 });

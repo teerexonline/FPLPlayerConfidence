@@ -8,6 +8,7 @@ import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndic
 import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
+import { NextFixturesStrip } from './NextFixturesStrip';
 import type { SquadPlayerRow } from './types';
 
 interface BenchSectionProps {
@@ -19,7 +20,7 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
     <li role="listitem">
       <Link
         href={`/players/${player.playerId.toString()}`}
-        className="group border-border hover:bg-bg -mx-4 flex h-[52px] items-center gap-3 border-b px-4 transition-colors last:border-0"
+        className="group border-border hover:bg-bg -mx-4 flex h-[60px] items-center gap-3 border-b px-4 transition-colors last:border-0"
         aria-label={`Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence > 0 ? '+' : ''}${player.confidence.toString()}`}
       >
         {/* Squad position (12–15) */}
@@ -27,18 +28,21 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
           {player.squadPosition.toString()}
         </span>
 
-        {/* Jersey — slight fade signals bench status without looking broken */}
-        {player.teamCode > 0 && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/api/jerseys/${player.teamCode.toString()}`}
-            alt=""
-            aria-hidden="true"
-            width={28}
-            height={36}
-            className="h-7 w-7 shrink-0 object-contain opacity-60"
-          />
-        )}
+        {/* Jersey + next fixtures — slight fade signals bench status */}
+        <div className="flex shrink-0 flex-col items-center gap-0.5 opacity-70">
+          {player.teamCode > 0 && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/jerseys/${player.teamCode.toString()}`}
+              alt=""
+              aria-hidden="true"
+              width={28}
+              height={36}
+              className="h-7 w-7 object-contain"
+            />
+          )}
+          <NextFixturesStrip fixtures={player.nextFixtures} compact />
+        </div>
 
         {/* Name + team — muted text instead of opacity so content remains readable */}
         <div className="min-w-0 flex-1">

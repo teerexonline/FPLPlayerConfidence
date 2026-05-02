@@ -24,6 +24,10 @@ const MOCK_DATA: MyTeamData = {
   preDeadlineFallback: false,
   currentGameweek: 33,
   availableGameweeks: [33],
+  lastSeasonGameweek: 38,
+  viewMode: 'historical',
+  projectedTeamXp: null,
+  appliedSwaps: [],
 };
 
 function submitForm(): void {

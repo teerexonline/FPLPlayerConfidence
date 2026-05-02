@@ -4,13 +4,20 @@ import { useEffect, useRef } from 'react';
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
+import type { MyTeamViewMode } from './types';
 
 interface MyTeamHeroProps {
-  /** Team Confidence %, 0–100 rounded to 2 dp. */
+  /** `historical` shows percent; `projected` shows xP. */
+  readonly viewMode?: MyTeamViewMode;
+  /** Team Confidence %, 0–100 rounded to 2 dp. Used in `historical` mode. */
   readonly percent: number;
   readonly defencePercent: number;
   readonly midfieldPercent: number;
   readonly attackPercent: number;
+  /** Projected team xP. Required in `projected` mode; ignored in `historical`. */
+  readonly projectedTeamXp?: number | null;
+  /** Viewed gameweek — shown next to the projection so the user knows what they are seeing. */
+  readonly gameweek?: number;
 }
 
 type Sign = 'positive' | 'negative' | 'neutral';
@@ -41,57 +48,86 @@ function LinePercent({ label, value }: { label: string; value: number }): JSX.El
   );
 }
 
+function formatXp(v: number): string {
+  return v.toFixed(1);
+}
+
 /**
  * Hero section for the My Team page.
- * Renders Team Confidence % at 96px with a count-up from 50% on mount,
- * followed by the three positional line percents.
+ *
+ * `historical` mode (default): renders Team Confidence % at 96px with a
+ * count-up from 50% on mount, followed by the three positional line percents.
+ *
+ * `projected` mode: renders projected team xP for the viewed gameweek with the
+ * same scale and animation. The positional breakdown stays in % terms because
+ * a per-line xP would be misleading without normalising for the number of
+ * fixtures each line has.
  */
 export function MyTeamHero({
+  viewMode = 'historical',
   percent,
   defencePercent,
   midfieldPercent,
   attackPercent,
+  projectedTeamXp,
+  gameweek,
 }: MyTeamHeroProps): JSX.Element {
+  const isProjected = viewMode === 'projected';
+  const targetValue = isProjected ? (projectedTeamXp ?? 0) : percent;
+  const fallbackStart = isProjected ? 0 : 50;
+
   const prefersReducedMotion = useReducedMotion() ?? false;
-  const motionValue = useMotionValue(prefersReducedMotion ? percent : 50);
-  const displayText = useTransform(motionValue, (v) => formatPct(v));
+  const motionValue = useMotionValue(prefersReducedMotion ? targetValue : fallbackStart);
+  const displayText = useTransform(motionValue, (v) => (isProjected ? formatXp(v) : formatPct(v)));
   const mounted = useRef(false);
 
   useEffect(() => {
     if (mounted.current) {
-      // GW scrubber changed the displayed gameweek — snap without animation.
-      motionValue.set(percent);
+      // GW scrubber or mode changed — snap without animation.
+      motionValue.set(targetValue);
       return;
     }
     mounted.current = true;
     if (prefersReducedMotion) {
-      motionValue.set(percent);
+      motionValue.set(targetValue);
     } else {
-      void animate(motionValue, percent, { duration: 0.7, ease: 'easeOut' });
+      void animate(motionValue, targetValue, { duration: 0.7, ease: 'easeOut' });
     }
-  }, [percent, prefersReducedMotion, motionValue]);
+  }, [targetValue, prefersReducedMotion, motionValue]);
 
-  const heroSign = sign(percent);
+  const heroSign = isProjected ? 'positive' : sign(percent);
+  const heroLabel = isProjected
+    ? `Projected ${formatXp(projectedTeamXp ?? 0)} expected points${
+        gameweek !== undefined ? ` for GW${gameweek.toString()}` : ''
+      }`
+    : `Team Confidence: ${formatPct(percent)}`;
 
   return (
     <div className="flex flex-col items-center py-10 text-center">
-      {/* Big percentage */}
+      {/* Big number */}
       <motion.span
         className={cn(
           'font-sans text-[96px] leading-none font-semibold tracking-[-0.02em] tabular-nums',
-          SIGN_COLOR[heroSign],
+          isProjected ? 'text-text' : SIGN_COLOR[heroSign],
         )}
-        aria-label={`Team Confidence: ${formatPct(percent)}`}
+        aria-label={heroLabel}
         data-sign={heroSign}
       >
         {displayText}
+        {isProjected && (
+          <span className="text-muted ml-1.5 align-text-bottom font-sans text-[24px] font-medium">
+            xP
+          </span>
+        )}
       </motion.span>
 
       <p className="text-muted mt-2 font-sans text-[12px] font-medium tracking-[0.06em] uppercase">
-        Team Confidence
+        {isProjected
+          ? `Projected GW${gameweek !== undefined ? gameweek.toString() : ''} Points`
+          : 'Team Confidence'}
       </p>
 
-      {/* Positional breakdown */}
+      {/* Positional breakdown — stays as % in both modes (line-level xP would be noisy) */}
       <div className="text-muted mt-5 flex flex-col gap-1 font-sans text-[13px]">
         <LinePercent label="Defence" value={defencePercent} />
         <LinePercent label="Midfield" value={midfieldPercent} />

@@ -7,8 +7,21 @@ import { getRepositories } from '@/lib/db/server';
 import { calculateTeamConfidence, confidenceToPercent } from '@/lib/team-confidence';
 import { hotStreakAtGw } from '@/lib/confidence/hotStreak';
 import { createLogger } from '@/lib/logger';
-import type { SquadPlayerRow, MyTeamData, MyTeamApiError } from '@/app/my-team/_components/types';
-import type { Position } from '@/lib/db/types';
+import {
+  calculatePlayerXp,
+  calculateTeamXp,
+  type PlayerBucketAverages,
+  type TeamFixture,
+} from '@/lib/expected-points';
+import { parseSwaps, type Swap } from '@/lib/transfer-planner';
+import type {
+  MyTeamApiError,
+  MyTeamData,
+  MyTeamViewMode,
+  NextFixture,
+  SquadPlayerRow,
+} from '@/app/my-team/_components/types';
+import type { DbFixture, FdrBucketName, Position } from '@/lib/db/types';
 
 const logger = createLogger('api/my-team');
 
@@ -44,6 +57,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const query = new URL(request.url).searchParams;
   const teamIdRaw = query.get('teamId');
   const gameweekRaw = query.get('gameweek');
+  const swapRaw = query.get('swap');
 
   if (!teamIdRaw || !/^\d+$/.test(teamIdRaw)) {
     logger.warn('GET /api/my-team: invalid teamId param', { teamIdRaw });
@@ -54,8 +68,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const gwOverride =
     gameweekRaw !== null && /^\d+$/.test(gameweekRaw) ? parseInt(gameweekRaw, 10) : null;
 
+  // Optional ?swap=outId:inId,… — staged transfers for the planner. Only honoured
+  // when the viewed GW is in the future (projected mode); ignored otherwise.
+  const swapsParse = parseSwaps(swapRaw);
+  if (!swapsParse.ok) {
+    logger.warn('GET /api/my-team: invalid swap param', { swapRaw, error: swapsParse.error });
+    return errorResponse('INVALID_TEAM_ID', 400);
+  }
+  const requestedSwaps: readonly Swap[] = swapsParse.value;
+
   const teamId = parseInt(teamIdRaw, 10);
-  logger.info('GET /api/my-team: fetching squad', { teamId, gwOverride });
+  logger.info('GET /api/my-team: fetching squad', {
+    teamId,
+    gwOverride,
+    swapCount: requestedSwaps.length,
+  });
   const repos = getRepositories();
 
   // Resolve target GW. We use currentGW − 1 (Option A per API.md §8 note).
@@ -78,6 +105,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Start entry info fetch immediately so it overlaps with the first picks fetch.
   const infoPromise = fetchEntryInfo(teamId);
 
+  // ── Determine view mode ────────────────────────────────────────────────────
+  // `projected` = viewing a future GW (FPL hasn't generated picks yet — we use
+  //               the latest cached squad as the planning baseline).
+  // `historical` = viewing a past or current GW (existing behavior).
+  const viewMode: MyTeamViewMode =
+    gwOverride !== null && gwOverride > currentGw ? 'projected' : 'historical';
+  const appliedSwaps = viewMode === 'projected' ? requestedSwaps : [];
+
   // ── Historical GW override path ────────────────────────────────────────────
   // When the user selects a specific past GW from the scrubber, skip the
   // deadline-fallback and Free Hit resolution — serve cached picks directly.
@@ -88,7 +123,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let freeHitGameweek: number | null;
   let isGw1FreeHit: boolean;
 
-  if (gwOverride !== null) {
+  if (viewMode === 'projected' && gwOverride !== null) {
+    // Future GW: FPL has no picks yet. Use the latest cached squad as the
+    // planning baseline (the user's current real lineup).
+    const latestCachedGw = await repos.managerSquads.latestGameweekForTeam(teamId);
+    if (latestCachedGw === null) {
+      logger.warn('GET /api/my-team: projected mode but no cached squad', { teamId });
+      return errorResponse('NO_GAMEWEEK_DATA', 503);
+    }
+    const cached = await repos.managerSquads.listByTeamAndGameweek(teamId, latestCachedGw);
+    finalPicks = cached.map((p) => ({
+      element: p.player_id,
+      position: p.squad_position,
+      is_captain: p.is_captain,
+      is_vice_captain: p.is_vice_captain,
+    }));
+    targetGw = gwOverride;
+    preDeadlineFallback = false;
+    freeHitBypassed = false;
+    freeHitGameweek = null;
+    isGw1FreeHit = false;
+  } else if (gwOverride !== null) {
     const cached = await repos.managerSquads.listByTeamAndGameweek(teamId, gwOverride);
     if (cached.length > 0) {
       finalPicks = cached.map((p) => ({
@@ -200,6 +255,37 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
+  // ── Apply staged swaps (projected mode only) ─────────────────────────────
+  // Validation: outId must be in the squad; inId must NOT be; positions must match.
+  // Invalid swaps are silently dropped — the UI never enables them, so this is
+  // a defense-in-depth check, not a user-facing error path.
+  if (viewMode === 'projected' && appliedSwaps.length > 0) {
+    const swapped: import('@/lib/fpl/types').EntryPick[] = [...finalPicks];
+    const currentIds = new Set(finalPicks.map((p) => p.element));
+    for (const { outId, inId } of appliedSwaps) {
+      const outIdx = swapped.findIndex((p) => p.element === outId);
+      if (outIdx === -1) continue;
+      if (currentIds.has(inId)) continue;
+      const outPlayer = playerMap.get(outId);
+      const inPlayer = playerMap.get(inId);
+      if (!outPlayer || !inPlayer) continue;
+      if (outPlayer.position !== inPlayer.position) continue;
+
+      const before = swapped[outIdx];
+      if (before === undefined) continue;
+      swapped[outIdx] = {
+        element: inId,
+        position: before.position,
+        is_captain: before.is_captain,
+        is_vice_captain: before.is_vice_captain,
+      };
+      currentIds.delete(outId);
+      currentIds.add(inId);
+    }
+    finalPicks = swapped;
+  }
+  const swappedInIds = new Set(appliedSwaps.map((s) => s.inId));
+
   // Resolve confidence at the target GW.
   // Historical mode: look up snapshots exactly at targetGw (one batch query).
   // Default mode: use the most recent snapshot per player (same as before).
@@ -261,6 +347,104 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const minBoostGw = Math.max(1, targetGw - 2);
   const boostMap = await repos.confidenceSnapshots.recentBoostForAllPlayers(minBoostGw, targetGw);
 
+  // ── Fixtures: next-3 strip below jersey + xP projection input ────────────
+  // The strip shows fixtures *after* the viewed GW so the user can see what's
+  // coming for each player. Fetch a 10-GW window once; trim to 3 per team.
+  const nextStripFromGw = targetGw + 1;
+  const nextStripWindowRows = await repos.fixtures.listInGameweekRange(
+    nextStripFromGw,
+    nextStripFromGw + 9,
+  );
+  const nextFixturesByTeam = new Map<number, NextFixture[]>();
+  for (const f of nextStripWindowRows) {
+    const list = nextFixturesByTeam.get(f.team_id) ?? [];
+    if (list.length < 3) {
+      const opponent = teamMap.get(f.opponent_team_id);
+      list.push({
+        gameweek: f.gameweek,
+        opponentTeamShortName: opponent?.short_name ?? '???',
+        isHome: f.is_home,
+        fdr: f.fdr,
+        kickoffTime: f.kickoff_time,
+      });
+      nextFixturesByTeam.set(f.team_id, list);
+    }
+  }
+
+  // ── Projected xP: only computed in `projected` mode ──────────────────────
+  // Pull fixtures for the *viewed* GW (per team) and per-player FDR averages,
+  // then build per-row xP using the existing pure calculator.
+  const projectedXpByPlayer = new Map<number, number>();
+  let projectedTeamXp: number | null = null;
+
+  if (viewMode === 'projected') {
+    const viewedGwFixtures = await repos.fixtures.listForGameweek(targetGw);
+    const fixturesByTeam = new Map<number, DbFixture[]>();
+    for (const f of viewedGwFixtures) {
+      const list = fixturesByTeam.get(f.team_id) ?? [];
+      list.push(f);
+      fixturesByTeam.set(f.team_id, list);
+    }
+
+    const allBucketAverages = await repos.playerFdrAverages.averagesForPlayers(
+      finalPicks.map((p) => p.element),
+    );
+
+    const xpStarters: {
+      playerId: number;
+      squadPosition: number;
+      confidencePct: number;
+      averages: PlayerBucketAverages;
+      fixtures: readonly TeamFixture[];
+    }[] = [];
+
+    for (const p of finalPicks) {
+      const player = playerMap.get(p.element);
+      if (!player) {
+        projectedXpByPlayer.set(p.element, 0);
+        continue;
+      }
+
+      const teamFixtureRows = fixturesByTeam.get(player.team_id) ?? [];
+      const teamFixtures: TeamFixture[] = teamFixtureRows.map((f) => ({
+        gameweek: f.gameweek,
+        opponentTeamId: f.opponent_team_id,
+        isHome: f.is_home,
+        fdr: f.fdr,
+      }));
+
+      const buckets = allBucketAverages.get(p.element) ?? new Map<FdrBucketName, number>();
+      const averages: PlayerBucketAverages = {
+        low: buckets.get('LOW') ?? null,
+        mid: buckets.get('MID') ?? null,
+        high: buckets.get('HIGH') ?? null,
+      };
+
+      const confidencePct = confidenceToPercent(confidenceMap.get(p.element) ?? 0);
+
+      const playerXp = calculatePlayerXp({
+        playerId: p.element,
+        confidencePct,
+        averages,
+        fixtures: teamFixtures,
+      });
+      projectedXpByPlayer.set(p.element, playerXp.xp);
+
+      if (p.position <= 11) {
+        xpStarters.push({
+          playerId: p.element,
+          squadPosition: p.position,
+          confidencePct,
+          averages,
+          fixtures: teamFixtures,
+        });
+      }
+    }
+
+    const teamResult = calculateTeamXp({ picks: xpStarters });
+    projectedTeamXp = teamResult.teamXp;
+  }
+
   // Build squad player rows.
   const squadRows: SquadPlayerRow[] = finalPicks.map((p) => {
     const player = playerMap.get(p.element);
@@ -268,6 +452,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const boost = boostMap.get(p.element);
     const hotStreak =
       boost !== undefined ? hotStreakAtGw(boost.boostGw, targetGw, boost.boostDelta) : null;
+    const nextFixtures = team ? (nextFixturesByTeam.get(team.id) ?? []) : [];
     return {
       playerId: p.element,
       webName: player?.web_name ?? `Player ${p.element.toString()}`,
@@ -282,6 +467,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       chanceOfPlaying: player?.chance_of_playing_next_round ?? null,
       news: player?.news ?? '',
       hotStreak,
+      nextFixtures,
+      projectedXp: viewMode === 'projected' ? (projectedXpByPlayer.get(p.element) ?? 0) : null,
+      isSwappedIn: swappedInIds.has(p.element),
     };
   });
 
@@ -292,11 +480,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     .filter((r) => r.squadPosition > 11)
     .sort((a, b) => a.squadPosition - b.squadPosition);
 
-  const [syncedAtRaw, availableGameweeks] = await Promise.all([
+  const [syncedAtRaw, availableGameweeks, lastSeasonGameweekRaw] = await Promise.all([
     repos.syncMeta.get('last_sync'),
     repos.managerSquads.listGameweeksForTeam(teamId),
+    repos.fixtures.latestGameweek(),
   ]);
   const syncedAt = syncedAtRaw ? parseInt(syncedAtRaw, 10) : now;
+  const lastSeasonGameweek = lastSeasonGameweekRaw ?? currentGw;
 
   const data: MyTeamData = {
     managerName: `${info.player_first_name} ${info.player_last_name}`,
@@ -317,6 +507,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     isGw1FreeHit,
     currentGameweek: currentGw,
     availableGameweeks,
+    lastSeasonGameweek,
+    viewMode,
+    projectedTeamXp,
+    appliedSwaps,
   };
 
   return NextResponse.json(data);

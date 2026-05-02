@@ -1,7 +1,19 @@
 import { render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { MyTeamHero } from './MyTeamHero';
+
+// useTransform returns a MotionValue<string> which jsdom can't render as a React child.
+// Mock it to return the mapped plain value so <motion.span>{displayText}</motion.span> works.
+vi.mock('motion/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('motion/react')>();
+  return {
+    ...actual,
+    useTransform: <I, O>(v: { get(): I }, fn: (v: I) => O): O => fn(v.get()),
+    animate: vi.fn().mockResolvedValue(undefined),
+    useReducedMotion: vi.fn().mockReturnValue(true),
+  };
+});
 
 const BASE_PROPS = {
   defencePercent: 65,

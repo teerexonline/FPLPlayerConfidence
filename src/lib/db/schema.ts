@@ -40,6 +40,32 @@ export const SQL_MIGRATIONS: readonly string[] = [
   // Phase 4: watchlist auth identity. Nullable TEXT (no FK — SQLite has no auth.users).
   // Only populated in Postgres (production) via Supabase auth; SQLite auth stubs return [].
   `ALTER TABLE watchlist ADD COLUMN auth_user_id TEXT`,
+  // v1.8: forward-projection inputs for the My Team transfer planner (xP, ALGORITHM.md §12).
+  // `fixtures` mirrors FPL's fixtures endpoint, projected to a per-team perspective so
+  //   each row carries the FDR seen by the players on that team for that fixture.
+  // `player_fdr_averages` stores the per-player mean FPL points-per-appearance bucketed
+  //   by fixture difficulty (LOW={1,2}, MID={3}, HIGH={4,5}) — populated by sync.
+  `CREATE TABLE IF NOT EXISTS fixtures (
+    fixture_id        INTEGER NOT NULL,
+    gameweek          INTEGER NOT NULL,
+    team_id           INTEGER NOT NULL,
+    opponent_team_id  INTEGER NOT NULL,
+    is_home           INTEGER NOT NULL,
+    fdr               INTEGER NOT NULL,
+    finished          INTEGER NOT NULL DEFAULT 0,
+    kickoff_time      TEXT,
+    PRIMARY KEY (fixture_id, team_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_fixtures_team_gw ON fixtures(team_id, gameweek)`,
+  `CREATE INDEX IF NOT EXISTS idx_fixtures_gw     ON fixtures(gameweek)`,
+  `CREATE TABLE IF NOT EXISTS player_fdr_averages (
+    player_id     INTEGER NOT NULL,
+    bucket        TEXT    NOT NULL CHECK(bucket IN ('LOW','MID','HIGH')),
+    avg_points    REAL    NOT NULL,
+    sample_count  INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    PRIMARY KEY (player_id, bucket)
+  )`,
 ];
 
 export const SQL_SCHEMA = `

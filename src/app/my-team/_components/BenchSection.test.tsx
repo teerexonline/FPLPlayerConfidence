@@ -37,6 +37,9 @@ function makeBenchPlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRo
     chanceOfPlaying: null,
     news: '',
     hotStreak: null,
+    nextFixtures: [],
+    projectedXp: null,
+    isSwappedIn: false,
     ...overrides,
   };
 }

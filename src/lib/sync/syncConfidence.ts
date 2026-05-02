@@ -1,4 +1,5 @@
 import { calculateConfidence } from '@/lib/confidence';
+import type { DbPlayerFdrAverage } from '@/lib/db/types';
 import type { FetchError } from '@/lib/fpl/types';
 import { ok } from '@/lib/utils/result';
 import type { Result } from '@/lib/utils/result';
@@ -10,6 +11,7 @@ import {
   FALLBACK_FDR,
   mapMatchEvents,
 } from './internal/matchEventMapper';
+import { aggregatePlayerFdrAverages, projectFixturesToTeamRows } from './internal/projectFixtures';
 import type { SyncConfidenceDeps, SyncResult } from './types';
 
 const DEFAULT_THROTTLE_MS = 200;
@@ -78,6 +80,12 @@ export async function syncConfidence(
 
   const nextFdrByTeam = buildNextFdrByTeam(fixturesResult.value, currentGw);
 
+  // Step b.5: persist per-team fixture mirror for the transfer planner.
+  // Replace-then-insert semantics: removed/postponed fixtures must not linger.
+  const fixtureRows = projectFixturesToTeamRows(fixturesResult.value);
+  await repos.fixtures.deleteAll();
+  await repos.fixtures.upsertMany(fixtureRows);
+
   // Step c: persist teams + players (upsert semantics — safe to re-run)
   await repos.teams.upsertMany(teams);
   await repos.players.upsertMany(
@@ -108,6 +116,7 @@ export async function syncConfidence(
   let skippedZeroMinutes = 0;
   let snapshotsWritten = 0;
   const errors: { playerId: number; reason: string }[] = [];
+  const allFdrAverageRows: DbPlayerFdrAverage[] = [];
 
   for (const [index, player] of playersToProcess.entries()) {
     // Throttle between requests to be a polite API consumer
@@ -134,8 +143,32 @@ export async function syncConfidence(
     const snapshots = collapseByGameweek(player.id, history);
     await repos.confidenceSnapshots.upsertMany(snapshots);
     snapshotsWritten += snapshots.length;
+
+    // While history is in scope, compute this player's per-FDR-bucket
+    // average points (used by the transfer planner's xP projection).
+    const aggregates = aggregatePlayerFdrAverages(
+      summaryResult.value.history,
+      player.team,
+      fdrLookup,
+    );
+    for (const a of aggregates) {
+      allFdrAverageRows.push({
+        player_id: player.id,
+        bucket: a.bucket,
+        avg_points: a.avg,
+        sample_count: a.count,
+        updated_at: now,
+      });
+    }
+
     playersProcessed++;
   }
+
+  // Step g.5: replace per-player FDR bucket averages in one batch. The table
+  // is fully derived from the fresh history we just walked — wiping first
+  // ensures stale rows for transferred-out players are removed.
+  await repos.playerFdrAverages.deleteAll();
+  await repos.playerFdrAverages.upsertMany(allFdrAverageRows);
 
   // Step h: record sync metadata
   await repos.syncMeta.set('last_sync', String(now), now);

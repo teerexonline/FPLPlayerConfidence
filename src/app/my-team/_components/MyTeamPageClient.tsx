@@ -12,7 +12,9 @@ import { PositionalBreakdown } from './PositionalBreakdown';
 import { StartingXIList } from './StartingXIList';
 import { BenchSection } from './BenchSection';
 import { TeamSyncFooter } from './TeamSyncFooter';
-import type { MyTeamData, MyTeamApiError } from './types';
+import { TransferModal } from './TransferModal';
+import type { MyTeamData, MyTeamApiError, SquadPlayerRow } from './types';
+import type { Swap } from '@/lib/transfer-planner';
 
 const LS_KEY = 'fpl-team-id';
 
@@ -35,12 +37,18 @@ function LoadedView({
   availableGwSet,
   onSelectGw,
   onChangeTeam,
+  onRequestSwap,
+  onClearSwaps,
+  stagedSwapCount,
 }: {
   data: MyTeamData;
   selectedGw: number;
   availableGwSet: ReadonlySet<number>;
   onSelectGw: (gw: number) => void;
   onChangeTeam: () => void;
+  onRequestSwap: (player: SquadPlayerRow) => void;
+  onClearSwaps: () => void;
+  stagedSwapCount: number;
 }): JSX.Element {
   const starters = data.starters;
   const formation = computeFormation(starters);
@@ -100,7 +108,27 @@ function LoadedView({
           firstGameweek={firstGw}
           onSelectGw={onSelectGw}
         />
-        <StartingXIList starters={starters} />
+
+        {data.viewMode === 'projected' && stagedSwapCount > 0 && (
+          <div className="mb-3 flex items-center justify-between rounded-[8px] border border-dashed border-blue-500/40 bg-blue-500/5 px-4 py-2.5">
+            <p className="text-text font-sans text-[13px]">
+              {stagedSwapCount.toString()} staged transfer{stagedSwapCount !== 1 ? 's' : ''}
+            </p>
+            <button
+              type="button"
+              onClick={onClearSwaps}
+              className="text-muted hover:text-text font-sans text-[12px] underline underline-offset-2 transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        <StartingXIList
+          starters={starters}
+          viewMode={data.viewMode}
+          {...(data.viewMode === 'projected' ? { onRequestSwap } : {})}
+        />
 
         <div className="mt-6">
           <BenchSection bench={data.bench} />
@@ -129,6 +157,10 @@ function LoadedView({
  *   fetchState=loaded  → show LoadedView
  *   fetchState=error   → show error state
  */
+function swapsToParam(swaps: readonly Swap[]): string {
+  return swaps.map((s) => `${s.outId.toString()}:${s.inId.toString()}`).join(',');
+}
+
 export function MyTeamPageClient(): JSX.Element {
   // Read storedTeamId from localStorage via useSyncExternalStore — avoids setState in effect.
   // Server snapshot returns null (no localStorage on server).
@@ -139,11 +171,20 @@ export function MyTeamPageClient(): JSX.Element {
   );
 
   const [fetchState, setFetchState] = useState<FetchState>({ kind: 'idle' });
+  /** Staged transfers — append as ?swap= to projected-mode fetches. */
+  const [stagedSwaps, setStagedSwaps] = useState<readonly Swap[]>([]);
+  /** The player whose swap button was clicked; drives modal open/close. */
+  const [swappingOut, setSwappingOut] = useState<SquadPlayerRow | null>(null);
 
-  // Fetches squad data for a given URL and updates state.
-  // `preserveAvailableGws` carries forward the existing available-GW set so
-  // that the scrubber timeline doesn't flicker when the user switches GWs.
-  function doFetch(url: string, existingState?: Extract<FetchState, { kind: 'loaded' }>): void {
+  // Fetches squad data for a given base URL, appending staged swaps if present.
+  // `existingState` carries forward the available-GW set so the scrubber
+  // timeline doesn't flicker when the user switches GWs.
+  function doFetch(
+    baseUrl: string,
+    swaps: readonly Swap[],
+    existingState?: Extract<FetchState, { kind: 'loaded' }>,
+  ): void {
+    const url = swaps.length > 0 ? `${baseUrl}&swap=${swapsToParam(swaps)}` : baseUrl;
     const controller = new AbortController();
 
     void fetch(url, { signal: controller.signal })
@@ -191,13 +232,50 @@ export function MyTeamPageClient(): JSX.Element {
   // Effect only fires when storedTeamId changes; all setState calls are in async callbacks.
   useEffect(() => {
     if (storedTeamId === null) return;
-    doFetch(`/api/my-team?teamId=${storedTeamId.toString()}`);
+    doFetch(`/api/my-team?teamId=${storedTeamId.toString()}`, []);
   }, [storedTeamId]);
 
   function handleSelectGw(gw: number): void {
     if (storedTeamId === null || fetchState.kind !== 'loaded') return;
     const existing = fetchState;
-    doFetch(`/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${gw.toString()}`, existing);
+    doFetch(
+      `/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${gw.toString()}`,
+      stagedSwaps,
+      existing,
+    );
+  }
+
+  function handleRequestSwap(player: SquadPlayerRow): void {
+    setSwappingOut(player);
+  }
+
+  function handleSwapSelect(inId: number): void {
+    if (swappingOut === null || fetchState.kind !== 'loaded' || storedTeamId === null) return;
+    const outId = swappingOut.playerId;
+    // Replace any existing swap for this outId, otherwise append.
+    const newSwaps: readonly Swap[] = [
+      ...stagedSwaps.filter((s) => s.outId !== outId),
+      { outId, inId },
+    ];
+    setStagedSwaps(newSwaps);
+    setSwappingOut(null);
+    const existing = fetchState;
+    doFetch(
+      `/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${existing.selectedGw.toString()}`,
+      newSwaps,
+      existing,
+    );
+  }
+
+  function handleClearSwaps(): void {
+    setStagedSwaps([]);
+    if (fetchState.kind !== 'loaded' || storedTeamId === null) return;
+    const existing = fetchState;
+    doFetch(
+      `/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${existing.selectedGw.toString()}`,
+      [],
+      existing,
+    );
   }
 
   function handleFormSuccess(teamId: number, data: MyTeamData): void {
@@ -221,14 +299,36 @@ export function MyTeamPageClient(): JSX.Element {
   }
 
   if (fetchState.kind === 'loaded') {
+    const squadPlayerIds = new Set([
+      ...fetchState.data.starters.map((p) => p.playerId),
+      ...fetchState.data.bench.map((p) => p.playerId),
+    ]);
+    const stagedInIds = new Set(stagedSwaps.map((s) => s.inId));
+
     return (
-      <LoadedView
-        data={fetchState.data}
-        selectedGw={fetchState.selectedGw}
-        availableGwSet={fetchState.availableGwSet}
-        onSelectGw={handleSelectGw}
-        onChangeTeam={handleChangeTeam}
-      />
+      <>
+        <LoadedView
+          data={fetchState.data}
+          selectedGw={fetchState.selectedGw}
+          availableGwSet={fetchState.availableGwSet}
+          onSelectGw={handleSelectGw}
+          onChangeTeam={handleChangeTeam}
+          onRequestSwap={handleRequestSwap}
+          onClearSwaps={handleClearSwaps}
+          stagedSwapCount={stagedSwaps.length}
+        />
+        {swappingOut !== null && (
+          <TransferModal
+            playerOut={swappingOut}
+            squadPlayerIds={squadPlayerIds}
+            stagedInIds={stagedInIds}
+            onSelect={handleSwapSelect}
+            onClose={() => {
+              setSwappingOut(null);
+            }}
+          />
+        )}
+      </>
     );
   }
 

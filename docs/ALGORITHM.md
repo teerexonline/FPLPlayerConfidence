@@ -1537,3 +1537,248 @@ src/lib/team-confidence/
 ├── teamCalculator.test.ts
 └── README.md
 ```
+
+---
+
+## 12. Expected Points (forward-looking projection)
+
+Confidence and Team Confidence are _retrospective_ — they describe a player's recent form. The transfer planner needs a _prospective_ number: how many FPL points should we expect a player to score in a future gameweek? This section specifies that projection.
+
+xP is rendered only on the My Team page and only for gameweeks at or beyond the live current gameweek. Past gameweeks continue to render Confidence %.
+
+### 12.1 Formula
+
+For a single (player, fixture) pair:
+
+```
+xP = 0.1 + (confidencePct / 100) × bucketAvg(player, bucket(fdr))
+```
+
+Where:
+
+| Term            | Definition                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `confidencePct` | The player's current Confidence % (0–100), produced by the existing `confidenceToPercent` mapping in §11.                             |
+| `fdr`           | The Fixture Difficulty Rating (1–5) of the upcoming fixture from the player's team's perspective (`team_h_difficulty` for home etc.). |
+| `bucket(fdr)`   | `LOW` for FDR ∈ {1, 2}; `MID` for FDR = 3; `HIGH` for FDR ∈ {4, 5}.                                                                   |
+| `bucketAvg`     | The player's mean FPL `total_points` across their current-season appearances whose fixture FDR falls in the same bucket.              |
+| `0.1`           | A flat baseline ensuring every appearance starts from a non-zero floor.                                                               |
+
+The constant `0.1` and the `confidencePct/100` decimal scaling are intentional. With a neutral confidence of 50% and a typical bucket average of 4 FPL points, xP comes out as `0.1 + 0.5 × 4 = 2.1` — a sensible "average return" projection.
+
+### 12.2 Bucket fallback
+
+If `bucketAvg` is undefined (the player has zero appearances in that bucket this season — typical of brand-new signings), use the **fallback constant `2.3`**. This is a league-wide rough average for an outfield FPL appearance.
+
+The fallback is applied per-bucket, not per-player. A player with appearances in `LOW` and `MID` but none in `HIGH` uses their real averages for the first two buckets and `2.3` for `HIGH`.
+
+### 12.3 Multi-fixture gameweeks (DGW)
+
+If a team has _N_ fixtures in a single gameweek, sum xP across all of them:
+
+```
+xP(player, gw) = Σ_{f ∈ fixtures(team, gw)} xP(player, f)
+```
+
+A team with no fixtures in a given gameweek (BGW) yields `xP = 0` for every player on it.
+
+### 12.4 Team xP
+
+Team xP for a gameweek is the **sum** of xP over the eleven starters:
+
+```
+teamXp(gw) = Σ_{p ∈ starters} xP(p, gw)
+```
+
+The bench is ignored, exactly as Team Confidence ignores the bench.
+
+### 12.5 Type contract
+
+```ts
+// src/lib/expected-points/types.ts
+
+export type FdrBucket = 'LOW' | 'MID' | 'HIGH';
+
+/** Maps an FDR (1–5) to its bucket. */
+export function bucketForFdr(fdr: number): FdrBucket;
+
+/** Per-player average points per appearance, broken down by FDR bucket. */
+export interface PlayerBucketAverages {
+  readonly low: number | null; // null = no appearances in this bucket
+  readonly mid: number | null;
+  readonly high: number | null;
+}
+
+/** A scheduled (or completed) fixture for a single team. */
+export interface TeamFixture {
+  readonly gameweek: number;
+  readonly opponentTeamId: number;
+  readonly isHome: boolean;
+  readonly fdr: number;
+}
+
+export interface PlayerXpInput {
+  readonly playerId: number;
+  readonly confidencePct: number; // 0..100
+  readonly averages: PlayerBucketAverages;
+  readonly fixtures: readonly TeamFixture[]; // for the gameweek being projected
+}
+
+export interface PlayerXpResult {
+  readonly playerId: number;
+  readonly xp: number; // 2 dp
+  readonly fixtureCount: number;
+}
+```
+
+### 12.6 Worked examples (canonical test cases — XP-EX series)
+
+#### XP-EX-01 — Neutral confidence, easy fixture
+
+```
+confidencePct = 50, fdr = 2, lowAvg = 4.0
+bucket = LOW
+xP = 0.1 + (50/100) × 4.0 = 0.1 + 2.0 = 2.10
+expected: xp = 2.10
+```
+
+#### XP-EX-02 — Max confidence, easy fixture
+
+```
+confidencePct = 100, fdr = 1, lowAvg = 4.0
+xP = 0.1 + 1.0 × 4.0 = 4.10
+expected: xp = 4.10
+```
+
+#### XP-EX-03 — Min confidence, hard fixture
+
+```
+confidencePct = 0, fdr = 5, highAvg = 3.0
+xP = 0.1 + 0.0 × 3.0 = 0.10
+expected: xp = 0.10
+```
+
+#### XP-EX-04 — Mid confidence, mid fixture
+
+```
+confidencePct = 75, fdr = 3, midAvg = 5.0
+xP = 0.1 + 0.75 × 5.0 = 3.85
+expected: xp = 3.85
+```
+
+#### XP-EX-05 — Bucket fallback
+
+```
+confidencePct = 50, fdr = 1, lowAvg = null   (new signing, no LOW appearances)
+xP = 0.1 + 0.5 × 2.3 = 1.25
+expected: xp = 1.25
+```
+
+#### XP-EX-06 — Bucket boundary FDR=2 → LOW
+
+```
+confidencePct = 50, fdr = 2, lowAvg = 4.0, midAvg = 5.0
+Should use lowAvg, not midAvg.
+xP = 0.1 + 0.5 × 4.0 = 2.10
+expected: xp = 2.10
+```
+
+#### XP-EX-07 — Bucket boundary FDR=4 → HIGH
+
+```
+confidencePct = 50, fdr = 4, highAvg = 3.0, midAvg = 5.0
+Should use highAvg, not midAvg.
+xP = 0.1 + 0.5 × 3.0 = 1.60
+expected: xp = 1.60
+```
+
+#### XP-EX-08 — Double gameweek
+
+```
+confidencePct = 60, two LOW fixtures (fdr=2 and fdr=1), lowAvg = 4.0
+xP per fixture = 0.1 + 0.6 × 4.0 = 2.50
+total xP = 2 × 2.50 = 5.00
+expected: xp = 5.00, fixtureCount = 2
+```
+
+#### XP-EX-09 — Mixed-difficulty double gameweek
+
+```
+confidencePct = 80, fixtures: [fdr=1, fdr=5]
+lowAvg = 4.0, highAvg = 2.0
+xP1 = 0.1 + 0.8 × 4.0 = 3.30   (LOW)
+xP2 = 0.1 + 0.8 × 2.0 = 1.70   (HIGH)
+total xP = 5.00
+expected: xp = 5.00, fixtureCount = 2
+```
+
+#### XP-EX-10 — Blank gameweek
+
+```
+confidencePct = anything, fixtures = []
+xP = 0.00
+expected: xp = 0.00, fixtureCount = 0
+```
+
+#### XP-EX-11 — Two-decimal rounding
+
+```
+confidencePct = 33, fdr = 3, midAvg = 4.7
+xP = 0.1 + 0.33 × 4.7 = 0.1 + 1.551 = 1.651
+expected: xp = 1.65   (round half-to-even / Math.round on ×100)
+```
+
+#### XP-EX-12 — Team xP across 11 starters
+
+```
+All 11 starters: confidencePct = 50, lowAvg = 4.0, single LOW fixture each.
+Per-player xP = 2.10. Team xP = 11 × 2.10 = 23.10.
+expected: teamXp = 23.10
+```
+
+#### XP-EX-13 — Bench ignored from team xP
+
+```
+11 starters identical to XP-EX-12 (team xP = 23.10).
+4 bench players each with xP = 5.00 (would add 20).
+Team xP must remain 23.10.
+expected: teamXp = 23.10
+```
+
+#### XP-EX-14 — Negative confidence not possible (already mapped to %)
+
+```
+confidenceRaw = -4 → confidencePct = 0 → xP per fixture = 0.10
+Confirms negative confidence cannot drive xP below the 0.10 baseline per fixture.
+```
+
+### 12.7 Property tests (XP-PROP series)
+
+#### XP-PROP-01 — xP per fixture is always ≥ 0.10
+
+For any input with `fixtureCount ≥ 1`, `xP / fixtureCount ≥ 0.10`.
+
+#### XP-PROP-02 — Team xP equals sum of starter xPs
+
+For any squad, `teamXp = Σ starterXp` exactly (modulo final-rounding tolerance < 0.01).
+
+#### XP-PROP-03 — Bench changes never affect team xP
+
+For any squad, replacing the four bench players' inputs with arbitrary values yields the identical `teamXp`.
+
+### 12.8 Module location
+
+```
+src/lib/expected-points/
+├── index.ts              # public barrel
+├── types.ts
+├── calculator.ts
+├── calculator.test.ts
+└── README.md
+```
+
+### 12.9 Out of scope
+
+- xP is **not** persisted. It is computed on read from the persisted Confidence + bucket averages + fixtures.
+- Captain multipliers, transfer hits, and chip effects are not modelled.
+- xP for past (completed) gameweeks is not displayed; those views continue to render Confidence %.

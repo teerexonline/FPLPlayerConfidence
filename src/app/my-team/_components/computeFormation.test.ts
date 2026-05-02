@@ -17,6 +17,9 @@ function makeStarters(positions: ('GK' | 'DEF' | 'MID' | 'FWD')[]): SquadPlayerR
     chanceOfPlaying: null,
     news: '',
     hotStreak: null,
+    nextFixtures: [],
+    projectedXp: null,
+    isSwappedIn: false,
   }));
 }
 

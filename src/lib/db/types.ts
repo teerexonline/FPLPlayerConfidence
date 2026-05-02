@@ -73,3 +73,33 @@ export interface DbManagerSquadPick {
   readonly is_vice_captain: boolean;
   readonly fetched_at: number;
 }
+
+/**
+ * One row of the per-team fixture mirror. The FPL `fixtures` endpoint returns
+ * one row per match with `team_h`/`team_a`; we explode into two rows (one per
+ * team) so the FDR field stores *that team's* difficulty.
+ */
+export interface DbFixture {
+  readonly fixture_id: number;
+  readonly gameweek: number;
+  readonly team_id: number;
+  readonly opponent_team_id: number;
+  readonly is_home: boolean;
+  readonly fdr: number; // 1–5
+  readonly finished: boolean;
+  readonly kickoff_time: string | null;
+}
+
+export type FdrBucketName = 'LOW' | 'MID' | 'HIGH';
+
+/**
+ * Per-player average FPL points per appearance, broken down by FDR bucket.
+ * Populated by the sync pipeline from element-summary `history`.
+ */
+export interface DbPlayerFdrAverage {
+  readonly player_id: number;
+  readonly bucket: FdrBucketName;
+  readonly avg_points: number;
+  readonly sample_count: number;
+  readonly updated_at: number;
+}

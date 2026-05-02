@@ -29,6 +29,9 @@ function makePlayer(
     chanceOfPlaying: null,
     news: '',
     hotStreak: null,
+    nextFixtures: [],
+    projectedXp: null,
+    isSwappedIn: false,
   };
 }
 
@@ -63,6 +66,10 @@ const MOCK_DATA: MyTeamData = {
   preDeadlineFallback: false,
   currentGameweek: 34,
   availableGameweeks: [34],
+  lastSeasonGameweek: 38,
+  viewMode: 'historical',
+  projectedTeamXp: null,
+  appliedSwaps: [],
 };
 
 const MOCK_BODY = JSON.stringify(MOCK_DATA);

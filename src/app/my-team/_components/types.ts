@@ -1,6 +1,16 @@
 import type { HotStreakInfo } from '@/lib/confidence/hotStreak';
 import type { Position } from '@/lib/db/types';
 
+/** A single upcoming fixture rendered in the next-3 strip below a jersey. */
+export interface NextFixture {
+  readonly gameweek: number;
+  readonly opponentTeamShortName: string;
+  readonly isHome: boolean;
+  /** 1–5 from the player's team perspective (lower = easier). */
+  readonly fdr: number;
+  readonly kickoffTime: string | null;
+}
+
 /** One player row rendered in StartingXIList or BenchSection. */
 export interface SquadPlayerRow {
   readonly playerId: number;
@@ -17,7 +27,19 @@ export interface SquadPlayerRow {
   readonly chanceOfPlaying: number | null;
   readonly news: string;
   readonly hotStreak: HotStreakInfo | null;
+  /** Up to 3 upcoming fixtures from currentGameweek+1 onward. May be empty late season. */
+  readonly nextFixtures: readonly NextFixture[];
+  /** Set only when viewMode === 'projected'. xP for the viewed gameweek's fixture(s). */
+  readonly projectedXp: number | null;
+  /** True only when viewMode === 'projected' AND this row was inserted via ?swap=. */
+  readonly isSwappedIn: boolean;
 }
+
+/**
+ * `historical` = viewing currentGW or earlier. Hero shows Team Confidence %.
+ * `projected`  = viewing currentGW+1 or later. Hero shows projected team xP.
+ */
+export type MyTeamViewMode = 'historical' | 'projected';
 
 /** Full view model returned by GET /api/my-team and consumed by MyTeamPageClient. */
 export interface MyTeamData {
@@ -26,7 +48,7 @@ export interface MyTeamData {
   readonly overallRank: number | null;
   readonly overallPoints: number;
   readonly gameweek: number;
-  /** Team Confidence %, 0–100 rounded to 2 dp. */
+  /** Team Confidence %, 0–100 rounded to 2 dp. Always present (0 in projected mode is fine). */
   readonly teamConfidencePercent: number;
   /** Positional line percents, each in [0, 100] rounded to 2 dp. */
   readonly defencePercent: number;
@@ -50,6 +72,14 @@ export interface MyTeamData {
   readonly currentGameweek: number;
   /** Gameweeks with cached squad picks for this team, sorted ascending. */
   readonly availableGameweeks: readonly number[];
+  /** The latest gameweek with at least one scheduled fixture (forward-scrubber cap). */
+  readonly lastSeasonGameweek: number;
+  /** `historical` for past+current GWs, `projected` for future GWs. */
+  readonly viewMode: MyTeamViewMode;
+  /** Sum of starters' xP for the viewed GW. Null in historical mode. */
+  readonly projectedTeamXp: number | null;
+  /** Echo of the parsed ?swap= input so the client can render staged swaps. */
+  readonly appliedSwaps: readonly { readonly outId: number; readonly inId: number }[];
 }
 
 /** Shape of error responses from GET /api/my-team. */
