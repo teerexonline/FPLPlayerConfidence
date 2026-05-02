@@ -80,8 +80,9 @@ streak flame is suppressed.
 
 The player detail page (`PlayerHeader`) is immune because it hardcodes `isStale={false}`.
 
-**Root fix:** Remove `if (isStale) return null` from `LivePlayerStreakIndicator`. The
-`hotStreak === null` guard in `HotStreakIndicator` is sufficient — a player with no recent
-snapshots has `buildMatchBriefs([]) = []` → `computeHotStreak([]) = null` → flame hidden.
-
-Status: **diagnosed, fix not yet implemented** (scope confirmed, pending approval).
+**Fix implemented (commit 914f826):** Replaced `recentAppearancesForAllPlayers` (COUNT\*)
+with `lastAppearanceGwForAllPlayers` (MAX(gameweek)). Staleness is now computed via
+`computeIsStale(currentGw, lastGw)` which returns true only when
+`(currentGw − lastGw) > STALE_GW_THRESHOLD (2)`. A DGW player whose only recent row is
+at GW33 has gap=2 at GW35 — exactly the threshold, NOT > 2 → fresh → flame shows
+correctly. See `src/lib/confidence/staleness.ts` for the logic and regression tests.
