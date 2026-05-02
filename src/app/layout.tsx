@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Fraunces, Geist } from 'next/font/google';
 import { Providers } from '@/components/layout/Providers';
 import { Topbar } from '@/components/layout/Topbar';
@@ -17,9 +17,24 @@ const fraunces = Fraunces({
   axes: ['opsz'],
 });
 
+export const viewport: Viewport = {
+  themeColor: '#1E40AF',
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: 'FPL Confidence',
   description: "Don't pick by points. Pick by confidence.",
+  applicationName: 'FPL Confidence',
+  appleWebApp: {
+    capable: true,
+    title: 'FPL Conf',
+    statusBarStyle: 'black-translucent',
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

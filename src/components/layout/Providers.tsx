@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { AuthProvider } from '@/components/auth/AuthContext';
 import { AuthPanel } from '@/components/auth/AuthPanel';
 import { WatchlistProvider } from '@/components/watchlist/WatchlistContext';
+import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration';
 
 export interface ProvidersProps {
   readonly children: ReactNode;
@@ -31,6 +32,7 @@ export function Providers({ children }: ProvidersProps) {
           <AuthPanel />
         </WatchlistProvider>
       </AuthProvider>
+      <ServiceWorkerRegistration />
     </ThemeProvider>
   );
 }
