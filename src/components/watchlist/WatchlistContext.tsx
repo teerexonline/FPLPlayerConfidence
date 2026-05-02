@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { revalidateWatchlistCache } from '@/app/actions/watchlist';
 
 interface WatchlistContextValue {
   /** Set of player IDs currently on the watchlist. Empty while loading. */
@@ -61,8 +62,10 @@ export function WatchlistProvider({ children }: { children: ReactNode }): JSX.El
 
       request
         .then(() => {
-          // Invalidate the Next.js Router Cache so the dashboard's server-rendered
-          // WatchlistCard reflects the new state on the next navigation to '/'.
+          // revalidateWatchlistCache() invalidates the dashboard RSC cache at '/' so
+          // the WatchlistCard is fresh regardless of which route triggered the toggle.
+          // router.refresh() re-renders server components on the current route.
+          void revalidateWatchlistCache();
           router.refresh();
         })
         .catch(() => {
