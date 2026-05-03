@@ -9,19 +9,33 @@ import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
 import { NextFixturesStrip } from './NextFixturesStrip';
-import type { SquadPlayerRow } from './types';
+import { XpDisplay } from './XpDisplay';
+import type { MyTeamViewMode, SquadPlayerRow } from './types';
 
 interface BenchSectionProps {
   readonly bench: readonly SquadPlayerRow[];
+  /** `historical` shows confidence; `projected` shows xP (bench still excluded from team xP). */
+  readonly viewMode?: MyTeamViewMode;
 }
 
-function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
+function BenchRow({
+  player,
+  viewMode,
+}: {
+  player: SquadPlayerRow;
+  viewMode: MyTeamViewMode;
+}): JSX.Element {
+  const isProjected = viewMode === 'projected';
   return (
     <li role="listitem">
       <Link
         href={`/players/${player.playerId.toString()}`}
         className="group border-border hover:bg-bg -mx-4 flex h-[60px] items-center gap-3 border-b px-4 transition-colors last:border-0"
-        aria-label={`Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence > 0 ? '+' : ''}${player.confidence.toString()}`}
+        aria-label={
+          isProjected
+            ? `Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, projected ${Math.round(player.projectedXp ?? 0).toString()} xP`
+            : `Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence > 0 ? '+' : ''}${player.confidence.toString()}`
+        }
       >
         {/* Squad position (12–15) */}
         <span className="text-muted w-5 shrink-0 text-right font-mono text-[11px] tabular-nums opacity-60">
@@ -79,9 +93,13 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
           news={player.news}
         />
 
-        {/* Confidence — full opacity so the value is readable */}
+        {/* Confidence (historical) or xP (projected) — full opacity so the value is readable */}
         <div className="flex shrink-0 items-center gap-1">
-          <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
+          {isProjected ? (
+            <XpDisplay value={player.projectedXp ?? 0} />
+          ) : (
+            <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
+          )}
         </div>
 
         {/* Watchlist star */}
@@ -93,9 +111,9 @@ function BenchRow({ player }: { player: SquadPlayerRow }): JSX.Element {
 
 /**
  * Renders the 4 bench players (squad positions 12–15) at reduced opacity
- * to signal their exclusion from Team Confidence.
+ * to signal their exclusion from Team Confidence (and projected team xP).
  */
-export function BenchSection({ bench }: BenchSectionProps): JSX.Element {
+export function BenchSection({ bench, viewMode = 'historical' }: BenchSectionProps): JSX.Element {
   return (
     <section aria-label="Bench" className="mb-8">
       <h2 className="text-muted mb-1 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
@@ -104,12 +122,14 @@ export function BenchSection({ bench }: BenchSectionProps): JSX.Element {
       <div className="border-border bg-surface rounded-[8px] border px-4">
         <ul role="list">
           {bench.map((player) => (
-            <BenchRow key={player.playerId} player={player} />
+            <BenchRow key={player.playerId} player={player} viewMode={viewMode} />
           ))}
         </ul>
       </div>
       <p className="text-muted mt-2 font-sans text-[11px]">
-        Bench is excluded from Team Confidence — only starters count.
+        {viewMode === 'projected'
+          ? 'Bench xP shown for context — team xP only counts starters.'
+          : 'Bench is excluded from Team Confidence — only starters count.'}
       </p>
     </section>
   );

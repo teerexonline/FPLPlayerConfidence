@@ -136,7 +136,7 @@ function LoadedView({
         />
 
         <div className="mt-6">
-          <BenchSection bench={data.bench} />
+          <BenchSection bench={data.bench} viewMode={data.viewMode} />
         </div>
 
         <TeamSyncFooter

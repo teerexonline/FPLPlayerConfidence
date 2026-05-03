@@ -366,9 +366,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const boostMap = await repos.confidenceSnapshots.recentBoostForAllPlayers(minBoostGw, targetGw);
 
   // ── Fixtures: next-3 strip below jersey + xP projection input ────────────
-  // The strip shows fixtures *after* the viewed GW so the user can see what's
-  // coming for each player. Fetch a 10-GW window once; trim to 3 per team.
-  const nextStripFromGw = targetGw + 1;
+  // In historical mode the strip shows fixtures *after* the viewed GW (the
+  // viewed GW is already played). In projected mode it includes the viewed
+  // GW so DGWs and the gameweek being planned are visible — otherwise the
+  // strip omits the very fixtures the xP number is derived from.
+  const nextStripFromGw = viewMode === 'projected' ? targetGw : targetGw + 1;
   const nextStripWindowRows = await safeQuery<readonly DbFixture[]>(
     repos.fixtures.listInGameweekRange(nextStripFromGw, nextStripFromGw + 9),
     [],

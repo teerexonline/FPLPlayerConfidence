@@ -55,7 +55,7 @@ function LinePercent({ label, value }: { label: string; value: number }): JSX.El
 }
 
 function formatXp(v: number): string {
-  return v.toFixed(1);
+  return Math.round(v).toString();
 }
 
 /**

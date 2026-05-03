@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import Link from 'next/link';
 import { ArrowLeftRight } from 'lucide-react';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
+import { XpDisplay } from './XpDisplay';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StarButton } from '@/components/watchlist/StarButton';
@@ -52,19 +53,6 @@ function CaptainBadge({
   return <span className="w-5 shrink-0" aria-hidden="true" />;
 }
 
-function XpDisplay({ value }: { value: number }): JSX.Element {
-  return (
-    <span
-      className="text-text font-sans text-[13px] font-semibold tabular-nums"
-      aria-label={`Projected ${value.toFixed(1)} expected points`}
-      title="Expected points"
-    >
-      {value.toFixed(1)}
-      <span className="text-muted ml-0.5 text-[10px] font-medium">xP</span>
-    </span>
-  );
-}
-
 function StarterRow({
   player,
   viewMode,
@@ -76,7 +64,7 @@ function StarterRow({
 }): JSX.Element {
   const isProjected = viewMode === 'projected';
   const ariaSummary = isProjected
-    ? `${player.webName}, ${player.teamShortName}, ${player.position}, projected ${(player.projectedXp ?? 0).toFixed(1)} xP`
+    ? `${player.webName}, ${player.teamShortName}, ${player.position}, projected ${Math.round(player.projectedXp ?? 0).toString()} xP`
     : `${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence > 0 ? '+' : ''}${player.confidence.toString()}`;
 
   return (
