@@ -3,7 +3,7 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { ConnectTeamForm } from './ConnectTeamForm';
-import { computeFormation } from './computeFormation';
+import { computeFormation, isValidFormation } from './computeFormation';
 import { GwControlBar } from './GwControlBar';
 import { GwTimeline } from './GwTimeline';
 import { ManagerHeader } from './ManagerHeader';
@@ -339,14 +339,35 @@ export function MyTeamPageClient(): JSX.Element {
     ]);
     const stagedInIds = new Set(stagedSwaps.map((s) => s.inId));
 
-    // Substitution candidates: same-position members of the OPPOSITE squad
-    // partition. A bench player can sub in for a same-position starter; a
-    // starter can be subbed off in favour of a same-position bench player.
+    // Substitution candidates: members of the OPPOSITE squad partition whose
+    // swap with `swappingOut` would yield a legal FPL formation. Cross-position
+    // outfield subs are allowed (DEF↔MID, MID↔FWD, etc.) as long as the
+    // resulting starting XI satisfies 1 GK / 3-5 DEF / 2-5 MID / 1-3 FWD.
+    // GK can only swap with GK (the GK count must stay at exactly 1).
     let subCandidates: readonly SquadPlayerRow[] = [];
     if (swappingOut !== null) {
       const isFromBench = swappingOut.squadPosition > 11;
       const oppositePartition = isFromBench ? fetchState.data.starters : fetchState.data.bench;
-      subCandidates = oppositePartition.filter((p) => p.position === swappingOut.position);
+      const starters = fetchState.data.starters;
+      subCandidates = oppositePartition.filter((candidate) => {
+        // GK rule: swaps involving a GK must be GK-for-GK.
+        if (
+          (swappingOut.position === 'GK' || candidate.position === 'GK') &&
+          swappingOut.position !== candidate.position
+        ) {
+          return false;
+        }
+        // Project the post-swap starting XI's positions and validate.
+        // - If swappingOut was a starter, candidate (bench) replaces them in the XI.
+        // - If swappingOut was on the bench, swappingOut joins the XI in
+        //   place of candidate (starter).
+        const projected = starters.map((s) => {
+          if (!isFromBench && s.playerId === swappingOut.playerId) return candidate.position;
+          if (isFromBench && s.playerId === candidate.playerId) return swappingOut.position;
+          return s.position;
+        });
+        return isValidFormation(projected);
+      });
     }
 
     return (

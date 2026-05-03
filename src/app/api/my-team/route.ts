@@ -14,6 +14,7 @@ import {
   type TeamFixture,
 } from '@/lib/expected-points';
 import { parseSwaps, type Swap } from '@/lib/transfer-planner';
+import { isValidFormation } from '@/app/my-team/_components/computeFormation';
 import type {
   MyTeamApiError,
   MyTeamData,
@@ -300,16 +301,40 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const outPlayer = playerMap.get(outId);
       const inPlayer = playerMap.get(inId);
       if (!outPlayer || !inPlayer) continue;
-      if (outPlayer.position !== inPlayer.position) continue;
       const out = swapped[outIdx];
       if (out === undefined) continue;
 
       if (currentIds.has(inId)) {
         // ── Substitution: swap squad_position values between the two picks.
+        // FPL allows cross-position outfield substitutions as long as the
+        // resulting starting XI is still a legal formation
+        // (1 GK / 3-5 DEF / 2-5 MID / 1-3 FWD). GK can only swap with GK.
         const inIdx = swapped.findIndex((p) => p.element === inId);
         if (inIdx === -1) continue;
         const inn = swapped[inIdx];
         if (inn === undefined) continue;
+        // GK rule: a GK swap is only valid against another GK.
+        if (
+          (outPlayer.position === 'GK' || inPlayer.position === 'GK') &&
+          outPlayer.position !== inPlayer.position
+        ) {
+          continue;
+        }
+        // Project the resulting starter positions and validate the formation.
+        // After the swap, `out` takes `inn`'s squad_position and vice versa.
+        const projectedStarterPositions: Position[] = swapped.flatMap((p) => {
+          const newSquadPos =
+            p.element === out.element
+              ? inn.position
+              : p.element === inn.element
+                ? out.position
+                : p.position;
+          if (newSquadPos > 11) return [];
+          const info = playerMap.get(p.element);
+          return info ? [info.position] : [];
+        });
+        if (!isValidFormation(projectedStarterPositions)) continue;
+
         swapped[outIdx] = { ...out, position: inn.position };
         swapped[inIdx] = { ...inn, position: out.position };
         // For substitutions, the "in" player is the one moving into the
@@ -318,6 +343,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         else if (out.position > 11 && inn.position <= 11) swappedInIds.add(outId);
       } else {
         // ── Transfer: replace outId with inId; preserve squad_position.
+        // FPL squad totals (2 GK / 5 DEF / 5 MID / 3 FWD) are immutable, so a
+        // single transfer must always replace like-for-like position.
+        if (outPlayer.position !== inPlayer.position) continue;
         swapped[outIdx] = {
           element: inId,
           position: out.position,
