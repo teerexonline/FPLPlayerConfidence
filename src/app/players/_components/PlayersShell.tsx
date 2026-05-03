@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import type { JSX } from 'react';
-import { PlayersFilters } from './PlayersFilters';
-import { PlayersTable } from './PlayersTable';
+import { PlayersInteractive } from './PlayersInteractive';
 import { SkeletonRow } from './SkeletonRow';
 import type { PlayerWithConfidence } from './types';
 
@@ -12,15 +11,18 @@ interface PlayersShellProps {
 export function PlayersShell({ players }: PlayersShellProps): JSX.Element {
   return (
     <div>
-      {/* PlayersFilters uses useSearchParams — must be in a Suspense boundary. */}
-      <Suspense fallback={<FilterBarPlaceholder />}>
-        <PlayersFilters />
-      </Suspense>
-
-      {/* PlayersTable also uses useSearchParams — separate boundary so
-          the filter bar renders immediately while the table streams. */}
-      <Suspense fallback={<TableSkeleton />}>
-        <PlayersTable players={players} />
+      {/* PlayersInteractive owns the search-box local state and renders both
+          PlayersFilters and PlayersTable. Both children use useSearchParams
+          for the non-search filters, so they need a Suspense ancestor. */}
+      <Suspense
+        fallback={
+          <>
+            <FilterBarPlaceholder />
+            <TableSkeleton />
+          </>
+        }
+      >
+        <PlayersInteractive players={players} />
       </Suspense>
     </div>
   );

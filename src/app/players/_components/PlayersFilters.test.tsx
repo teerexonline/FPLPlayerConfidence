@@ -1,4 +1,4 @@
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { useSearchParams } from 'next/navigation';
 import { describe, expect, it, vi } from 'vitest';
 import { parseFilters, filtersToParams, PlayersFilters } from './PlayersFilters';
@@ -164,68 +164,62 @@ vi.mock('next/navigation', () => ({
 
 describe('PlayersFilters component', () => {
   it('renders position filter buttons', () => {
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     for (const pos of ['GK', 'DEF', 'MID', 'FWD']) {
       expect(screen.getByRole('button', { name: pos })).toBeInTheDocument();
     }
   });
 
   it('renders sort buttons', () => {
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     const sortGroup = screen.getByRole('group', { name: /sort players/i });
     expect(within(sortGroup).getByRole('button', { name: /confidence/i })).toBeInTheDocument();
     expect(within(sortGroup).getByRole('button', { name: /price/i })).toBeInTheDocument();
   });
 
   it('renders search input', () => {
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     expect(screen.getByRole('searchbox', { name: /search players/i })).toBeInTheDocument();
   });
 
   it('does not render Clear button when no filters active', () => {
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     expect(screen.queryByRole('button', { name: /clear/i })).not.toBeInTheDocument();
   });
 
   it('position button calls router.push with pos param', () => {
     mockPush.mockClear();
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'MID' }));
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('pos=MID'), expect.anything());
   });
 
   it('sort button calls router.push', () => {
     mockPush.mockClear();
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /price/i }));
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('sort=price'), expect.anything());
   });
 
-  it('search input change calls router.push with search param (debounced)', async () => {
+  it('search input change calls onSearchChange (no URL push)', () => {
     mockPush.mockClear();
-    render(<PlayersFilters />);
+    const onSearchChange = vi.fn();
+    render(<PlayersFilters searchValue="" onSearchChange={onSearchChange} />);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'salah' } });
-    // Search push is debounced 200 ms to keep typing snappy on the 500-row
-    // table — wait briefly for the URL update to fire.
-    await waitFor(
-      () => {
-        expect(mockPush).toHaveBeenCalledWith(
-          expect.stringContaining('search=salah'),
-          expect.anything(),
-        );
-      },
-      { timeout: 500 },
-    );
+    // Search is now local state owned by PlayersInteractive — the input fires
+    // the parent callback synchronously and does not touch the URL.
+    expect(onSearchChange).toHaveBeenCalledWith('salah');
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('renders delta sort button', () => {
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     const sortGroup = screen.getByRole('group', { name: /sort players/i });
     expect(within(sortGroup).getByRole('button', { name: /delta/i })).toBeInTheDocument();
   });
 
   it('does not render eligible movers chip when onlyEligible is false', () => {
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     expect(screen.queryByText(/eligible movers only/i)).not.toBeInTheDocument();
   });
 
@@ -233,7 +227,7 @@ describe('PlayersFilters component', () => {
     vi.mocked(useSearchParams).mockReturnValueOnce(
       new URLSearchParams('onlyEligible=true') as unknown as ReturnType<typeof useSearchParams>,
     );
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     expect(screen.getByText(/eligible movers only/i)).toBeInTheDocument();
   });
 
@@ -242,7 +236,7 @@ describe('PlayersFilters component', () => {
     vi.mocked(useSearchParams).mockReturnValueOnce(
       new URLSearchParams('onlyEligible=true') as unknown as ReturnType<typeof useSearchParams>,
     );
-    render(<PlayersFilters />);
+    render(<PlayersFilters searchValue="" onSearchChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /remove eligible movers filter/i }));
     expect(mockPush).toHaveBeenCalledWith('/players', expect.anything());
   });

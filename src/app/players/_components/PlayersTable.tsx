@@ -23,11 +23,23 @@ const TABLE_MAX_HEIGHT = 'calc(100vh - 220px)'; // page-header (~120px) + filter
 
 interface PlayersTableProps {
   readonly players: readonly PlayerWithConfidence[];
+  /**
+   * Search term provided by the parent (PlayersInteractive). Overrides any
+   * search value parsed from the URL — search is now purely local state to
+   * avoid URL roundtrip lag and the URL ↔ input race.
+   */
+  readonly searchOverride?: string;
 }
 
-export function PlayersTable({ players }: PlayersTableProps): JSX.Element {
+export function PlayersTable({ players, searchOverride }: PlayersTableProps): JSX.Element {
   const searchParams = useSearchParams();
-  const filters = parseFilters(searchParams);
+  const urlFilters = parseFilters(searchParams);
+  // Compose effective filters: persistent settings from URL + ephemeral search
+  // from the parent's local state.
+  const filters: typeof urlFilters = {
+    ...urlFilters,
+    search: searchOverride ?? urlFilters.search,
+  };
   // Memoize the filter+sort pass — it walks all 500+ players and runs on every
   // render of this component (URL state changes, parent re-renders, etc.).
   // Positions is an array so we serialise it to a stable key for the dep list.

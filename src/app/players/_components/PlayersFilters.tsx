@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import type { FilterState, Position, SortKey, SortOrder } from './types';
@@ -69,58 +69,18 @@ export function filtersToParams(f: FilterState): URLSearchParams {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PlayersFilters(): JSX.Element {
+interface PlayersFiltersProps {
+  /** Current local search input value (owned by parent). */
+  readonly searchValue: string;
+  /** Called on every keystroke. Parent owns the state. */
+  readonly onSearchChange: (value: string) => void;
+}
+
+export function PlayersFilters({ searchValue, onSearchChange }: PlayersFiltersProps): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const filters = parseFilters(searchParams);
   const searchRef = useRef<HTMLInputElement>(null);
-
-  // Search input runs on local state for instant feedback. Pushing every
-  // keystroke into URL state caused per-character router.push() roundtrips
-  // (Next.js navigation + RSC fetch + full re-render of the 500-row table)
-  // which made typing visibly laggy. We debounce the URL update by 200 ms.
-  //
-  // Two refs disambiguate "URL change is our own debounced push echoing back"
-  // (ignore — preserves any new keystrokes typed during the in-flight nav)
-  // vs "URL change is external" (Clear button, browser back — sync local).
-  //
-  // - lastSeenUrlRef: the URL value we last observed.
-  // - lastPushedValueRef: the value our debounced timer most recently pushed.
-  //   When a URL change matches this, it's our push; we clear the ref. If the
-  //   URL changes to anything else, it's external — sync to local input.
-  //
-  // Refs (not state) are essential because the URL change can land in the
-  // same render cycle as a new keystroke; refs update synchronously so the
-  // disambiguation is always against the freshest value.
-  const [searchInput, setSearchInput] = useState(filters.search);
-  const lastSeenUrlRef = useRef(filters.search);
-  const lastPushedValueRef = useRef<string | null>(null);
-
-  if (filters.search !== lastSeenUrlRef.current) {
-    lastSeenUrlRef.current = filters.search;
-    if (filters.search === lastPushedValueRef.current) {
-      // Our own push echoing back — ignore, do not overwrite local input.
-      lastPushedValueRef.current = null;
-    } else {
-      // External URL change (Clear button, back nav, etc.) — sync local input.
-      setSearchInput(filters.search);
-      lastPushedValueRef.current = null;
-    }
-  }
-
-  // Push debounced search into the URL.
-  useEffect(() => {
-    if (searchInput === filters.search) return;
-    if (searchInput === lastPushedValueRef.current) return;
-    const timer = setTimeout(() => {
-      lastPushedValueRef.current = searchInput;
-      push({ ...filters, search: searchInput });
-    }, 200);
-    return () => {
-      clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- push reads `filters` from the outer closure; we intentionally only react to local input typing.
-  }, [searchInput]);
 
   // Focus the search input on `/` or Cmd/Ctrl+K, unless an input is already focused.
   useEffect(() => {
@@ -169,12 +129,13 @@ export function PlayersFilters(): JSX.Element {
   }
 
   function clearAll(): void {
+    onSearchChange('');
     router.push('/players', { scroll: false });
   }
 
   const hasActiveFilters =
     filters.positions.length > 0 ||
-    filters.search !== '' ||
+    searchValue !== '' ||
     filters.sortKey !== DEFAULT_FILTER_STATE.sortKey ||
     filters.sortOrder !== DEFAULT_FILTER_STATE.sortOrder ||
     filters.minConf !== DEFAULT_FILTER_STATE.minConf ||
@@ -310,9 +271,9 @@ export function PlayersFilters(): JSX.Element {
         <input
           ref={searchRef}
           type="search"
-          value={searchInput}
+          value={searchValue}
           onChange={(e) => {
-            setSearchInput(e.target.value);
+            onSearchChange(e.target.value);
           }}
           placeholder="Search players…"
           aria-label="Search players"
