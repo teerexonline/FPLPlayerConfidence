@@ -79,26 +79,41 @@ export function PlayersFilters(): JSX.Element {
   // keystroke into URL state caused per-character router.push() roundtrips
   // (Next.js navigation + RSC fetch + full re-render of the 500-row table)
   // which made typing visibly laggy. We debounce the URL update by 200 ms.
+  //
+  // Two refs disambiguate "URL change is our own debounced push echoing back"
+  // (ignore — preserves any new keystrokes typed during the in-flight nav)
+  // vs "URL change is external" (Clear button, browser back — sync local).
+  //
+  // - lastSeenUrlRef: the URL value we last observed.
+  // - lastPushedValueRef: the value our debounced timer most recently pushed.
+  //   When a URL change matches this, it's our push; we clear the ref. If the
+  //   URL changes to anything else, it's external — sync to local input.
+  //
+  // Refs (not state) are essential because the URL change can land in the
+  // same render cycle as a new keystroke; refs update synchronously so the
+  // disambiguation is always against the freshest value.
   const [searchInput, setSearchInput] = useState(filters.search);
-  // Tracks the last value we either pushed OR observed coming back from the
-  // URL. A ref (not state) is essential here: it updates synchronously, so
-  // when our own debounced push echoes back through useSearchParams, the
-  // render-time sync below sees ref === filters.search and correctly skips
-  // overwriting whatever the user has typed since. Without this, fast typing
-  // would lose characters when the URL update landed mid-keystroke.
-  const lastSyncedSearchRef = useRef(filters.search);
-  if (filters.search !== lastSyncedSearchRef.current) {
-    // The URL changed via something OTHER than our debounced push — e.g.
-    // the Clear button, browser back, or an external link. Sync local input.
-    lastSyncedSearchRef.current = filters.search;
-    setSearchInput(filters.search);
+  const lastSeenUrlRef = useRef(filters.search);
+  const lastPushedValueRef = useRef<string | null>(null);
+
+  if (filters.search !== lastSeenUrlRef.current) {
+    lastSeenUrlRef.current = filters.search;
+    if (filters.search === lastPushedValueRef.current) {
+      // Our own push echoing back — ignore, do not overwrite local input.
+      lastPushedValueRef.current = null;
+    } else {
+      // External URL change (Clear button, back nav, etc.) — sync local input.
+      setSearchInput(filters.search);
+      lastPushedValueRef.current = null;
+    }
   }
+
   // Push debounced search into the URL.
   useEffect(() => {
-    if (searchInput === lastSyncedSearchRef.current) return;
+    if (searchInput === filters.search) return;
+    if (searchInput === lastPushedValueRef.current) return;
     const timer = setTimeout(() => {
-      // Mark BEFORE pushing so the resulting URL change is recognised as ours.
-      lastSyncedSearchRef.current = searchInput;
+      lastPushedValueRef.current = searchInput;
       push({ ...filters, search: searchInput });
     }, 200);
     return () => {
