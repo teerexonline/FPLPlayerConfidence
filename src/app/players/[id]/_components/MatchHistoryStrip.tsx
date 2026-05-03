@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { JSX } from 'react';
 import { computeHotStreakAtMatch } from '@/lib/confidence/hotStreak';
 import type { MatchBrief } from '@/lib/confidence/hotStreak';
@@ -92,6 +93,18 @@ export function MatchHistoryStrip({
   selectedGw,
   onSelectGw,
 }: MatchHistoryStripProps): JSX.Element {
+  // Scroll the strip to the rightmost (most recent) card on mount so the user
+  // lands on current-GW history instead of having to scroll past the whole
+  // season from GW1. The cards are rendered oldest → newest; pinning the
+  // initial scroll to scrollWidth puts the latest match flush with the right
+  // edge fade.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = el.scrollWidth;
+  }, [snapshots.length]);
+
   if (snapshots.length === 0) {
     return (
       <section aria-label="Match history" className="mt-12">
@@ -118,6 +131,7 @@ export function MatchHistoryStrip({
         }}
       >
         <div
+          ref={scrollRef}
           role="list"
           aria-label="Match cards"
           className="flex gap-2.5 overflow-x-auto pr-8 pb-4 pl-8"
