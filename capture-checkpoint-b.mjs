@@ -4,7 +4,6 @@
  * hydrates straight into the loaded state.
  */
 import puppeteer from 'puppeteer';
-import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 
 const BASE = 'http://localhost:3000';

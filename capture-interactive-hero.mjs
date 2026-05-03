@@ -4,7 +4,6 @@
  * Player 47 has GWs 1–34.
  */
 import puppeteer from 'puppeteer';
-import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 
 const URL = 'http://localhost:3000/players/47';

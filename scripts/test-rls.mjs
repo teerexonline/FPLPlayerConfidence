@@ -111,17 +111,15 @@ else if (!Array.isArray(snapAnon)) fail('confidence_snapshots: SELECT', 'expecte
 else pass('confidence_snapshots: SELECT returns rows');
 
 // Public tables — INSERT should fail (no INSERT policy)
-const { error: playerInsertErr } = await anonClient
-  .from('players')
-  .insert({
-    id: 999999,
-    web_name: 'RLS-test',
-    team_id: 1,
-    position: 'GK',
-    now_cost: 40,
-    total_points: 0,
-    updated_at: 0,
-  });
+const { error: playerInsertErr } = await anonClient.from('players').insert({
+  id: 999999,
+  web_name: 'RLS-test',
+  team_id: 1,
+  position: 'GK',
+  now_cost: 40,
+  total_points: 0,
+  updated_at: 0,
+});
 if (playerInsertErr) pass('players: INSERT denied for anon');
 else fail('players: INSERT should be denied for anon');
 
@@ -158,14 +156,12 @@ if (watchAnonErr) {
 }
 
 // watchlist — INSERT should fail for anon (no JWT → auth.uid() is null)
-const { error: watchInsertAnonErr } = await anonClient
-  .from('watchlist')
-  .insert({
-    user_id: 1,
-    player_id: 1,
-    added_at: 0,
-    auth_user_id: '00000000-0000-0000-0000-000000000000',
-  });
+const { error: watchInsertAnonErr } = await anonClient.from('watchlist').insert({
+  user_id: 1,
+  player_id: 1,
+  added_at: 0,
+  auth_user_id: '00000000-0000-0000-0000-000000000000',
+});
 if (watchInsertAnonErr) pass('watchlist: INSERT denied for anon');
 else fail('watchlist: INSERT should be denied for anon');
 
@@ -233,11 +229,9 @@ const clientA = createClient(SUPABASE_URL, ANON_KEY, {
 
 section('Authenticated user A');
 
-// Public tables still readable
-const { data: playerAuthA, error: playerAuthAErr } = await clientA
-  .from('players')
-  .select('id')
-  .limit(1);
+// Public tables still readable. We only need to verify the read succeeds —
+// the row payload itself isn't asserted here.
+const { error: playerAuthAErr } = await clientA.from('players').select('id').limit(1);
 if (playerAuthAErr) fail('players: authenticated SELECT', playerAuthAErr.message);
 else pass('players: authenticated SELECT works');
 

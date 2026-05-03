@@ -4,7 +4,6 @@
  * Output: screenshot-<label>.png in the project root.
  */
 import puppeteer from 'puppeteer';
-import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 
 const args = process.argv.slice(2);
