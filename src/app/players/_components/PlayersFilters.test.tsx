@@ -1,4 +1,4 @@
-import { render, screen, within, fireEvent } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import { useSearchParams } from 'next/navigation';
 import { describe, expect, it, vi } from 'vitest';
 import { parseFilters, filtersToParams, PlayersFilters } from './PlayersFilters';
@@ -201,13 +201,20 @@ describe('PlayersFilters component', () => {
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('sort=price'), expect.anything());
   });
 
-  it('search input change calls router.push with search param', () => {
+  it('search input change calls router.push with search param (debounced)', async () => {
     mockPush.mockClear();
     render(<PlayersFilters />);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'salah' } });
-    expect(mockPush).toHaveBeenCalledWith(
-      expect.stringContaining('search=salah'),
-      expect.anything(),
+    // Search push is debounced 200 ms to keep typing snappy on the 500-row
+    // table — wait briefly for the URL update to fire.
+    await waitFor(
+      () => {
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining('search=salah'),
+          expect.anything(),
+        );
+      },
+      { timeout: 500 },
     );
   });
 

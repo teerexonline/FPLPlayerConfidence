@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import type { FilterState, Position, SortKey, SortOrder } from './types';
@@ -75,6 +75,32 @@ export function PlayersFilters(): JSX.Element {
   const filters = parseFilters(searchParams);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Search input runs on local state for instant feedback. Pushing every
+  // keystroke into URL state caused per-character router.push() roundtrips
+  // (Next.js navigation + RSC fetch + full re-render of the 500-row table)
+  // which made typing visibly laggy. We debounce the URL update by 200 ms.
+  const [searchInput, setSearchInput] = useState(filters.search);
+  // Re-sync local input when URL changes externally (Clear button, back nav).
+  // Following https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  // — derive state during render rather than via useEffect, which avoids the
+  // double-render and the "setState in effect" lint rule.
+  const [lastSyncedFilterSearch, setLastSyncedFilterSearch] = useState(filters.search);
+  if (filters.search !== lastSyncedFilterSearch) {
+    setLastSyncedFilterSearch(filters.search);
+    setSearchInput(filters.search);
+  }
+  // Push debounced search into the URL.
+  useEffect(() => {
+    if (searchInput === filters.search) return;
+    const timer = setTimeout(() => {
+      push({ ...filters, search: searchInput });
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- push reads `filters` from the outer closure; we intentionally only react to local input typing.
+  }, [searchInput]);
+
   // Focus the search input on `/` or Cmd/Ctrl+K, unless an input is already focused.
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent): void {
@@ -105,10 +131,6 @@ export function PlayersFilters(): JSX.Element {
       ? filters.positions.filter((p) => p !== pos)
       : [...filters.positions, pos];
     push({ ...filters, positions: next });
-  }
-
-  function setSearch(search: string): void {
-    push({ ...filters, search });
   }
 
   function setSort(key: SortKey): void {
@@ -267,9 +289,9 @@ export function PlayersFilters(): JSX.Element {
         <input
           ref={searchRef}
           type="search"
-          value={filters.search}
+          value={searchInput}
           onChange={(e) => {
-            setSearch(e.target.value);
+            setSearchInput(e.target.value);
           }}
           placeholder="Search players…"
           aria-label="Search players"
