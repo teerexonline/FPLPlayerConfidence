@@ -23,11 +23,12 @@ import type {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/** Per-fixture flat baseline. Even at 0% confidence, every appearance starts here. */
-const PER_FIXTURE_BASELINE = 0.1;
-
-/** Used when a player has no current-season appearances in a given bucket. */
-export const BUCKET_FALLBACK_AVG = 2.3;
+/**
+ * Confidence-independent multiplier added inside the formula. At 0% confidence
+ * a player still projects 10% of their typical bucket output — never zero
+ * (unless their bucket average is zero, which is itself a meaningful signal).
+ */
+const CONFIDENCE_BASELINE = 0.1;
 
 /** Squad positions ≤ this are starters; > this are bench. */
 const STARTER_THRESHOLD = 11;
@@ -40,18 +41,36 @@ export function bucketForFdr(fdr: number): FdrBucket {
   return 'HIGH';
 }
 
+/**
+ * Resolves the average FPL return for the requested bucket. If the player has
+ * no current-season appearances in that bucket but does have data in others,
+ * fall back to the mean across all known buckets — better than guessing.
+ * If they have no data at all, return 0 (the projection becomes 0 → "no data").
+ */
 function averageForBucket(averages: PlayerBucketAverages, bucket: FdrBucket): number {
-  const value = bucket === 'LOW' ? averages.low : bucket === 'MID' ? averages.mid : averages.high;
-  return value ?? BUCKET_FALLBACK_AVG;
+  const direct = bucket === 'LOW' ? averages.low : bucket === 'MID' ? averages.mid : averages.high;
+  if (direct !== null) return direct;
+  const known: number[] = [];
+  if (averages.low !== null) known.push(averages.low);
+  if (averages.mid !== null) known.push(averages.mid);
+  if (averages.high !== null) known.push(averages.high);
+  if (known.length === 0) return 0;
+  return known.reduce((a, b) => a + b, 0) / known.length;
 }
 
 function roundTo2dp(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Per-fixture xP using the spec'd formula:
+ *   (0.1 + Confidence) × Avg points vs FDR bucket
+ * where Confidence is the player's confidence percentage expressed as a
+ * fraction (0.00 – 1.00).
+ */
 function fixtureXp(confidencePct: number, averages: PlayerBucketAverages, f: TeamFixture): number {
   const bucketAvg = averageForBucket(averages, bucketForFdr(f.fdr));
-  return PER_FIXTURE_BASELINE + (confidencePct / 100) * bucketAvg;
+  return (CONFIDENCE_BASELINE + confidencePct / 100) * bucketAvg;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

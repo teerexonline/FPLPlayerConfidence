@@ -10,6 +10,7 @@ import {
   FALLBACK_FDR,
   mapMatchEvents,
 } from './internal/matchEventMapper';
+import { aggregatePlayerFdrAverages, projectFixturesToTeamRows } from './internal/projectFixtures';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -135,7 +136,10 @@ export interface CronSyncDeps {
     ) => Promise<Result<import('@/lib/fpl/types').ElementSummary, FetchError>>;
     readonly fetchFixtures: () => Promise<Result<Fixtures, FetchError>>;
   };
-  readonly repos: Pick<Repositories, 'teams' | 'players' | 'confidenceSnapshots' | 'syncMeta'>;
+  readonly repos: Pick<
+    Repositories,
+    'teams' | 'players' | 'confidenceSnapshots' | 'syncMeta' | 'fixtures' | 'playerFdrAverages'
+  >;
   readonly clock: () => number;
   /** Milliseconds to wait between element-summary fetches. Defaults to CRON_THROTTLE_MS. */
   readonly throttleMs?: number;
@@ -246,6 +250,17 @@ export async function executeSyncStep(
       })),
     );
 
+    // Per-team fixture mirror powering the next-3 strip and projected-mode xP.
+    // Replace-then-insert: removed/postponed fixtures must not linger.
+    const fixtureRows = projectFixturesToTeamRows(fixtures);
+    await repos.fixtures.deleteAll();
+    await repos.fixtures.upsertMany(fixtureRows);
+
+    // Wipe per-player FDR averages — the player_history phase will repopulate
+    // them per-player as it walks history. Doing this here means a player who
+    // becomes inactive between syncs has their stale averages cleared.
+    await repos.playerFdrAverages.deleteAll();
+
     const activePlayers = elements.filter((e) => e.total_points > 0);
     const playerIds = activePlayers.map((e) => e.id);
     const totalBatches = computeTotalBatches(playerIds.length);
@@ -304,6 +319,25 @@ export async function executeSyncStep(
       const { history } = calculateConfidence({ position, matches: matchEvents });
       const snapshots = collapseByGameweek(playerId, history);
       await repos.confidenceSnapshots.upsertMany(snapshots);
+
+      // Per-FDR-bucket FPL points averages — drives projected-mode xP. Computed
+      // per-player from the same history we just walked above.
+      const fdrAggregates = aggregatePlayerFdrAverages(
+        summaryResult.value.history,
+        element.team,
+        fdrLookup,
+      );
+      if (fdrAggregates.length > 0) {
+        await repos.playerFdrAverages.upsertMany(
+          fdrAggregates.map((a) => ({
+            player_id: playerId,
+            bucket: a.bucket,
+            avg_points: a.avg,
+            sample_count: a.count,
+            updated_at: now,
+          })),
+        );
+      }
     }
 
     const last = isLastBatch(batchIndex, totalBatches);

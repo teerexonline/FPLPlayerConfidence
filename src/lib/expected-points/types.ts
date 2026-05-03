@@ -8,7 +8,8 @@ export type FdrBucket = 'LOW' | 'MID' | 'HIGH';
 /**
  * Per-player average FPL `total_points` per appearance, broken down by FDR bucket.
  * `null` for a bucket means the player has no current-season appearances in it —
- * the calculator falls back to `BUCKET_FALLBACK_AVG`.
+ * the calculator falls back to the mean of whichever buckets do have data, or
+ * 0 if the player has no current-season appearances at all.
  */
 export interface PlayerBucketAverages {
   readonly low: number | null;

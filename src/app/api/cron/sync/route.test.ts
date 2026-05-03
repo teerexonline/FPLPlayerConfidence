@@ -117,6 +117,14 @@ function makeRepos(syncStateRaw?: string, claimResult = true) {
     teams: { upsertMany: vi.fn().mockResolvedValue(undefined) },
     players: { upsertMany: vi.fn().mockResolvedValue(undefined) },
     confidenceSnapshots: { upsertMany: vi.fn().mockResolvedValue(undefined) },
+    fixtures: {
+      deleteAll: vi.fn().mockResolvedValue(undefined),
+      upsertMany: vi.fn().mockResolvedValue(undefined),
+    },
+    playerFdrAverages: {
+      deleteAll: vi.fn().mockResolvedValue(undefined),
+      upsertMany: vi.fn().mockResolvedValue(undefined),
+    },
     syncMeta: {
       get: vi.fn().mockResolvedValue(syncStateRaw),
       set: vi.fn().mockResolvedValue(undefined),

@@ -1,9 +1,4 @@
-export {
-  BUCKET_FALLBACK_AVG,
-  bucketForFdr,
-  calculatePlayerXp,
-  calculateTeamXp,
-} from './calculator';
+export { bucketForFdr, calculatePlayerXp, calculateTeamXp } from './calculator';
 export type {
   FdrBucket,
   PlayerBucketAverages,

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import {
-  BUCKET_FALLBACK_AVG,
-  bucketForFdr,
-  calculatePlayerXp,
-  calculateTeamXp,
-} from './calculator';
+import { bucketForFdr, calculatePlayerXp, calculateTeamXp } from './calculator';
 import type { PlayerXpInput, StarterXpInput, TeamFixture } from './types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -53,9 +48,13 @@ describe('bucketForFdr', () => {
 });
 
 // ── calculatePlayerXp — worked examples ──────────────────────────────────────
+//
+// Spec: per-fixture xP = (0.1 + Confidence) × Avg points vs FDR bucket
+// where Confidence is the percentage expressed as a fraction (0–1).
 
 describe('calculatePlayerXp — worked examples', () => {
   it('XP-EX-01: neutral confidence + easy fixture', () => {
+    // (0.1 + 0.5) × 4.0 = 2.4
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 50,
@@ -63,11 +62,12 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 2 })],
       }),
     );
-    expect(result.xp).toBe(2.1);
+    expect(result.xp).toBe(2.4);
     expect(result.fixtureCount).toBe(1);
   });
 
   it('XP-EX-02: max confidence + easy fixture', () => {
+    // (0.1 + 1.0) × 4.0 = 4.4
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 100,
@@ -75,10 +75,11 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 1 })],
       }),
     );
-    expect(result.xp).toBe(4.1);
+    expect(result.xp).toBe(4.4);
   });
 
-  it('XP-EX-03: zero confidence + hard fixture floors at baseline', () => {
+  it('XP-EX-03: zero confidence still scales with bucket avg', () => {
+    // (0.1 + 0) × 3.0 = 0.3
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 0,
@@ -86,10 +87,11 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 5 })],
       }),
     );
-    expect(result.xp).toBe(0.1);
+    expect(result.xp).toBe(0.3);
   });
 
   it('XP-EX-04: 75% confidence + mid fixture', () => {
+    // (0.1 + 0.75) × 5.0 = 4.25
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 75,
@@ -97,10 +99,10 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 3 })],
       }),
     );
-    expect(result.xp).toBe(3.85);
+    expect(result.xp).toBe(4.25);
   });
 
-  it('XP-EX-05: bucket fallback for new signing with no LOW history', () => {
+  it('XP-EX-05: no data at all → xP = 0', () => {
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 50,
@@ -108,11 +110,24 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 1 })],
       }),
     );
-    // 0.1 + 0.5 × 2.3 = 1.25
-    expect(result.xp).toBe(1.25);
+    expect(result.xp).toBe(0);
+  });
+
+  it('XP-EX-05b: missing bucket falls back to mean of known buckets', () => {
+    // No HIGH data; known buckets average to (4.0 + 6.0)/2 = 5.0.
+    // (0.1 + 0.5) × 5.0 = 3.0
+    const result = calculatePlayerXp(
+      playerInput({
+        confidencePct: 50,
+        averages: { low: 4.0, mid: 6.0, high: null },
+        fixtures: [fixture({ fdr: 5 })],
+      }),
+    );
+    expect(result.xp).toBe(3.0);
   });
 
   it('XP-EX-06: FDR=2 boundary uses LOW bucket, not MID', () => {
+    // (0.1 + 0.5) × 4.0 = 2.4 (uses low=4.0, not mid=9.9)
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 50,
@@ -120,10 +135,11 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 2 })],
       }),
     );
-    expect(result.xp).toBe(2.1);
+    expect(result.xp).toBe(2.4);
   });
 
   it('XP-EX-07: FDR=4 boundary uses HIGH bucket, not MID', () => {
+    // (0.1 + 0.5) × 3.0 = 1.8 (uses high=3.0, not mid=9.9)
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 50,
@@ -131,10 +147,11 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 4 })],
       }),
     );
-    expect(result.xp).toBe(1.6);
+    expect(result.xp).toBe(1.8);
   });
 
   it('XP-EX-08: double gameweek (two LOW fixtures)', () => {
+    // 2 × (0.1 + 0.6) × 4.0 = 2 × 2.8 = 5.6
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 60,
@@ -142,12 +159,12 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ gameweek: 36, fdr: 2 }), fixture({ gameweek: 36, fdr: 1 })],
       }),
     );
-    // 2 × (0.1 + 0.6 × 4) = 2 × 2.5 = 5.0
-    expect(result.xp).toBe(5.0);
+    expect(result.xp).toBe(5.6);
     expect(result.fixtureCount).toBe(2);
   });
 
   it('XP-EX-09: mixed-difficulty double gameweek', () => {
+    // (0.1 + 0.8) × 4.0 + (0.1 + 0.8) × 2.0 = 3.6 + 1.8 = 5.4
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 80,
@@ -155,8 +172,7 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 1 }), fixture({ fdr: 5 })],
       }),
     );
-    // (0.1 + 0.8 × 4) + (0.1 + 0.8 × 2) = 3.3 + 1.7 = 5.0
-    expect(result.xp).toBe(5.0);
+    expect(result.xp).toBe(5.4);
     expect(result.fixtureCount).toBe(2);
   });
 
@@ -173,6 +189,7 @@ describe('calculatePlayerXp — worked examples', () => {
   });
 
   it('XP-EX-11: rounds to two decimals', () => {
+    // (0.1 + 0.33) × 4.7 = 0.43 × 4.7 = 2.021 → 2.02
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 33,
@@ -180,8 +197,7 @@ describe('calculatePlayerXp — worked examples', () => {
         fixtures: [fixture({ fdr: 3 })],
       }),
     );
-    // 0.1 + 0.33 × 4.7 = 0.1 + 1.551 = 1.651 → 1.65
-    expect(result.xp).toBe(1.65);
+    expect(result.xp).toBe(2.02);
   });
 });
 
@@ -199,8 +215,8 @@ describe('calculateTeamXp — worked examples', () => {
       }),
     );
     const result = calculateTeamXp({ picks });
-    // 11 × 2.10 = 23.10
-    expect(result.teamXp).toBe(23.1);
+    // 11 × 2.4 = 26.4
+    expect(result.teamXp).toBe(26.4);
     expect(result.perPlayer).toHaveLength(11);
   });
 
@@ -224,7 +240,7 @@ describe('calculateTeamXp — worked examples', () => {
       }),
     );
     const result = calculateTeamXp({ picks: [...starters, ...bench] });
-    expect(result.teamXp).toBe(23.1);
+    expect(result.teamXp).toBe(26.4);
     expect(result.perPlayer).toHaveLength(11);
   });
 });
@@ -232,8 +248,8 @@ describe('calculateTeamXp — worked examples', () => {
 // ── Edge cases ────────────────────────────────────────────────────────────────
 
 describe('calculatePlayerXp — edge cases', () => {
-  it('XP-EX-14: confidence already mapped to 0% cannot drive xP below baseline', () => {
-    // raw confidence -4 → confidencePct = 0 (per §11 mapping). Per fixture xP = 0.10.
+  it('XP-EX-14: 0% confidence + non-zero avg ≠ 0 (scales with avg)', () => {
+    // (0.1 + 0) × 5.0 = 0.5 — there is no constant floor; baseline scales with avg.
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 0,
@@ -241,12 +257,11 @@ describe('calculatePlayerXp — edge cases', () => {
         fixtures: [fixture({ fdr: 3 })],
       }),
     );
-    expect(result.xp).toBe(0.1);
+    expect(result.xp).toBe(0.5);
   });
 
-  it('uses fallback when bucket avg is exactly 0', () => {
-    // 0 is a meaningful average (player scored zero points across n LOW fixtures),
-    // not a missing value — fallback must NOT kick in.
+  it('treats bucket avg of exactly 0 as data, not missing', () => {
+    // A player who literally averages 0 in LOW fixtures projects 0 — no fallback.
     const result = calculatePlayerXp(
       playerInput({
         confidencePct: 50,
@@ -254,37 +269,37 @@ describe('calculatePlayerXp — edge cases', () => {
         fixtures: [fixture({ fdr: 1 })],
       }),
     );
-    expect(result.xp).toBe(0.1);
-  });
-
-  it('exposes BUCKET_FALLBACK_AVG as 2.3', () => {
-    expect(BUCKET_FALLBACK_AVG).toBe(2.3);
+    expect(result.xp).toBe(0);
   });
 });
 
 // ── Property tests ────────────────────────────────────────────────────────────
 
 describe('calculatePlayerXp — properties', () => {
-  it('XP-PROP-01: per-fixture xP is always ≥ 0.10', () => {
+  it('XP-PROP-01: per-fixture xP scales linearly with confidence', () => {
+    // For a fixed avg, (0.1 + p) × avg is monotonic in p.
     fc.assert(
       fc.property(
-        fc.integer({ min: 0, max: 100 }),
+        fc.integer({ min: 0, max: 50 }),
+        fc.integer({ min: 51, max: 100 }),
+        fc.double({ min: 0.01, max: 20, noNaN: true }),
         fc.integer({ min: 1, max: 5 }),
-        fc.option(fc.double({ min: 0, max: 20, noNaN: true })),
-        fc.option(fc.double({ min: 0, max: 20, noNaN: true })),
-        fc.option(fc.double({ min: 0, max: 20, noNaN: true })),
-        fc.integer({ min: 1, max: 3 }),
-        (pct, fdr, low, mid, high, count) => {
-          const result = calculatePlayerXp(
+        (lowPct, highPct, avg, fdr) => {
+          const lo = calculatePlayerXp(
             playerInput({
-              confidencePct: pct,
-              averages: { low, mid, high },
-              fixtures: Array.from({ length: count }, () => fixture({ fdr })),
+              confidencePct: lowPct,
+              averages: { low: avg, mid: avg, high: avg },
+              fixtures: [fixture({ fdr })],
             }),
           );
-          // Per-fixture xP must be ≥ 0.10 minus a tiny rounding tolerance.
-          const perFixture = result.xp / count;
-          expect(perFixture).toBeGreaterThanOrEqual(0.1 - 0.005);
+          const hi = calculatePlayerXp(
+            playerInput({
+              confidencePct: highPct,
+              averages: { low: avg, mid: avg, high: avg },
+              fixtures: [fixture({ fdr })],
+            }),
+          );
+          expect(hi.xp).toBeGreaterThanOrEqual(lo.xp);
         },
       ),
     );

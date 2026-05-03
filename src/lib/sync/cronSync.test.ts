@@ -108,6 +108,10 @@ interface TestMocks {
   readonly snapshotsUpsertMany: ReturnType<typeof vi.fn>;
   readonly syncMetaGet: ReturnType<typeof vi.fn>;
   readonly syncMetaSet: ReturnType<typeof vi.fn>;
+  readonly fixturesDeleteAll: ReturnType<typeof vi.fn>;
+  readonly fixturesUpsertMany: ReturnType<typeof vi.fn>;
+  readonly fdrAveragesDeleteAll: ReturnType<typeof vi.fn>;
+  readonly fdrAveragesUpsertMany: ReturnType<typeof vi.fn>;
 }
 
 function makeDeps(overrides?: Partial<CronSyncDeps['api']>): {
@@ -119,6 +123,10 @@ function makeDeps(overrides?: Partial<CronSyncDeps['api']>): {
   const snapshotsUpsertMany = vi.fn().mockResolvedValue(undefined);
   const syncMetaGet = vi.fn();
   const syncMetaSet = vi.fn().mockResolvedValue(undefined);
+  const fixturesDeleteAll = vi.fn().mockResolvedValue(undefined);
+  const fixturesUpsertMany = vi.fn().mockResolvedValue(undefined);
+  const fdrAveragesDeleteAll = vi.fn().mockResolvedValue(undefined);
+  const fdrAveragesUpsertMany = vi.fn().mockResolvedValue(undefined);
 
   const deps: CronSyncDeps = {
     api: {
@@ -132,6 +140,11 @@ function makeDeps(overrides?: Partial<CronSyncDeps['api']>): {
       players: { upsertMany: playersUpsertMany },
       confidenceSnapshots: { upsertMany: snapshotsUpsertMany },
       syncMeta: { get: syncMetaGet, set: syncMetaSet },
+      fixtures: { deleteAll: fixturesDeleteAll, upsertMany: fixturesUpsertMany },
+      playerFdrAverages: {
+        deleteAll: fdrAveragesDeleteAll,
+        upsertMany: fdrAveragesUpsertMany,
+      },
     } as unknown as CronSyncDeps['repos'],
     clock: () => 1_000_000,
     throttleMs: 0,
@@ -139,7 +152,17 @@ function makeDeps(overrides?: Partial<CronSyncDeps['api']>): {
 
   return {
     deps,
-    mocks: { teamsUpsertMany, playersUpsertMany, snapshotsUpsertMany, syncMetaGet, syncMetaSet },
+    mocks: {
+      teamsUpsertMany,
+      playersUpsertMany,
+      snapshotsUpsertMany,
+      syncMetaGet,
+      syncMetaSet,
+      fixturesDeleteAll,
+      fixturesUpsertMany,
+      fdrAveragesDeleteAll,
+      fdrAveragesUpsertMany,
+    },
   };
 }
 

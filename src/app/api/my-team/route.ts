@@ -513,7 +513,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     safeQuery<number | null>(repos.fixtures.latestGameweek(), null, 'fixtures.latestGameweek'),
   ]);
   const syncedAt = syncedAtRaw ? parseInt(syncedAtRaw, 10) : now;
-  const lastSeasonGameweek = lastSeasonGameweekRaw ?? currentGw;
+  // FPL season is always 38 GWs. Default to 38 when the fixtures table hasn't been
+  // populated yet (pre-migration or first-sync), so the forward scrubber is usable
+  // immediately. Once fixtures sync, the real upper bound takes over.
+  const FPL_FINAL_GW = 38;
+  const lastSeasonGameweek = lastSeasonGameweekRaw ?? Math.max(currentGw, FPL_FINAL_GW);
 
   const data: MyTeamData = {
     managerName: `${info.player_first_name} ${info.player_last_name}`,
