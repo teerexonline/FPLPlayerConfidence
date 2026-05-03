@@ -3,7 +3,6 @@
 import type { JSX } from 'react';
 import Link from 'next/link';
 import { ArrowLeftRight } from 'lucide-react';
-import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StarButton } from '@/components/watchlist/StarButton';
@@ -97,12 +96,10 @@ function BenchRow({
             news={player.news}
           />
 
+          {/* xP is the only displayed metric on My Team in any mode —
+              confidence lives on the player detail page only. */}
           <div className="flex shrink-0 items-center gap-1">
-            {isProjected ? (
-              <XpDisplay value={player.projectedXp ?? 0} />
-            ) : (
-              <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
-            )}
+            <XpDisplay value={player.projectedXp ?? 0} />
           </div>
 
           {isProjected && onRequestSwap ? (
