@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import type { JSX } from 'react';
-import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
@@ -10,6 +9,7 @@ import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
 import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
+import { XpPrimary } from './XpPrimary';
 import type { PlayerWithConfidence } from './types';
 
 interface PlayerRowProps {
@@ -37,10 +37,6 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
   } = player;
   const router = useRouter();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
-  const lastDelta = recentDeltas.at(-1) ?? 0;
-  const arrow = lastDelta > 0 ? '↑' : lastDelta < 0 ? '↓' : '→';
-  const arrowColor =
-    lastDelta > 0 ? 'text-positive' : lastDelta < 0 ? 'text-negative' : 'text-neutral';
 
   function handleClick(): void {
     router.push(`/players/${id.toString()}`);
@@ -52,7 +48,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       tabIndex={focused ? 0 : -1}
       onClick={handleClick}
       className={cn(
-        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_72px_56px_96px_36px] items-center border-b px-4 last:border-0 hover:border-l-2',
+        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_88px_96px_36px] items-center border-b px-4 last:border-0 hover:border-l-2',
         focused && 'ring-accent/60 ring-2 outline-none ring-inset',
       )}
       aria-label={`${webName}, ${teamShortName}, ${position}, ${price}, confidence ${confidence.toString()}`}
@@ -103,40 +99,20 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
         {price}
       </span>
 
-      {/* Confidence + status/stale indicators */}
-      <div role="cell" className="flex items-center gap-1.5">
-        <ConfidenceNumber value={confidence} mode="c" size="sm" animated={false} />
+      {/* xP-primary cell: xP big, confidence as a small colored sub-line.
+          Status + stale indicators sit alongside, since they answer "is this
+          player going to play?" — context for any projection. pr-3 gives the
+          right-aligned content breathing room before the trend column. */}
+      <div role="cell" className="flex items-center justify-end gap-1.5 pr-3">
         <StaleDataIndicator isStale={isStale} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
+        <XpPrimary nextGwXp={nextGwXp} confidence={confidence} />
       </div>
 
-      {/* Next-GW xP */}
-      <div
-        role="cell"
-        className="text-text flex items-baseline justify-end gap-0.5 text-[14px] tabular-nums"
-        title="Projected expected points for the next gameweek"
-        aria-label={
-          nextGwXp === null
-            ? 'No projected xP available'
-            : `Projected ${Math.round(nextGwXp).toString()} expected points next gameweek`
-        }
-      >
-        {nextGwXp === null ? (
-          <span className="text-muted/60 font-mono text-[12px]">—</span>
-        ) : (
-          <>
-            <span className="font-semibold">{Math.round(nextGwXp).toString()}</span>
-            <span className="text-muted text-[10px] font-medium">xP</span>
-          </>
-        )}
-      </div>
-
-      {/* Last 5 trend + arrow */}
-      <div role="cell" className="flex items-center gap-2">
+      {/* Last 5 trend strip — drops the redundant arrow (the strip's last bar
+          already shows direction). */}
+      <div role="cell" className="flex items-center">
         <ConfidenceTrend deltas={recentDeltas} variant="strip" />
-        <span className={cn('text-[11px] font-medium', arrowColor)} aria-hidden="true">
-          {arrow}
-        </span>
       </div>
 
       {/* Watchlist star */}

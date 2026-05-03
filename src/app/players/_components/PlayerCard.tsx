@@ -2,7 +2,6 @@
 
 import type { JSX } from 'react';
 import { useRouter } from 'next/navigation';
-import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
@@ -10,6 +9,7 @@ import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
 import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
 import { getPlayerNameColorClass } from '@/lib/confidence/playerStatus';
+import { XpPrimary } from './XpPrimary';
 import type { PlayerWithConfidence } from './types';
 
 interface PlayerCardProps {
@@ -18,9 +18,10 @@ interface PlayerCardProps {
 
 /**
  * Mobile card layout (< sm breakpoint, 375px).
- * Line 1: player name (left) + active metric (right).
- * Line 2: team · position · price (left) + 5-square strip (right).
- * ~80px height; reuses same hover pattern as PlayerRow.
+ * Line 1: jersey + name + flame (left) | xP-primary cell + status + star (right)
+ * Line 2: team · position · price (left) | 5-square trend strip (right)
+ * The xP-primary cell shows the projected xP large with confidence as a small
+ * colored sub-line — same pattern as PlayerRow on desktop.
  */
 export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
   const {
@@ -80,9 +81,9 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
           />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <ConfidenceNumber value={confidence} mode="c" size="md" animated={false} />
           <StaleDataIndicator isStale={isStale} />
           <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
+          <XpPrimary nextGwXp={nextGwXp} confidence={confidence} />
           <span
             onClick={(e) => {
               e.stopPropagation();
@@ -93,24 +94,12 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
         </div>
       </div>
 
-      {/* Line 2: meta | xP + strip */}
+      {/* Line 2: meta · price | recent-form trend strip */}
       <div role="cell" className="mt-1.5 flex items-center justify-between gap-2">
         <span className="text-muted text-[12px]">
           {teamShortName} · {position} · {price}
         </span>
-        <div className="flex shrink-0 items-center gap-2">
-          {nextGwXp !== null && (
-            <span
-              className="text-text inline-flex items-baseline gap-0.5 text-[12px] tabular-nums"
-              title="Projected expected points for the next gameweek"
-              aria-label={`Projected ${Math.round(nextGwXp).toString()} xP next gameweek`}
-            >
-              <span className="font-semibold">{Math.round(nextGwXp).toString()}</span>
-              <span className="text-muted text-[9px] font-medium">xP</span>
-            </span>
-          )}
-          <ConfidenceTrend deltas={recentDeltas} variant="strip" />
-        </div>
+        <ConfidenceTrend deltas={recentDeltas} variant="strip" />
       </div>
     </div>
   );

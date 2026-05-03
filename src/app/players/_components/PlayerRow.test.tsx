@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { describe, expect, it, vi } from 'vitest';
 import { PlayerRow } from './PlayerRow';
-import { SALAH, PICKFORD, HAALAND, makePlayer } from './__fixtures__/players';
+import { SALAH, makePlayer } from './__fixtures__/players';
 
 const mockPush = vi.fn();
 
@@ -45,20 +45,14 @@ describe('PlayerRow', () => {
     expect(screen.getByText('£13.0m')).toBeInTheDocument();
   });
 
-  it('renders upward arrow for positive last delta', () => {
+  // Trend arrow removed in the xP-first redesign — the strip's last bar
+  // already conveys direction, so the row no longer renders ↑/↓/→ glyphs.
+  it('does not render redundant trend arrows alongside the strip', () => {
     const player = makePlayer({ recentDeltas: [1, 2, 3, 4, 5] });
     render(<PlayerRow player={player} />);
-    expect(screen.getByText('↑')).toBeInTheDocument();
-  });
-
-  it('renders downward arrow for negative last delta', () => {
-    render(<PlayerRow player={PICKFORD} />);
-    expect(screen.getByText('↓')).toBeInTheDocument();
-  });
-
-  it('renders neutral arrow for zero last delta', () => {
-    render(<PlayerRow player={HAALAND} />);
-    expect(screen.getByText('→')).toBeInTheDocument();
+    expect(screen.queryByText('↑')).not.toBeInTheDocument();
+    expect(screen.queryByText('↓')).not.toBeInTheDocument();
+    expect(screen.queryByText('→')).not.toBeInTheDocument();
   });
 
   it('has role="row" for accessible table semantics', () => {
