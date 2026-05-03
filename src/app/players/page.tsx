@@ -7,6 +7,7 @@ import { getRepositories } from '@/lib/db/server';
 import { teamId as brandTeamId } from '@/lib/db';
 import { buildMatchBriefs, computeHotStreak } from '@/lib/confidence/hotStreak';
 import { computeIsStale } from '@/lib/confidence/staleness';
+import { computeNextGwXpMap } from '@/lib/expected-points/nextGwXp';
 import { PlayersShell } from './_components/PlayersShell';
 import type { PlayerWithConfidence } from './_components/types';
 
@@ -42,6 +43,21 @@ async function loadPlayers(): Promise<readonly PlayerWithConfidence[]> {
   const recentSnapshotsMap =
     await repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
 
+  // Project xP for the next gameweek so the players table can show "what's
+  // expected next" alongside the historical confidence number.
+  const xpInputs = new Map<number, { teamId: number; confidence: number }>();
+  for (const { playerId: pid, snapshot } of currentSnapshots) {
+    const player = playerMap.get(pid);
+    if (player) {
+      xpInputs.set(Number(pid), { teamId: player.team_id, confidence: snapshot.confidence_after });
+    }
+  }
+  const nextGwXpMap = await computeNextGwXpMap({
+    players: xpInputs,
+    gameweek: currentGameweek + 1,
+    repos,
+  });
+
   return currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const player = playerMap.get(pid);
     const team = player ? teamMap.get(player.team_id) : undefined;
@@ -69,6 +85,7 @@ async function loadPlayers(): Promise<readonly PlayerWithConfidence[]> {
         isStale: computeIsStale(currentGameweek, lastAppearanceGwMap.get(pid) ?? null),
         hotStreak,
         totalPoints: player.total_points,
+        nextGwXp: nextGwXpMap.get(Number(pid)) ?? null,
       },
     ];
   });

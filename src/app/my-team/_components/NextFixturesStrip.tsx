@@ -40,6 +40,8 @@ function fdrLabel(fdr: number): string {
 /**
  * Inline strip of up to 3 colour-coded upcoming fixtures.
  * Each pill shows opponent short-code + (H|A); background is tinted by FDR.
+ * DGWs (multiple fixtures in the same gameweek) stack vertically within
+ * a single column so it's visually clear that two fixtures fall in one GW.
  * Used under each player row on the My Team page.
  */
 export function NextFixturesStrip({
@@ -54,26 +56,42 @@ export function NextFixturesStrip({
     );
   }
 
+  // Group by gameweek so DGW fixtures share a column and stack vertically.
+  const byGameweek = new Map<number, NextFixture[]>();
+  for (const f of fixtures) {
+    const list = byGameweek.get(f.gameweek) ?? [];
+    list.push(f);
+    byGameweek.set(f.gameweek, list);
+  }
+  const columns = Array.from(byGameweek.entries()).sort(([a], [b]) => a - b);
+
   return (
     <ul
       role="list"
       aria-label="Next fixtures"
-      className={cn('flex shrink-0 items-center gap-1', compact ? 'gap-0.5' : 'gap-1')}
+      className={cn('flex shrink-0 items-start', compact ? 'gap-0.5' : 'gap-1')}
     >
-      {fixtures.map((f, i) => (
+      {columns.map(([gw, fs]) => (
         <li
-          key={`${f.gameweek.toString()}-${i.toString()}`}
+          key={gw}
           role="listitem"
-          aria-label={`GW${f.gameweek.toString()}: ${f.isHome ? 'home' : 'away'} vs ${f.opponentTeamShortName}, ${fdrLabel(f.fdr)}`}
-          className={cn(
-            'flex items-center gap-0.5 rounded-[3px] px-1 py-px font-mono font-semibold tabular-nums',
-            compact ? 'text-[9px]' : 'text-[10px]',
-            FDR_BG[f.fdr] ?? FDR_BG[3],
-          )}
-          title={`GW${f.gameweek.toString()} · ${f.isHome ? 'vs' : '@'} ${f.opponentTeamShortName} · FDR ${f.fdr.toString()}`}
+          className={cn('flex flex-col', compact ? 'gap-0.5' : 'gap-0.5')}
         >
-          <span>{f.opponentTeamShortName}</span>
-          <span className="opacity-60">{f.isHome ? '(H)' : '(A)'}</span>
+          {fs.map((f, i) => (
+            <span
+              key={`${gw.toString()}-${i.toString()}`}
+              aria-label={`GW${gw.toString()}: ${f.isHome ? 'home' : 'away'} vs ${f.opponentTeamShortName}, ${fdrLabel(f.fdr)}`}
+              title={`GW${gw.toString()} · ${f.isHome ? 'vs' : '@'} ${f.opponentTeamShortName} · FDR ${f.fdr.toString()}`}
+              className={cn(
+                'flex items-center gap-0.5 rounded-[3px] px-1 py-px font-mono font-semibold tabular-nums',
+                compact ? 'text-[9px]' : 'text-[10px]',
+                FDR_BG[f.fdr] ?? FDR_BG[3],
+              )}
+            >
+              <span>{f.opponentTeamShortName}</span>
+              <span className="opacity-60">{f.isHome ? '(H)' : '(A)'}</span>
+            </span>
+          ))}
         </li>
       ))}
     </ul>

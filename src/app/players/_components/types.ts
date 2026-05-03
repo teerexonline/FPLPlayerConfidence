@@ -30,6 +30,8 @@ export interface PlayerWithConfidence {
   readonly hotStreak: HotStreakInfo | null;
   /** Season total FPL points — used as a tiebreaker when primary sort values are equal. */
   readonly totalPoints: number;
+  /** Projected xP for the next gameweek. Null when no fixture or no data. */
+  readonly nextGwXp: number | null;
 }
 
 export type SortKey = 'confidence' | 'price' | 'name' | 'team' | 'delta';

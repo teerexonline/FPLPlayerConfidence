@@ -19,6 +19,8 @@ export interface DashboardPlayer {
   readonly hotStreak: HotStreakInfo | null;
   /** Season total FPL points — used as a tiebreaker when primary sort values are equal. */
   readonly totalPoints: number;
+  /** Projected xP for the next gameweek. Null when no fixture or no data. */
+  readonly nextGwXp: number | null;
 }
 
 /** Pre-computed top-10 slices by position, for the leaderboard tabs. */

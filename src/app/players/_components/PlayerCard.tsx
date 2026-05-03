@@ -37,6 +37,7 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     news,
     isStale,
     hotStreak,
+    nextGwXp,
   } = player;
   const router = useRouter();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
@@ -92,12 +93,24 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
         </div>
       </div>
 
-      {/* Line 2: meta | strip */}
-      <div role="cell" className="mt-1.5 flex items-center justify-between">
+      {/* Line 2: meta | xP + strip */}
+      <div role="cell" className="mt-1.5 flex items-center justify-between gap-2">
         <span className="text-muted text-[12px]">
           {teamShortName} · {position} · {price}
         </span>
-        <ConfidenceTrend deltas={recentDeltas} variant="strip" />
+        <div className="flex shrink-0 items-center gap-2">
+          {nextGwXp !== null && (
+            <span
+              className="text-text inline-flex items-baseline gap-0.5 text-[12px] tabular-nums"
+              title="Projected expected points for the next gameweek"
+              aria-label={`Projected ${Math.round(nextGwXp).toString()} xP next gameweek`}
+            >
+              <span className="font-semibold">{Math.round(nextGwXp).toString()}</span>
+              <span className="text-muted text-[9px] font-medium">xP</span>
+            </span>
+          )}
+          <ConfidenceTrend deltas={recentDeltas} variant="strip" />
+        </div>
       </div>
     </div>
   );

@@ -71,106 +71,110 @@ function StarterRow({
     <li role="listitem">
       <div
         className={cn(
-          'group border-border -mx-4 flex h-[60px] items-center gap-3 border-b px-4 transition-colors last:border-0',
+          'group border-border -mx-4 border-b px-4 py-2 transition-colors last:border-0',
           'hover:bg-bg',
           player.isSwappedIn && 'bg-accent/5',
         )}
       >
-        {/* Squad position number */}
-        <span className="text-muted w-5 shrink-0 text-right font-mono text-[11px] tabular-nums">
-          {player.squadPosition.toString()}
-        </span>
+        {/* Top row: # | jersey | name+team | right-side controls */}
+        <div className="flex items-center gap-3">
+          <span className="text-muted w-5 shrink-0 text-right font-mono text-[11px] tabular-nums">
+            {player.squadPosition.toString()}
+          </span>
 
-        {/* Jersey + next fixtures */}
-        <Link
-          href={`/players/${player.playerId.toString()}`}
-          aria-label={ariaSummary}
-          className="flex shrink-0 flex-col items-center gap-0.5"
-        >
-          {player.teamCode > 0 && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/jerseys/${player.teamCode.toString()}`}
-              alt=""
-              aria-hidden="true"
-              width={28}
-              height={36}
-              className="h-7 w-7 object-contain"
-            />
-          )}
-          <NextFixturesStrip fixtures={player.nextFixtures} compact />
-        </Link>
+          <Link
+            href={`/players/${player.playerId.toString()}`}
+            aria-label={ariaSummary}
+            className="shrink-0"
+          >
+            {player.teamCode > 0 && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/jerseys/${player.teamCode.toString()}`}
+                alt=""
+                aria-hidden="true"
+                width={28}
+                height={36}
+                className="h-7 w-7 object-contain"
+              />
+            )}
+          </Link>
 
-        {/* Name + team */}
-        <Link
-          href={`/players/${player.playerId.toString()}`}
-          aria-label={ariaSummary}
-          className="min-w-0 flex-1"
-        >
-          <div className="flex items-center gap-1">
-            <p
-              className={cn(
-                'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
-                getPlayerNameColorClass(player.status, false),
-              )}
-            >
-              {player.webName}
-            </p>
-            <LivePlayerStreakIndicator
-              hotStreak={player.hotStreak}
-              size="sm"
-              status={player.status}
-              isStale={false}
-            />
-            {player.isSwappedIn && (
-              <span
-                className="bg-accent/20 text-accent inline-flex h-4 items-center rounded-sm px-1 font-mono text-[9px] font-semibold tracking-wider uppercase"
-                aria-label="Swapped in"
-                title="Swapped in via the planner"
+          <Link
+            href={`/players/${player.playerId.toString()}`}
+            aria-label={ariaSummary}
+            className="min-w-0 flex-1"
+          >
+            <div className="flex items-center gap-1">
+              <p
+                className={cn(
+                  'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
+                  getPlayerNameColorClass(player.status, false),
+                )}
               >
-                IN
-              </span>
+                {player.webName}
+              </p>
+              <LivePlayerStreakIndicator
+                hotStreak={player.hotStreak}
+                size="sm"
+                status={player.status}
+                isStale={false}
+              />
+              {player.isSwappedIn && (
+                <span
+                  className="bg-accent/20 text-accent inline-flex h-4 items-center rounded-sm px-1 font-mono text-[9px] font-semibold tracking-wider uppercase"
+                  aria-label="Swapped in"
+                  title="Swapped in via the planner"
+                >
+                  IN
+                </span>
+              )}
+            </div>
+            <p className="text-muted font-sans text-[11px] leading-tight">
+              {player.teamShortName} · {player.position}
+            </p>
+          </Link>
+
+          <CaptainBadge isCaptain={player.isCaptain} isViceCaptain={player.isViceCaptain} />
+
+          <PlayerStatusIndicator
+            status={player.status}
+            chanceOfPlaying={player.chanceOfPlaying}
+            news={player.news}
+          />
+
+          <div className="flex shrink-0 items-center gap-1">
+            {isProjected ? (
+              <XpDisplay value={player.projectedXp ?? 0} />
+            ) : (
+              <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
             )}
           </div>
-          <p className="text-muted font-sans text-[11px] leading-tight">
-            {player.teamShortName} · {player.position}
-          </p>
-        </Link>
 
-        {/* Captain / vice badge */}
-        <CaptainBadge isCaptain={player.isCaptain} isViceCaptain={player.isViceCaptain} />
-
-        {/* Status dot */}
-        <PlayerStatusIndicator
-          status={player.status}
-          chanceOfPlaying={player.chanceOfPlaying}
-          news={player.news}
-        />
-
-        {/* Confidence (historical) or xP (projected) */}
-        <div className="flex shrink-0 items-center gap-1">
-          {isProjected ? (
-            <XpDisplay value={player.projectedXp ?? 0} />
+          {isProjected && onRequestSwap ? (
+            <button
+              type="button"
+              onClick={() => {
+                onRequestSwap(player);
+              }}
+              className="border-border text-muted hover:text-accent hover:border-accent/40 focus-visible:ring-accent flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              aria-label={`Plan a transfer for ${player.webName}`}
+              title="Plan a transfer"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
           ) : (
-            <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
+            <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
           )}
         </div>
 
-        {/* Transfer button (projected only) or watchlist star */}
-        {isProjected && onRequestSwap ? (
-          <button
-            type="button"
-            onClick={() => {
-              onRequestSwap(player);
-            }}
-            className="border-border text-muted hover:text-accent hover:border-accent/40 focus-visible:ring-accent flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            aria-label={`Plan a transfer for ${player.webName}`}
-            title="Plan a transfer"
-          >
-            <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        ) : (
-          <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
+        {/* Bottom row: fixtures strip below the jersey + name area.
+            pl-8 indents the strip past the squad-position column so it begins
+            under the jersey and runs through the name column for breathing room. */}
+        {player.nextFixtures.length > 0 && (
+          <div className="mt-1 pl-8">
+            <NextFixturesStrip fixtures={player.nextFixtures} compact />
+          </div>
         )}
       </div>
     </li>

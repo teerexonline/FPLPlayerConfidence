@@ -26,85 +26,90 @@ function BenchRow({
   viewMode: MyTeamViewMode;
 }): JSX.Element {
   const isProjected = viewMode === 'projected';
+  const ariaLabel = isProjected
+    ? `Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, projected ${Math.round(player.projectedXp ?? 0).toString()} xP`
+    : `Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence > 0 ? '+' : ''}${player.confidence.toString()}`;
   return (
     <li role="listitem">
-      <Link
-        href={`/players/${player.playerId.toString()}`}
-        className="group border-border hover:bg-bg -mx-4 flex h-[60px] items-center gap-3 border-b px-4 transition-colors last:border-0"
-        aria-label={
-          isProjected
-            ? `Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, projected ${Math.round(player.projectedXp ?? 0).toString()} xP`
-            : `Bench: ${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence > 0 ? '+' : ''}${player.confidence.toString()}`
-        }
-      >
-        {/* Squad position (12–15) */}
-        <span className="text-muted w-5 shrink-0 text-right font-mono text-[11px] tabular-nums opacity-60">
-          {player.squadPosition.toString()}
-        </span>
+      <div className="group border-border hover:bg-bg -mx-4 border-b px-4 py-2 transition-colors last:border-0">
+        {/* Top row: # | jersey | name+team | right-side controls */}
+        <div className="flex items-center gap-3">
+          <span className="text-muted w-5 shrink-0 text-right font-mono text-[11px] tabular-nums opacity-60">
+            {player.squadPosition.toString()}
+          </span>
 
-        {/* Jersey + next fixtures — slight fade signals bench status */}
-        <div className="flex shrink-0 flex-col items-center gap-0.5 opacity-70">
-          {player.teamCode > 0 && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/jerseys/${player.teamCode.toString()}`}
-              alt=""
-              aria-hidden="true"
-              width={28}
-              height={36}
-              className="h-7 w-7 object-contain"
-            />
-          )}
-          <NextFixturesStrip fixtures={player.nextFixtures} compact />
-        </div>
+          <Link
+            href={`/players/${player.playerId.toString()}`}
+            aria-label={ariaLabel}
+            className="shrink-0 opacity-70"
+          >
+            {player.teamCode > 0 && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/jerseys/${player.teamCode.toString()}`}
+                alt=""
+                aria-hidden="true"
+                width={28}
+                height={36}
+                className="h-7 w-7 object-contain"
+              />
+            )}
+          </Link>
 
-        {/* Name + team — muted text instead of opacity so content remains readable */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <p
-              className={cn(
-                'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
-                player.status !== 'a' && player.status !== ''
-                  ? getPlayerNameColorClass(player.status, false)
-                  : 'text-muted',
-              )}
-            >
-              {player.webName}
+          <Link
+            href={`/players/${player.playerId.toString()}`}
+            aria-label={ariaLabel}
+            className="min-w-0 flex-1"
+          >
+            <div className="flex items-center gap-1">
+              <p
+                className={cn(
+                  'group-hover:text-accent truncate font-sans text-[13px] leading-tight font-medium transition-colors',
+                  player.status !== 'a' && player.status !== ''
+                    ? getPlayerNameColorClass(player.status, false)
+                    : 'text-muted',
+                )}
+              >
+                {player.webName}
+              </p>
+              <LivePlayerStreakIndicator
+                hotStreak={player.hotStreak}
+                size="sm"
+                status={player.status}
+                isStale={false}
+              />
+            </div>
+            <p className="text-muted/60 font-sans text-[11px] leading-tight">
+              {player.teamShortName} · {player.position}
             </p>
-            <LivePlayerStreakIndicator
-              hotStreak={player.hotStreak}
-              size="sm"
-              status={player.status}
-              isStale={false}
-            />
+          </Link>
+
+          <span className="w-5 shrink-0" aria-hidden="true" />
+
+          <PlayerStatusIndicator
+            status={player.status}
+            chanceOfPlaying={player.chanceOfPlaying}
+            news={player.news}
+          />
+
+          <div className="flex shrink-0 items-center gap-1">
+            {isProjected ? (
+              <XpDisplay value={player.projectedXp ?? 0} />
+            ) : (
+              <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
+            )}
           </div>
-          <p className="text-muted/60 font-sans text-[11px] leading-tight">
-            {player.teamShortName} · {player.position}
-          </p>
+
+          <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
         </div>
 
-        {/* Placeholder for badge alignment */}
-        <span className="w-5 shrink-0" aria-hidden="true" />
-
-        {/* Status dot */}
-        <PlayerStatusIndicator
-          status={player.status}
-          chanceOfPlaying={player.chanceOfPlaying}
-          news={player.news}
-        />
-
-        {/* Confidence (historical) or xP (projected) — full opacity so the value is readable */}
-        <div className="flex shrink-0 items-center gap-1">
-          {isProjected ? (
-            <XpDisplay value={player.projectedXp ?? 0} />
-          ) : (
-            <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
-          )}
-        </div>
-
-        {/* Watchlist star */}
-        <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
-      </Link>
+        {/* Bottom row: fixtures strip below jersey + name (full width). */}
+        {player.nextFixtures.length > 0 && (
+          <div className="mt-1 pl-8">
+            <NextFixturesStrip fixtures={player.nextFixtures} compact />
+          </div>
+        )}
+      </div>
     </li>
   );
 }

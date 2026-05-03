@@ -41,6 +41,7 @@ function makePlayer(id: number, position: DashboardPlayer['position']): Dashboar
     isStale: false,
     hotStreak: null,
     totalPoints: 100,
+    nextGwXp: 0,
   };
 }
 

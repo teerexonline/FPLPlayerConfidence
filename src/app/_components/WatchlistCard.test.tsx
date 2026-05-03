@@ -35,6 +35,7 @@ const makePlayer = (overrides: Partial<DashboardPlayer> = {}): DashboardPlayer =
   isStale: false,
   hotStreak: null,
   totalPoints: 100,
+  nextGwXp: 0,
   ...overrides,
 });
 

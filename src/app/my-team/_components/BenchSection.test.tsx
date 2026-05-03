@@ -61,10 +61,11 @@ describe('BenchSection', () => {
 
   it('renders a link for each bench player pointing to /players/:id', () => {
     render(<BenchSection bench={FOUR} />);
+    // Each row renders two links (jersey + name) both pointing at the same URL.
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(8);
     expect(links[0]).toHaveAttribute('href', '/players/12');
-    expect(links[3]).toHaveAttribute('href', '/players/15');
+    expect(links[links.length - 1]).toHaveAttribute('href', '/players/15');
   });
 
   it('prefixes each accessible name with "Bench:"', () => {
@@ -73,8 +74,12 @@ describe('BenchSection', () => {
         bench={[makeBenchPlayer({ playerId: 12, webName: 'Flekken', squadPosition: 12 })]}
       />,
     );
-    const link = screen.getByRole('link');
-    expect(link.getAttribute('aria-label')).toMatch(/^Bench:/);
+    // Both jersey and name links carry the Bench:-prefixed aria-label.
+    const links = screen.getAllByRole('link');
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link.getAttribute('aria-label')).toMatch(/^Bench:/);
+    }
   });
 
   it('renders bench player web name', () => {

@@ -4,6 +4,7 @@ import { getRepositories } from '@/lib/db/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildMatchBriefs, computeHotStreak } from '@/lib/confidence/hotStreak';
 import { computeIsStale } from '@/lib/confidence/staleness';
+import { computeNextGwXpMap } from '@/lib/expected-points/nextGwXp';
 import { BiggestMoversCard } from './_components/BiggestMoversCard';
 import { WatchlistCard } from './_components/WatchlistCard';
 import { LeaderboardPreview } from './_components/LeaderboardPreview';
@@ -79,6 +80,21 @@ async function loadDashboard(): Promise<DashboardResult> {
   const recentSnapshotsMap =
     await repos.confidenceSnapshots.listRecentSnapshotsForAllPlayers(minStreakGw);
 
+  // Project xP for the next gameweek so dashboard cards (leaderboard, watchlist,
+  // movers) can show "what's expected next" alongside historical confidence.
+  const xpInputs = new Map<number, { teamId: number; confidence: number }>();
+  for (const { playerId: pid, snapshot } of currentSnapshots) {
+    const player = playerMap.get(Number(pid));
+    if (player) {
+      xpInputs.set(Number(pid), { teamId: player.team_id, confidence: snapshot.confidence_after });
+    }
+  }
+  const nextGwXpMap = await computeNextGwXpMap({
+    players: xpInputs,
+    gameweek: currentGameweek + 1,
+    repos,
+  });
+
   const players: DashboardPlayer[] = currentSnapshots.flatMap(({ playerId: pid, snapshot }) => {
     const numericId = Number(pid);
     const player = playerMap.get(numericId);
@@ -105,6 +121,7 @@ async function loadDashboard(): Promise<DashboardResult> {
         isStale: computeIsStale(currentGameweek, lastAppearanceGwMap.get(numericId) ?? null),
         hotStreak,
         totalPoints: player.total_points,
+        nextGwXp: nextGwXpMap.get(numericId) ?? null,
       },
     ];
   });

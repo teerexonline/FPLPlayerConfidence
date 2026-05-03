@@ -120,6 +120,19 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
         GW{player.latestGameweek.toString()}
       </span>
 
+      {/* Next-GW xP — quick read for "what's the projection" alongside confidence */}
+      {player.nextGwXp !== null && (
+        <span
+          role="cell"
+          className="text-text hidden shrink-0 items-baseline gap-0.5 font-sans text-[13px] tabular-nums sm:inline-flex"
+          title="Projected expected points for the next gameweek"
+          aria-label={`Projected ${Math.round(player.nextGwXp).toString()} xP next gameweek`}
+        >
+          <span className="font-semibold">{Math.round(player.nextGwXp).toString()}</span>
+          <span className="text-muted text-[10px] font-medium">xP</span>
+        </span>
+      )}
+
       {/* Confidence + status/stale indicators */}
       <div role="cell" className="flex shrink-0 items-center gap-1.5">
         <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />

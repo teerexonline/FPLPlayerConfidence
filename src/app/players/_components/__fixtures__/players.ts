@@ -19,6 +19,7 @@ export function makePlayer(overrides: Partial<PlayerWithConfidence> = {}): Playe
     isStale: false,
     hotStreak: null,
     totalPoints: 100,
+    nextGwXp: 0,
     ...overrides,
   };
 }

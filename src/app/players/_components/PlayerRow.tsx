@@ -33,6 +33,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     news,
     isStale,
     hotStreak,
+    nextGwXp,
   } = player;
   const router = useRouter();
   const price = `£${(nowCost / 10).toFixed(1)}m`;
@@ -51,7 +52,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       tabIndex={focused ? 0 : -1}
       onClick={handleClick}
       className={cn(
-        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_72px_96px_36px] items-center border-b px-4 last:border-0 hover:border-l-2',
+        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_72px_56px_96px_36px] items-center border-b px-4 last:border-0 hover:border-l-2',
         focused && 'ring-accent/60 ring-2 outline-none ring-inset',
       )}
       aria-label={`${webName}, ${teamShortName}, ${position}, ${price}, confidence ${confidence.toString()}`}
@@ -107,6 +108,27 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
         <ConfidenceNumber value={confidence} mode="c" size="sm" animated={false} />
         <StaleDataIndicator isStale={isStale} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
+      </div>
+
+      {/* Next-GW xP */}
+      <div
+        role="cell"
+        className="text-text flex items-baseline justify-end gap-0.5 text-[14px] tabular-nums"
+        title="Projected expected points for the next gameweek"
+        aria-label={
+          nextGwXp === null
+            ? 'No projected xP available'
+            : `Projected ${Math.round(nextGwXp).toString()} expected points next gameweek`
+        }
+      >
+        {nextGwXp === null ? (
+          <span className="text-muted/60 font-mono text-[12px]">—</span>
+        ) : (
+          <>
+            <span className="font-semibold">{Math.round(nextGwXp).toString()}</span>
+            <span className="text-muted text-[10px] font-medium">xP</span>
+          </>
+        )}
       </div>
 
       {/* Last 5 trend + arrow */}

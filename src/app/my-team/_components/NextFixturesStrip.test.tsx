@@ -19,19 +19,37 @@ describe('NextFixturesStrip', () => {
     expect(screen.getByLabelText(/no upcoming fixtures/i)).toBeInTheDocument();
   });
 
-  it('renders one pill per fixture with opponent code', () => {
+  it('renders one column per gameweek with opponent code', () => {
     render(
       <NextFixturesStrip
         fixtures={[
-          aFixture({ opponentTeamShortName: 'LIV', isHome: true, fdr: 2 }),
-          aFixture({ opponentTeamShortName: 'MUN', isHome: false, fdr: 4 }),
-          aFixture({ opponentTeamShortName: 'BOU', isHome: true, fdr: 1 }),
+          aFixture({ gameweek: 36, opponentTeamShortName: 'LIV', isHome: true, fdr: 2 }),
+          aFixture({ gameweek: 37, opponentTeamShortName: 'MUN', isHome: false, fdr: 4 }),
+          aFixture({ gameweek: 38, opponentTeamShortName: 'BOU', isHome: true, fdr: 1 }),
         ]}
       />,
     );
+    // One <li> column per gameweek; pills inside are spans.
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
     expect(screen.getByText('LIV')).toBeInTheDocument();
     expect(screen.getByText('MUN')).toBeInTheDocument();
+    expect(screen.getByText('BOU')).toBeInTheDocument();
+  });
+
+  it('stacks DGW fixtures in a single column', () => {
+    render(
+      <NextFixturesStrip
+        fixtures={[
+          aFixture({ gameweek: 36, opponentTeamShortName: 'BRE', isHome: true, fdr: 3 }),
+          aFixture({ gameweek: 36, opponentTeamShortName: 'CRY', isHome: true, fdr: 3 }),
+          aFixture({ gameweek: 37, opponentTeamShortName: 'BOU', isHome: false, fdr: 4 }),
+        ]}
+      />,
+    );
+    // Two columns: GW36 (DGW, 2 pills) + GW37 (1 pill).
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText('BRE')).toBeInTheDocument();
+    expect(screen.getByText('CRY')).toBeInTheDocument();
     expect(screen.getByText('BOU')).toBeInTheDocument();
   });
 
