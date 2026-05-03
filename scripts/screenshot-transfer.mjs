@@ -62,7 +62,7 @@ await snap('3-projected-gw37', async (page) => {
   }
 });
 
-// 4. Transfer modal open — projected GW 36, click first swap button
+// 4. Transfer modal open — projected GW 36, click first starter swap button
 await snap('4-modal-open', async (page) => {
   // Forward to GW 36
   const next = await page.$('button[aria-label="Next gameweek"]');
@@ -77,6 +77,24 @@ await snap('4-modal-open', async (page) => {
     await new Promise((r) => setTimeout(r, 1200));
   } else {
     console.warn('  no swap button found');
+  }
+});
+
+// 5. Substitution modal open — projected GW 36, click bench promote button
+await snap('5-sub-modal-open', async (page) => {
+  // Forward to GW 36
+  const next = await page.$('button[aria-label="Next gameweek"]');
+  if (next) {
+    await next.click();
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  // Click the first "Promote ... from bench" button
+  const promoteBtn = await page.$('button[aria-label^="Promote"]');
+  if (promoteBtn) {
+    await promoteBtn.click();
+    await new Promise((r) => setTimeout(r, 1200));
+  } else {
+    console.warn('  no promote button found');
   }
 });
 

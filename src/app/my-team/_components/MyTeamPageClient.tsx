@@ -136,7 +136,11 @@ function LoadedView({
         />
 
         <div className="mt-6">
-          <BenchSection bench={data.bench} viewMode={data.viewMode} />
+          <BenchSection
+            bench={data.bench}
+            viewMode={data.viewMode}
+            {...(data.viewMode === 'projected' ? { onRequestSwap } : {})}
+          />
         </div>
 
         <TeamSyncFooter
@@ -310,6 +314,16 @@ export function MyTeamPageClient(): JSX.Element {
     ]);
     const stagedInIds = new Set(stagedSwaps.map((s) => s.inId));
 
+    // Substitution candidates: same-position members of the OPPOSITE squad
+    // partition. A bench player can sub in for a same-position starter; a
+    // starter can be subbed off in favour of a same-position bench player.
+    let subCandidates: readonly SquadPlayerRow[] = [];
+    if (swappingOut !== null) {
+      const isFromBench = swappingOut.squadPosition > 11;
+      const oppositePartition = isFromBench ? fetchState.data.starters : fetchState.data.bench;
+      subCandidates = oppositePartition.filter((p) => p.position === swappingOut.position);
+    }
+
     return (
       <>
         <LoadedView
@@ -327,6 +341,7 @@ export function MyTeamPageClient(): JSX.Element {
             playerOut={swappingOut}
             squadPlayerIds={squadPlayerIds}
             stagedInIds={stagedInIds}
+            subCandidates={subCandidates}
             onSelect={handleSwapSelect}
             onClose={() => {
               setSwappingOut(null);

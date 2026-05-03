@@ -2,6 +2,7 @@
 
 import type { JSX } from 'react';
 import Link from 'next/link';
+import { ArrowLeftRight } from 'lucide-react';
 import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
@@ -16,14 +17,18 @@ interface BenchSectionProps {
   readonly bench: readonly SquadPlayerRow[];
   /** `historical` shows confidence; `projected` shows xP (bench still excluded from team xP). */
   readonly viewMode?: MyTeamViewMode;
+  /** Called when the user clicks ↔ on a bench row in projected mode (substitute promote). */
+  readonly onRequestSwap?: (player: SquadPlayerRow) => void;
 }
 
 function BenchRow({
   player,
   viewMode,
+  onRequestSwap,
 }: {
   player: SquadPlayerRow;
   viewMode: MyTeamViewMode;
+  onRequestSwap?: (p: SquadPlayerRow) => void;
 }): JSX.Element {
   const isProjected = viewMode === 'projected';
   const ariaLabel = isProjected
@@ -100,7 +105,21 @@ function BenchRow({
             )}
           </div>
 
-          <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
+          {isProjected && onRequestSwap ? (
+            <button
+              type="button"
+              onClick={() => {
+                onRequestSwap(player);
+              }}
+              className="border-border text-muted hover:text-accent hover:border-accent/40 focus-visible:ring-accent flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              aria-label={`Promote ${player.webName} into starting XI`}
+              title="Promote into starting XI"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          ) : (
+            <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
+          )}
         </div>
 
         {/* Bottom row: fixtures strip below jersey + name (full width). */}
@@ -118,7 +137,11 @@ function BenchRow({
  * Renders the 4 bench players (squad positions 12–15) at reduced opacity
  * to signal their exclusion from Team Confidence (and projected team xP).
  */
-export function BenchSection({ bench, viewMode = 'historical' }: BenchSectionProps): JSX.Element {
+export function BenchSection({
+  bench,
+  viewMode = 'historical',
+  onRequestSwap,
+}: BenchSectionProps): JSX.Element {
   return (
     <section aria-label="Bench" className="mb-8">
       <h2 className="text-muted mb-1 font-sans text-[11px] font-semibold tracking-[0.06em] uppercase">
@@ -127,13 +150,18 @@ export function BenchSection({ bench, viewMode = 'historical' }: BenchSectionPro
       <div className="border-border bg-surface rounded-[8px] border px-4">
         <ul role="list">
           {bench.map((player) => (
-            <BenchRow key={player.playerId} player={player} viewMode={viewMode} />
+            <BenchRow
+              key={player.playerId}
+              player={player}
+              viewMode={viewMode}
+              {...(onRequestSwap !== undefined ? { onRequestSwap } : {})}
+            />
           ))}
         </ul>
       </div>
       <p className="text-muted mt-2 font-sans text-[11px]">
         {viewMode === 'projected'
-          ? 'Bench xP shown for context — team xP only counts starters.'
+          ? 'Tap ↔ to promote a bench player into the XI. Bench xP is shown for context — team xP only counts starters.'
           : 'Bench is excluded from Team Confidence — only starters count.'}
       </p>
     </section>

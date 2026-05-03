@@ -274,35 +274,57 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
   // ── Apply staged swaps (projected mode only) ─────────────────────────────
-  // Validation: outId must be in the squad; inId must NOT be; positions must match.
-  // Invalid swaps are silently dropped — the UI never enables them, so this is
-  // a defense-in-depth check, not a user-facing error path.
+  // A swap pair `outId:inId` is interpreted in one of two ways depending on
+  // whether `inId` is already in the squad:
+  //   - **Substitution**: inId is in the squad → swap the squad_position of
+  //     `outId` and `inId`. Used to promote a bench player above a starter
+  //     (or vice versa). No transfer cost; squad membership unchanged.
+  //   - **Transfer**: inId is NOT in the squad → replace `outId` with `inId`.
+  //     Squad membership changes; uses one transfer in real FPL.
+  // Both flavours require positions to match (FPL rule: same-position only).
+  // Invalid pairs are silently dropped — the UI never enables them.
+  const swappedInIds = new Set<number>();
   if (viewMode === 'projected' && appliedSwaps.length > 0) {
     const swapped: import('@/lib/fpl/types').EntryPick[] = [...finalPicks];
     const currentIds = new Set(finalPicks.map((p) => p.element));
+
     for (const { outId, inId } of appliedSwaps) {
       const outIdx = swapped.findIndex((p) => p.element === outId);
       if (outIdx === -1) continue;
-      if (currentIds.has(inId)) continue;
       const outPlayer = playerMap.get(outId);
       const inPlayer = playerMap.get(inId);
       if (!outPlayer || !inPlayer) continue;
       if (outPlayer.position !== inPlayer.position) continue;
+      const out = swapped[outIdx];
+      if (out === undefined) continue;
 
-      const before = swapped[outIdx];
-      if (before === undefined) continue;
-      swapped[outIdx] = {
-        element: inId,
-        position: before.position,
-        is_captain: before.is_captain,
-        is_vice_captain: before.is_vice_captain,
-      };
-      currentIds.delete(outId);
-      currentIds.add(inId);
+      if (currentIds.has(inId)) {
+        // ── Substitution: swap squad_position values between the two picks.
+        const inIdx = swapped.findIndex((p) => p.element === inId);
+        if (inIdx === -1) continue;
+        const inn = swapped[inIdx];
+        if (inn === undefined) continue;
+        swapped[outIdx] = { ...out, position: inn.position };
+        swapped[inIdx] = { ...inn, position: out.position };
+        // For substitutions, the "in" player is the one moving into the
+        // starting XI — flag it so the IN badge renders on the correct row.
+        if (inn.position > 11 && out.position <= 11) swappedInIds.add(inId);
+        else if (out.position > 11 && inn.position <= 11) swappedInIds.add(outId);
+      } else {
+        // ── Transfer: replace outId with inId; preserve squad_position.
+        swapped[outIdx] = {
+          element: inId,
+          position: out.position,
+          is_captain: out.is_captain,
+          is_vice_captain: out.is_vice_captain,
+        };
+        currentIds.delete(outId);
+        currentIds.add(inId);
+        swappedInIds.add(inId);
+      }
     }
     finalPicks = swapped;
   }
-  const swappedInIds = new Set(appliedSwaps.map((s) => s.inId));
 
   // Resolve confidence at the target GW.
   // Historical mode: look up snapshots exactly at targetGw (one batch query).
