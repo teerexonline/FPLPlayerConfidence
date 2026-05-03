@@ -38,6 +38,9 @@ function CaptainBadge({
   // Projected-mode interactive: tapping the slot promotes this player to
   // captain (and demotes the previous one). Filled when active, outlined
   // otherwise. Vice-captain is shown only when not interactive.
+  // Tap target sized to ~36 px so it's reliably tappable on mobile (iOS
+  // recommends ≥44 px; we balance density with reachability). The visible
+  // ring stays the same; the larger box just expands the hit area.
   if (onSetCaptain) {
     return (
       <button
@@ -47,16 +50,20 @@ function CaptainBadge({
           if (!isCaptain) onSetCaptain(playerId);
         }}
         disabled={isCaptain}
-        className={cn(
-          'focus-visible:ring-accent inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-sans text-[10px] font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none',
-          isCaptain
-            ? 'bg-accent/20 text-accent cursor-default'
-            : 'border-border text-muted hover:text-accent hover:border-accent/40 cursor-pointer border',
-        )}
+        className="focus-visible:ring-accent -mx-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
         aria-label={isCaptain ? `Captain: ${playerName}` : `Make ${playerName} captain`}
         title={isCaptain ? 'Captain (xP × 2)' : 'Tap to set as captain'}
       >
-        C
+        <span
+          className={cn(
+            'inline-flex h-6 w-6 items-center justify-center rounded-full font-sans text-[11px] font-semibold transition-colors',
+            isCaptain
+              ? 'bg-accent/20 text-accent'
+              : 'border-border text-muted group-hover:text-accent border',
+          )}
+        >
+          C
+        </span>
       </button>
     );
   }
@@ -190,16 +197,22 @@ function StarterRow({
           </div>
 
           {isProjected && onRequestSwap ? (
+            // -mx-1 expands the tap area to ~44 px without changing the
+            // visible 28 px ring — needed for reliable touch targeting on
+            // mobile (the previous 28×28 button was below iOS's 44 px min).
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onRequestSwap(player);
               }}
-              className="border-border text-muted hover:text-accent hover:border-accent/40 focus-visible:ring-accent flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              className="focus-visible:ring-accent -mx-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
               aria-label={`Plan a transfer for ${player.webName}`}
               title="Plan a transfer"
             >
-              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="border-border text-muted hover:text-accent hover:border-accent/40 flex h-7 w-7 items-center justify-center rounded-full border transition-colors">
+                <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
             </button>
           ) : (
             <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />

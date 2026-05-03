@@ -103,16 +103,21 @@ function BenchRow({
           </div>
 
           {isProjected && onRequestSwap ? (
+            // -mx-1 expands the tap area to ~44 px without changing the
+            // visible 28 px ring — needed for reliable touch targeting.
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onRequestSwap(player);
               }}
-              className="border-border text-muted hover:text-accent hover:border-accent/40 focus-visible:ring-accent flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              className="focus-visible:ring-accent -mx-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
               aria-label={`Promote ${player.webName} into starting XI`}
               title="Promote into starting XI"
             >
-              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="border-border text-muted hover:text-accent hover:border-accent/40 flex h-7 w-7 items-center justify-center rounded-full border transition-colors">
+                <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
             </button>
           ) : (
             <StarButton playerId={player.playerId} playerName={player.webName} size="sm" />
