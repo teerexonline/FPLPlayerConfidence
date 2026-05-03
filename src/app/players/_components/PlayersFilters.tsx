@@ -80,19 +80,25 @@ export function PlayersFilters(): JSX.Element {
   // (Next.js navigation + RSC fetch + full re-render of the 500-row table)
   // which made typing visibly laggy. We debounce the URL update by 200 ms.
   const [searchInput, setSearchInput] = useState(filters.search);
-  // Re-sync local input when URL changes externally (Clear button, back nav).
-  // Following https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  // — derive state during render rather than via useEffect, which avoids the
-  // double-render and the "setState in effect" lint rule.
-  const [lastSyncedFilterSearch, setLastSyncedFilterSearch] = useState(filters.search);
-  if (filters.search !== lastSyncedFilterSearch) {
-    setLastSyncedFilterSearch(filters.search);
+  // Tracks the last value we either pushed OR observed coming back from the
+  // URL. A ref (not state) is essential here: it updates synchronously, so
+  // when our own debounced push echoes back through useSearchParams, the
+  // render-time sync below sees ref === filters.search and correctly skips
+  // overwriting whatever the user has typed since. Without this, fast typing
+  // would lose characters when the URL update landed mid-keystroke.
+  const lastSyncedSearchRef = useRef(filters.search);
+  if (filters.search !== lastSyncedSearchRef.current) {
+    // The URL changed via something OTHER than our debounced push — e.g.
+    // the Clear button, browser back, or an external link. Sync local input.
+    lastSyncedSearchRef.current = filters.search;
     setSearchInput(filters.search);
   }
   // Push debounced search into the URL.
   useEffect(() => {
-    if (searchInput === filters.search) return;
+    if (searchInput === lastSyncedSearchRef.current) return;
     const timer = setTimeout(() => {
+      // Mark BEFORE pushing so the resulting URL change is recognised as ours.
+      lastSyncedSearchRef.current = searchInput;
       push({ ...filters, search: searchInput });
     }, 200);
     return () => {
