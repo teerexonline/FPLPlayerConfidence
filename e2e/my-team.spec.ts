@@ -45,6 +45,9 @@ const MOCK_DATA: MyTeamData = {
   defencePercent: 65,
   midfieldPercent: 60,
   attackPercent: 62.5,
+  defenceXp: 18,
+  midfieldXp: 22,
+  attackXp: 17,
   starters: [
     { ...makePlayer(1, 1), isCaptain: true, position: 'GK' as const },
     makePlayer(2, 2),

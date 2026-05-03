@@ -5,7 +5,7 @@ export function SkeletonRow(): JSX.Element {
   return (
     <div
       aria-hidden="true"
-      className="border-border grid h-14 grid-cols-[1fr_88px_60px_72px_88px_96px_36px] items-center border-b px-4 last:border-0"
+      className="border-border grid h-14 grid-cols-[1fr_88px_60px_72px_56px_72px_96px_36px] items-center border-b px-4 last:border-0"
     >
       {/* Player: avatar + name stack */}
       <div className="flex items-center gap-3">
@@ -24,11 +24,10 @@ export function SkeletonRow(): JSX.Element {
       <Bone className="h-5 w-10 rounded-full" />
       {/* Price */}
       <Bone className="h-3.5 w-12 rounded" />
-      {/* xP-primary cell: xP value + confidence sub-line stacked */}
-      <div className="ml-auto flex flex-col items-end gap-1">
-        <Bone className="h-4 w-10 rounded" />
-        <Bone className="h-2.5 w-8 rounded" />
-      </div>
+      {/* Status indicators */}
+      <Bone className="h-3 w-8 rounded" />
+      {/* xP */}
+      <Bone className="ml-auto h-4 w-10 rounded" />
       {/* Trend */}
       <Bone className="h-3.5 w-16 rounded" />
       {/* Star */}

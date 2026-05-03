@@ -76,6 +76,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const teamIdRaw = query.get('teamId');
   const gameweekRaw = query.get('gameweek');
   const swapRaw = query.get('swap');
+  const captainRaw = query.get('captain');
 
   if (!teamIdRaw || !/^\d+$/.test(teamIdRaw)) {
     logger.warn('GET /api/my-team: invalid teamId param', { teamIdRaw });
@@ -94,6 +95,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return errorResponse('INVALID_TEAM_ID', 400);
   }
   const requestedSwaps: readonly Swap[] = swapsParse.value;
+
+  // Optional ?captain=playerId — staged captain override for projected planning.
+  // Honoured only in projected mode; the captain's xP contributes 2× to team xP.
+  const captainOverride =
+    captainRaw !== null && /^\d+$/.test(captainRaw) ? parseInt(captainRaw, 10) : null;
 
   const teamId = parseInt(teamIdRaw, 10);
   logger.info('GET /api/my-team: fetching squad', {
@@ -326,6 +332,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     finalPicks = swapped;
   }
 
+  // ── Apply captain override (projected mode only) ─────────────────────────
+  // Validation: the override must be a starter in the (possibly swap-mutated)
+  // squad. Otherwise silently fall through to FPL's captain choice.
+  if (viewMode === 'projected' && captainOverride !== null) {
+    const captainIsStarter = finalPicks.some(
+      (p) => p.element === captainOverride && p.position <= 11,
+    );
+    if (captainIsStarter) {
+      finalPicks = finalPicks.map((p) => ({
+        ...p,
+        is_captain: p.element === captainOverride,
+        // Vice stays as-is — the user only picks the captain in this UI.
+      }));
+    }
+  }
+
   // Resolve confidence at the target GW.
   // Historical mode: look up snapshots exactly at targetGw (one batch query).
   // Default mode: use the most recent snapshot per player (same as before).
@@ -414,13 +436,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // ── Projected xP: only computed in `projected` mode ──────────────────────
+  // ── xP: computed for ALL modes (My Team is xP-first regardless of GW) ────
   // Pull fixtures for the *viewed* GW (per team) and per-player FDR averages,
-  // then build per-row xP using the existing pure calculator.
+  // then build per-row xP using the existing pure calculator. The hero shows
+  // team xP for the viewed GW whether it's historical, current, or projected.
   const projectedXpByPlayer = new Map<number, number>();
   let projectedTeamXp: number | null = null;
 
-  if (viewMode === 'projected') {
+  {
     const viewedGwFixtures = await safeQuery<readonly DbFixture[]>(
       repos.fixtures.listForGameweek(targetGw),
       [],
@@ -493,8 +516,33 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const teamResult = calculateTeamXp({ picks: xpStarters });
-    projectedTeamXp = teamResult.teamXp;
+    // Captain's xP counts twice (FPL captain rule). The pure calculator stays
+    // captain-agnostic; we apply the bonus here so a captain change just
+    // re-shapes the response without re-running the per-player projections.
+    const captain = finalPicks.find((p) => p.is_captain && p.position <= 11);
+    const captainBonus = captain ? (projectedXpByPlayer.get(captain.element) ?? 0) : 0;
+    projectedTeamXp = Math.round((teamResult.teamXp + captainBonus) * 100) / 100;
   }
+
+  // Per-line xP breakdown (sum starters' xP by FPL position). Used by the
+  // positional cards on the My Team page now that the page is xP-first.
+  // Captain's xP is doubled here too so the per-line totals add up to team xP.
+  let defenceXp = 0;
+  let midfieldXp = 0;
+  let attackXp = 0;
+  for (const p of finalPicks) {
+    if (p.position > 11) continue;
+    const baseXp = projectedXpByPlayer.get(p.element) ?? 0;
+    const xp = p.is_captain ? baseXp * 2 : baseXp;
+    const player = playerMap.get(p.element);
+    const pos = player?.position ?? 'MID';
+    if (pos === 'GK' || pos === 'DEF') defenceXp += xp;
+    else if (pos === 'MID') midfieldXp += xp;
+    else attackXp += xp;
+  }
+  defenceXp = Math.round(defenceXp * 100) / 100;
+  midfieldXp = Math.round(midfieldXp * 100) / 100;
+  attackXp = Math.round(attackXp * 100) / 100;
 
   // Build squad player rows.
   const squadRows: SquadPlayerRow[] = finalPicks.map((p) => {
@@ -519,7 +567,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       news: player?.news ?? '',
       hotStreak,
       nextFixtures,
-      projectedXp: viewMode === 'projected' ? (projectedXpByPlayer.get(p.element) ?? 0) : null,
+      projectedXp: projectedXpByPlayer.get(p.element) ?? 0,
       isSwappedIn: swappedInIds.has(p.element),
     };
   });
@@ -553,6 +601,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     defencePercent: toPercent(positional.defence),
     midfieldPercent: toPercent(positional.midfield),
     attackPercent: toPercent(positional.attack),
+    defenceXp,
+    midfieldXp,
+    attackXp,
     starters,
     bench,
     syncedAt,

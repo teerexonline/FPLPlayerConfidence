@@ -19,47 +19,44 @@ const BASE_PROPS = {
   defencePercent: 65,
   midfieldPercent: 60,
   attackPercent: 55,
+  defenceXp: 18,
+  midfieldXp: 22,
+  attackXp: 17,
 };
 
 describe('MyTeamHero', () => {
-  it('renders the team confidence percentage', () => {
-    render(<MyTeamHero percent={72.5} {...BASE_PROPS} />);
-    const hero = screen.getByLabelText(/Team Confidence/i);
+  it('renders the projected team xP as the hero number', () => {
+    render(<MyTeamHero percent={72.5} projectedTeamXp={58} gameweek={36} {...BASE_PROPS} />);
+    const hero = screen.getByLabelText(/Projected 58 expected points/i);
     expect(hero).toBeInTheDocument();
   });
 
-  it('applies positive sign when percent > 50', () => {
-    render(<MyTeamHero percent={75} {...BASE_PROPS} />);
-    const hero = screen.getByLabelText(/Team Confidence/i);
-    expect(hero).toHaveAttribute('data-sign', 'positive');
+  it('renders the projected-points caption label including the gameweek', () => {
+    render(<MyTeamHero percent={60} projectedTeamXp={42} gameweek={36} {...BASE_PROPS} />);
+    expect(screen.getByText(/Projected GW36 Points/i)).toBeInTheDocument();
   });
 
-  it('applies negative sign when percent < 50', () => {
-    render(<MyTeamHero percent={35} {...BASE_PROPS} />);
-    const hero = screen.getByLabelText(/Team Confidence/i);
-    expect(hero).toHaveAttribute('data-sign', 'negative');
-  });
-
-  it('applies neutral sign at exactly 50%', () => {
-    render(<MyTeamHero percent={50} {...BASE_PROPS} />);
-    const hero = screen.getByLabelText(/Team Confidence/i);
-    expect(hero).toHaveAttribute('data-sign', 'neutral');
-  });
-
-  it('renders the "Team Confidence" caption label', () => {
-    render(<MyTeamHero percent={60} {...BASE_PROPS} />);
-    expect(screen.getByText(/Team Confidence/i)).toBeInTheDocument();
-  });
-
-  it('renders all three positional line labels', () => {
-    render(<MyTeamHero percent={60} defencePercent={70} midfieldPercent={55} attackPercent={45} />);
+  it('renders all three positional line labels with xP totals', () => {
+    render(<MyTeamHero percent={60} projectedTeamXp={57} gameweek={36} {...BASE_PROPS} />);
     expect(screen.getByText(/Defence/i)).toBeInTheDocument();
     expect(screen.getByText(/Midfield/i)).toBeInTheDocument();
     expect(screen.getByText(/Attack/i)).toBeInTheDocument();
+    // BASE_PROPS uses defenceXp=18, midfieldXp=22, attackXp=17 → all rendered
+    // as their integer xP values.
+    expect(screen.getByText('18')).toBeInTheDocument();
+    expect(screen.getByText('22')).toBeInTheDocument();
+    expect(screen.getByText('17')).toBeInTheDocument();
+  });
+
+  it('does not render any "Team Confidence" copy on My Team', () => {
+    render(<MyTeamHero percent={72.5} projectedTeamXp={58} gameweek={36} {...BASE_PROPS} />);
+    expect(screen.queryByText(/Team Confidence/i)).not.toBeInTheDocument();
   });
 
   it('has no accessibility violations (axe)', async () => {
-    const { container } = render(<MyTeamHero percent={72.5} {...BASE_PROPS} />);
+    const { container } = render(
+      <MyTeamHero percent={72.5} projectedTeamXp={58} gameweek={36} {...BASE_PROPS} />,
+    );
     expect(await axe(container)).toHaveNoViolations();
   });
 });

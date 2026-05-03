@@ -62,3 +62,9 @@ data/*.bak*
 
 # Screenshot files at root
 screenshot-*.png
+
+# Session/transcript artifacts — may contain pasted credentials. NEVER commit.
+history.md
+.claude/
+*.session.md
+*.transcript.md

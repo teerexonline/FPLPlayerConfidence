@@ -19,15 +19,48 @@ interface StartingXIListProps {
   readonly viewMode?: MyTeamViewMode;
   /** Called when the user clicks a row's swap button (projected mode only). */
   readonly onRequestSwap?: (player: SquadPlayerRow) => void;
+  /** Called when the user clicks a row's captain slot (projected mode only). */
+  readonly onSetCaptain?: (playerId: number) => void;
 }
 
 function CaptainBadge({
   isCaptain,
   isViceCaptain,
+  onSetCaptain,
+  playerId,
+  playerName,
 }: {
   isCaptain: boolean;
   isViceCaptain: boolean;
-}): JSX.Element | null {
+  onSetCaptain?: (playerId: number) => void;
+  playerId: number;
+  playerName: string;
+}): JSX.Element {
+  // Projected-mode interactive: tapping the slot promotes this player to
+  // captain (and demotes the previous one). Filled when active, outlined
+  // otherwise. Vice-captain is shown only when not interactive.
+  if (onSetCaptain) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!isCaptain) onSetCaptain(playerId);
+        }}
+        disabled={isCaptain}
+        className={cn(
+          'focus-visible:ring-accent inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-sans text-[10px] font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none',
+          isCaptain
+            ? 'bg-accent/20 text-accent cursor-default'
+            : 'border-border text-muted hover:text-accent hover:border-accent/40 cursor-pointer border',
+        )}
+        aria-label={isCaptain ? `Captain: ${playerName}` : `Make ${playerName} captain`}
+        title={isCaptain ? 'Captain (xP × 2)' : 'Tap to set as captain'}
+      >
+        C
+      </button>
+    );
+  }
   if (isCaptain) {
     return (
       <span
@@ -57,10 +90,12 @@ function StarterRow({
   player,
   viewMode,
   onRequestSwap,
+  onSetCaptain,
 }: {
   player: SquadPlayerRow;
   viewMode: MyTeamViewMode;
   onRequestSwap?: (p: SquadPlayerRow) => void;
+  onSetCaptain?: (playerId: number) => void;
 }): JSX.Element {
   const isProjected = viewMode === 'projected';
   const ariaSummary = isProjected
@@ -135,7 +170,13 @@ function StarterRow({
             </p>
           </Link>
 
-          <CaptainBadge isCaptain={player.isCaptain} isViceCaptain={player.isViceCaptain} />
+          <CaptainBadge
+            isCaptain={player.isCaptain}
+            isViceCaptain={player.isViceCaptain}
+            playerId={player.playerId}
+            playerName={player.webName}
+            {...(isProjected && onSetCaptain ? { onSetCaptain } : {})}
+          />
 
           <PlayerStatusIndicator
             status={player.status}
@@ -190,6 +231,7 @@ export function StartingXIList({
   starters,
   viewMode = 'historical',
   onRequestSwap,
+  onSetCaptain,
 }: StartingXIListProps): JSX.Element {
   return (
     <section aria-label="Starting XI" className="mb-2">
@@ -204,6 +246,7 @@ export function StartingXIList({
               player={player}
               viewMode={viewMode}
               {...(onRequestSwap !== undefined ? { onRequestSwap } : {})}
+              {...(onSetCaptain !== undefined ? { onSetCaptain } : {})}
             />
           ))}
         </ul>

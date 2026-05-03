@@ -38,6 +38,7 @@ function LoadedView({
   onSelectGw,
   onChangeTeam,
   onRequestSwap,
+  onSetCaptain,
   onClearSwaps,
   stagedSwapCount,
 }: {
@@ -47,6 +48,7 @@ function LoadedView({
   onSelectGw: (gw: number) => void;
   onChangeTeam: () => void;
   onRequestSwap: (player: SquadPlayerRow) => void;
+  onSetCaptain: (playerId: number) => void;
   onClearSwaps: () => void;
   stagedSwapCount: number;
 }): JSX.Element {
@@ -92,6 +94,9 @@ function LoadedView({
           defencePercent={data.defencePercent}
           midfieldPercent={data.midfieldPercent}
           attackPercent={data.attackPercent}
+          defenceXp={data.defenceXp}
+          midfieldXp={data.midfieldXp}
+          attackXp={data.attackXp}
           projectedTeamXp={data.projectedTeamXp}
           gameweek={data.gameweek}
         />
@@ -132,7 +137,7 @@ function LoadedView({
         <StartingXIList
           starters={starters}
           viewMode={data.viewMode}
-          {...(data.viewMode === 'projected' ? { onRequestSwap } : {})}
+          {...(data.viewMode === 'projected' ? { onRequestSwap, onSetCaptain } : {})}
         />
 
         <div className="mt-6">
@@ -182,18 +187,23 @@ export function MyTeamPageClient(): JSX.Element {
   const [fetchState, setFetchState] = useState<FetchState>({ kind: 'idle' });
   /** Staged transfers — append as ?swap= to projected-mode fetches. */
   const [stagedSwaps, setStagedSwaps] = useState<readonly Swap[]>([]);
+  /** Staged captain override — append as ?captain= to projected-mode fetches. */
+  const [stagedCaptain, setStagedCaptain] = useState<number | null>(null);
   /** The player whose swap button was clicked; drives modal open/close. */
   const [swappingOut, setSwappingOut] = useState<SquadPlayerRow | null>(null);
 
-  // Fetches squad data for a given base URL, appending staged swaps if present.
-  // `existingState` carries forward the available-GW set so the scrubber
-  // timeline doesn't flicker when the user switches GWs.
+  // Fetches squad data for a given base URL, appending staged swaps + captain
+  // if present. `existingState` carries forward the available-GW set so the
+  // scrubber timeline doesn't flicker when the user switches GWs.
   function doFetch(
     baseUrl: string,
     swaps: readonly Swap[],
+    captainId: number | null,
     existingState?: Extract<FetchState, { kind: 'loaded' }>,
   ): void {
-    const url = swaps.length > 0 ? `${baseUrl}&swap=${swapsToParam(swaps)}` : baseUrl;
+    let url = baseUrl;
+    if (swaps.length > 0) url += `&swap=${swapsToParam(swaps)}`;
+    if (captainId !== null) url += `&captain=${captainId.toString()}`;
     const controller = new AbortController();
 
     void fetch(url, { signal: controller.signal })
@@ -241,7 +251,7 @@ export function MyTeamPageClient(): JSX.Element {
   // Effect only fires when storedTeamId changes; all setState calls are in async callbacks.
   useEffect(() => {
     if (storedTeamId === null) return;
-    doFetch(`/api/my-team?teamId=${storedTeamId.toString()}`, []);
+    doFetch(`/api/my-team?teamId=${storedTeamId.toString()}`, [], null);
   }, [storedTeamId]);
 
   function handleSelectGw(gw: number): void {
@@ -250,6 +260,7 @@ export function MyTeamPageClient(): JSX.Element {
     doFetch(
       `/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${gw.toString()}`,
       stagedSwaps,
+      stagedCaptain,
       existing,
     );
   }
@@ -272,6 +283,7 @@ export function MyTeamPageClient(): JSX.Element {
     doFetch(
       `/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${existing.selectedGw.toString()}`,
       newSwaps,
+      stagedCaptain,
       existing,
     );
   }
@@ -283,6 +295,19 @@ export function MyTeamPageClient(): JSX.Element {
     doFetch(
       `/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${existing.selectedGw.toString()}`,
       [],
+      stagedCaptain,
+      existing,
+    );
+  }
+
+  function handleSetCaptain(playerId: number): void {
+    setStagedCaptain(playerId);
+    if (fetchState.kind !== 'loaded' || storedTeamId === null) return;
+    const existing = fetchState;
+    doFetch(
+      `/api/my-team?teamId=${storedTeamId.toString()}&gameweek=${existing.selectedGw.toString()}`,
+      stagedSwaps,
+      playerId,
       existing,
     );
   }
@@ -333,6 +358,7 @@ export function MyTeamPageClient(): JSX.Element {
           onSelectGw={handleSelectGw}
           onChangeTeam={handleChangeTeam}
           onRequestSwap={handleRequestSwap}
+          onSetCaptain={handleSetCaptain}
           onClearSwaps={handleClearSwaps}
           stagedSwapCount={stagedSwaps.length}
         />

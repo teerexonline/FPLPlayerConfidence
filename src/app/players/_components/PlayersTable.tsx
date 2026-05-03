@@ -12,11 +12,10 @@ import { PlayerRow } from './PlayerRow';
 import { parseFilters } from './PlayersFilters';
 import type { FilterState, PlayerWithConfidence, SortKey } from './types';
 
-// Matches grid-cols in PlayerRow and SkeletonRow. The xP column is
-// xP-primary (xP large, confidence small below); we label it just "xP"
-// since the confidence sub-line is a secondary signal. Trailing empty
-// string is the watchlist-star column with no header label.
-const CONFIDENCE_HEADERS = ['Player', 'Team', 'Pos', 'Price', 'xP', 'Last 5', ''] as const;
+// Matches grid-cols in PlayerRow and SkeletonRow. Status indicators sit in
+// their own column (no header label) so xP gets a clean dedicated column.
+// Trailing empty string is the watchlist-star column.
+const CONFIDENCE_HEADERS = ['Player', 'Team', 'Pos', 'Price', '', 'xP', 'Last 5', ''] as const;
 
 const ROW_HEIGHT = 56; // h-14 = 56px
 const HEADER_HEIGHT = 40; // py-2.5 + text
@@ -114,23 +113,26 @@ function DesktopVirtualTable({
       {/* Column header row — always rendered, not virtualized */}
       <div
         role="row"
-        className="border-border grid grid-cols-[1fr_88px_60px_72px_88px_96px_36px] border-b px-4 py-2.5"
+        className="border-border grid grid-cols-[1fr_88px_60px_72px_56px_72px_96px_36px] border-b px-4 py-2.5"
         style={{ height: HEADER_HEIGHT }}
       >
         {CONFIDENCE_HEADERS.map((h, i) => {
           // xP column header is right-aligned + right-padded to match the
           // right-aligned + right-padded xP data cell.
           const isXp = h === 'xP';
+          // Star column is the LAST empty header; status column is the FIRST empty.
+          const isStar = h === '' && i === CONFIDENCE_HEADERS.length - 1;
+          const srLabel = isStar ? 'Watchlist' : h === '' ? 'Status' : null;
           return (
             <span
               key={h || `col-${i.toString()}`}
               role="columnheader"
               className={cn(
                 'text-muted text-[11px] font-medium tracking-[0.05em] uppercase',
-                isXp && 'pr-3 text-right',
+                isXp && 'pr-4 text-right',
               )}
             >
-              {h || <span className="sr-only">Watchlist</span>}
+              {h || (srLabel && <span className="sr-only">{srLabel}</span>)}
             </span>
           );
         })}

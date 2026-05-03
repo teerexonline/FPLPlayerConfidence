@@ -48,7 +48,7 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
       tabIndex={focused ? 0 : -1}
       onClick={handleClick}
       className={cn(
-        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_88px_96px_36px] items-center border-b px-4 last:border-0 hover:border-l-2',
+        'group border-border hover:border-l-accent hover:bg-bg relative grid h-14 cursor-pointer grid-cols-[1fr_88px_60px_72px_56px_72px_96px_36px] items-center border-b px-4 last:border-0 hover:border-l-2',
         focused && 'ring-accent/60 ring-2 outline-none ring-inset',
       )}
       aria-label={`${webName}, ${teamShortName}, ${position}, ${price}, confidence ${confidence.toString()}`}
@@ -99,18 +99,20 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
         {price}
       </span>
 
-      {/* xP-primary cell: xP big, confidence as a small colored sub-line.
-          Status + stale indicators sit alongside, since they answer "is this
-          player going to play?" — context for any projection. pr-3 gives the
-          right-aligned content breathing room before the trend column. */}
-      <div role="cell" className="flex items-center justify-end gap-1.5 pr-3">
+      {/* Status indicators (availability + staleness) — own cell so they don't
+          crowd the xP value. */}
+      <div role="cell" className="flex items-center gap-1.5">
         <StaleDataIndicator isStale={isStale} />
         <PlayerStatusIndicator status={status} chanceOfPlaying={chanceOfPlaying} news={news} />
+      </div>
+
+      {/* xP — dedicated column, like confidence used to be. Right-aligned with
+          padding so it sits clearly apart from the trend strip. */}
+      <div role="cell" className="flex items-center justify-end pr-4">
         <XpPrimary nextGwXp={nextGwXp} confidence={confidence} />
       </div>
 
-      {/* Last 5 trend strip — drops the redundant arrow (the strip's last bar
-          already shows direction). */}
+      {/* Last 5 trend strip. */}
       <div role="cell" className="flex items-center">
         <ConfidenceTrend deltas={recentDeltas} variant="strip" />
       </div>

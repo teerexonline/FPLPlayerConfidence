@@ -54,6 +54,10 @@ export interface MyTeamData {
   readonly defencePercent: number;
   readonly midfieldPercent: number;
   readonly attackPercent: number;
+  /** Per-line projected xP totals (sum of starters' xP for that position group). */
+  readonly defenceXp: number;
+  readonly midfieldXp: number;
+  readonly attackXp: number;
   /** 11 starters, ascending by squadPosition. */
   readonly starters: readonly SquadPlayerRow[];
   /** 4 bench players, ascending by squadPosition. */
