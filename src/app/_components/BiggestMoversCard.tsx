@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { JSX } from 'react';
-import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { StarButton } from '@/components/watchlist/StarButton';
 import { cn } from '@/lib/utils';
@@ -55,7 +54,7 @@ function MoverRow({ player, variant, rank }: MoverRowProps): JSX.Element {
     <Link
       href={`/players/${player.id.toString()}`}
       className="group border-border hover:bg-bg focus-visible:ring-accent -mx-4 flex h-[56px] items-center gap-3 border-b px-4 transition-colors last:border-0 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
-      aria-label={`${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence > 0 ? '+' : ''}${player.confidence.toString()}`}
+      aria-label={`${player.webName}, ${player.teamShortName}, ${player.position}, ${player.latestDelta >= 0 ? 'gained' : 'lost'} ${Math.abs(player.latestDelta).toString()} confidence${player.nextGwXp !== null ? `, projected ${Math.round(player.nextGwXp).toString()} xP next gameweek` : ''}`}
     >
       {/* Rank */}
       <span className="text-muted w-4 shrink-0 text-right font-sans text-[11px] tabular-nums">
@@ -96,13 +95,31 @@ function MoverRow({ player, variant, rank }: MoverRowProps): JSX.Element {
         </p>
       </div>
 
-      {/* Delta pill */}
+      {/* Delta pill (the move signal — still confidence-derived since the
+          card sorts by latestDelta from the confidence model) */}
       <DeltaPill delta={player.latestDelta} variant={variant} />
 
-      {/* Confidence number */}
-      <div className="w-8 shrink-0 text-right">
-        <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
-      </div>
+      {/* Next-GW xP — the actionable number per row. Confidence is intentionally
+          not displayed; it lives on the player detail page as the model's
+          transparency layer. */}
+      <span
+        className="text-text inline-flex w-12 shrink-0 items-baseline justify-end gap-0.5 font-sans text-[13px] tabular-nums"
+        title="Projected expected points for the next gameweek"
+        aria-label={
+          player.nextGwXp === null
+            ? 'No projected xP available'
+            : `Projected ${Math.round(player.nextGwXp).toString()} xP next gameweek`
+        }
+      >
+        {player.nextGwXp === null ? (
+          <span className="text-muted/60 font-mono text-[11px]">—</span>
+        ) : (
+          <>
+            <span className="font-semibold">{Math.round(player.nextGwXp).toString()}</span>
+            <span className="text-muted text-[10px] font-medium">xP</span>
+          </>
+        )}
+      </span>
 
       {/* Watchlist star */}
       <StarButton playerId={player.id} playerName={player.webName} size="sm" />

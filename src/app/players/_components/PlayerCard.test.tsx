@@ -35,20 +35,22 @@ describe('PlayerCard', () => {
     expect(screen.getByText('LIV · MID · £13.0m')).toBeInTheDocument();
   });
 
-  it('renders the ConfidenceNumber as a percentage (value=3 → 80%)', () => {
+  // Confidence is no longer rendered on list views — it lives on the player
+  // detail page only. The list shows xP as the primary metric. These tests
+  // assert that the confidence percentage is intentionally absent.
+  it('does not render the confidence percentage on the card', () => {
     render(<PlayerCard player={SALAH} />);
-    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(screen.queryByText('80%')).not.toBeInTheDocument();
   });
 
-  it('renders negative confidence as percentage (value=-4 → 0%)', () => {
+  it('does not render confidence even at 0% (PICKFORD)', () => {
     render(<PlayerCard player={PICKFORD} />);
-    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 
-  it('renders neutral confidence as "50%" with no sign prefix', () => {
+  it('does not render confidence at the neutral 50% level (HAALAND)', () => {
     render(<PlayerCard player={HAALAND} />);
-    expect(screen.getByText('50%')).toBeInTheDocument();
-    expect(screen.queryByText('+50%')).not.toBeInTheDocument();
+    expect(screen.queryByText('50%')).not.toBeInTheDocument();
   });
 
   it('displays the correct price for each player', () => {

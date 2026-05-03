@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
-import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { PlayerStatusIndicator } from '@/components/confidence/PlayerStatusIndicator';
 import { StaleDataIndicator } from '@/components/confidence/StaleDataIndicator';
@@ -120,28 +119,35 @@ function LeaderboardRow({ player, rank }: LeaderboardRowProps): JSX.Element {
         GW{player.latestGameweek.toString()}
       </span>
 
-      {/* Next-GW xP — quick read for "what's the projection" alongside confidence */}
-      {player.nextGwXp !== null && (
-        <span
-          role="cell"
-          className="text-text hidden shrink-0 items-baseline gap-0.5 font-sans text-[13px] tabular-nums sm:inline-flex"
-          title="Projected expected points for the next gameweek"
-          aria-label={`Projected ${Math.round(player.nextGwXp).toString()} xP next gameweek`}
-        >
-          <span className="font-semibold">{Math.round(player.nextGwXp).toString()}</span>
-          <span className="text-muted text-[10px] font-medium">xP</span>
-        </span>
-      )}
-
-      {/* Confidence + status/stale indicators */}
+      {/* xP + status/stale indicators. The leaderboard is still sorted by
+          confidence (the proprietary signal), but the displayed metric per
+          row is xP so users see the actionable projection. Confidence lives
+          on the player detail page. */}
       <div role="cell" className="flex shrink-0 items-center gap-1.5">
-        <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
         <StaleDataIndicator isStale={player.isStale} />
         <PlayerStatusIndicator
           status={player.status}
           chanceOfPlaying={player.chanceOfPlaying}
           news={player.news}
         />
+        <span
+          className="text-text inline-flex items-baseline gap-0.5 font-sans text-[14px] tabular-nums"
+          title="Projected expected points for the next gameweek"
+          aria-label={
+            player.nextGwXp === null
+              ? 'No projected xP available'
+              : `Projected ${Math.round(player.nextGwXp).toString()} xP next gameweek`
+          }
+        >
+          {player.nextGwXp === null ? (
+            <span className="text-muted/60 font-mono text-[12px]">—</span>
+          ) : (
+            <>
+              <span className="font-semibold">{Math.round(player.nextGwXp).toString()}</span>
+              <span className="text-muted text-[10px] font-medium">xP</span>
+            </>
+          )}
+        </span>
       </div>
 
       {/* Watchlist star */}

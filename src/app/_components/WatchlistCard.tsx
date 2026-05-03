@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import type { JSX } from 'react';
-import { ConfidenceNumber } from '@/components/confidence/ConfidenceNumber';
 import { LivePlayerStreakIndicator } from '@/components/confidence/LivePlayerStreakIndicator';
 import { StarButton } from '@/components/watchlist/StarButton';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -21,7 +20,7 @@ function WatchlistRow({ player }: { readonly player: DashboardPlayer }): JSX.Ele
       <Link
         href={`/players/${player.id.toString()}`}
         className="group border-border hover:bg-bg focus-visible:ring-accent -mx-4 flex h-[56px] items-center gap-3 border-b px-4 transition-colors last:border-0 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
-        aria-label={`${player.webName}, ${player.teamShortName}, ${player.position}, confidence ${player.confidence.toString()}`}
+        aria-label={`${player.webName}, ${player.teamShortName}, ${player.position}${player.nextGwXp !== null ? `, projected ${Math.round(player.nextGwXp).toString()} xP next gameweek` : ''}`}
       >
         {/* Jersey */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -57,8 +56,21 @@ function WatchlistRow({ player }: { readonly player: DashboardPlayer }): JSX.Ele
           </p>
         </div>
 
-        {/* Confidence */}
-        <ConfidenceNumber value={player.confidence} mode="c" size="sm" animated={false} />
+        {/* Next-GW xP — actionable projection. Confidence lives on the player
+            detail page only. */}
+        <span
+          className="text-text inline-flex items-baseline gap-0.5 font-sans text-[14px] tabular-nums"
+          title="Projected expected points for the next gameweek"
+        >
+          {player.nextGwXp === null ? (
+            <span className="text-muted/60 font-mono text-[12px]">—</span>
+          ) : (
+            <>
+              <span className="font-semibold">{Math.round(player.nextGwXp).toString()}</span>
+              <span className="text-muted text-[10px] font-medium">xP</span>
+            </>
+          )}
+        </span>
 
         {/* Star — remove from watchlist */}
         <StarButton playerId={player.id} playerName={player.webName} size="sm" />
