@@ -87,10 +87,13 @@ function LoadedView({
         />
 
         <MyTeamHero
+          viewMode={data.viewMode}
           percent={data.teamConfidencePercent}
           defencePercent={data.defencePercent}
           midfieldPercent={data.midfieldPercent}
           attackPercent={data.attackPercent}
+          projectedTeamXp={data.projectedTeamXp}
+          gameweek={data.gameweek}
         />
 
         <PositionalBreakdown
