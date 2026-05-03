@@ -11,8 +11,11 @@ import { PlayerRow } from './PlayerRow';
 import { parseFilters } from './PlayersFilters';
 import type { FilterState, PlayerWithConfidence, SortKey } from './types';
 
-// Matches grid-cols in PlayerRow and SkeletonRow.
-const CONFIDENCE_HEADERS = ['Player', 'Team', 'Pos', 'Price', 'Confidence', 'Last 5'] as const;
+// Matches grid-cols in PlayerRow and SkeletonRow. Trailing empty string is
+// the watchlist-star column with no header label. "Conf" is shortened from
+// "Confidence" so the label fits inside its 72px column without colliding
+// with the adjacent xP column.
+const CONFIDENCE_HEADERS = ['Player', 'Team', 'Pos', 'Price', 'Conf', 'xP', 'Last 5', ''] as const;
 
 const ROW_HEIGHT = 56; // h-14 = 56px
 const HEADER_HEIGHT = 40; // py-2.5 + text
@@ -110,16 +113,16 @@ function DesktopVirtualTable({
       {/* Column header row — always rendered, not virtualized */}
       <div
         role="row"
-        className="border-border grid grid-cols-[1fr_88px_60px_72px_72px_96px] border-b px-4 py-2.5"
+        className="border-border grid grid-cols-[1fr_88px_60px_72px_72px_56px_96px_36px] border-b px-4 py-2.5"
         style={{ height: HEADER_HEIGHT }}
       >
-        {CONFIDENCE_HEADERS.map((h) => (
+        {CONFIDENCE_HEADERS.map((h, i) => (
           <span
-            key={h}
+            key={h || `col-${i.toString()}`}
             role="columnheader"
             className="text-muted text-[11px] font-medium tracking-[0.05em] uppercase"
           >
-            {h}
+            {h || <span className="sr-only">Watchlist</span>}
           </span>
         ))}
       </div>
