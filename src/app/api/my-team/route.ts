@@ -291,6 +291,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Both flavours require positions to match (FPL rule: same-position only).
   // Invalid pairs are silently dropped — the UI never enables them.
   const swappedInIds = new Set<number>();
+  // Track running bank balance through the staged transfers so each successive
+  // transfer is validated against the bank state AFTER the previous transfers
+  // have been applied. Bank starts at the FPL last-deadline value (in tenths
+  // of millions). A transfer is rejected if it would drive bank negative.
+  let runningBank = info.last_deadline_bank;
+  let stagedTransferCount = 0;
   if (viewMode === 'projected' && appliedSwaps.length > 0) {
     const swapped: import('@/lib/fpl/types').EntryPick[] = [...finalPicks];
     const currentIds = new Set(finalPicks.map((p) => p.element));
@@ -346,6 +352,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         // FPL squad totals (2 GK / 5 DEF / 5 MID / 3 FWD) are immutable, so a
         // single transfer must always replace like-for-like position.
         if (outPlayer.position !== inPlayer.position) continue;
+        // Budget check — selling the out-player frees their now_cost, buying
+        // the in-player spends their now_cost. If bank goes negative we can't
+        // afford the transfer and silently drop it (the modal already filters
+        // unaffordable candidates client-side; this is defence-in-depth).
+        const bankAfter = runningBank + outPlayer.now_cost - inPlayer.now_cost;
+        if (bankAfter < 0) continue;
+        runningBank = bankAfter;
+        stagedTransferCount += 1;
         swapped[outIdx] = {
           element: inId,
           position: out.position,
@@ -590,6 +604,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       isCaptain: p.is_captain,
       isViceCaptain: p.is_vice_captain,
       confidence: confidenceMap.get(p.element) ?? 0,
+      nowCost: player?.now_cost ?? 0,
       status: player?.status ?? 'a',
       chanceOfPlaying: player?.chance_of_playing_next_round ?? null,
       news: player?.news ?? '',
@@ -645,6 +660,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     viewMode,
     projectedTeamXp,
     appliedSwaps,
+    bank: info.last_deadline_bank,
+    squadValue: info.last_deadline_value,
+    // FPL doesn't expose the rolled-over free-transfer count in the public
+    // API. Default to 1 (the per-GW grant) and let the UI label it as an
+    // assumption the user can mentally adjust.
+    freeTransfers: 1,
+    stagedTransferCount,
+    stagedTransferBankDelta: runningBank - info.last_deadline_bank,
+    // Each staged transfer beyond the free count costs 4 points.
+    stagedTransferPointCost: -4 * Math.max(0, stagedTransferCount - 1),
   };
 
   return NextResponse.json(data);

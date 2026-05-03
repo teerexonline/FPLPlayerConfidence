@@ -13,6 +13,7 @@ import { StartingXIList } from './StartingXIList';
 import { BenchSection } from './BenchSection';
 import { TeamSyncFooter } from './TeamSyncFooter';
 import { TransferModal } from './TransferModal';
+import { TransferStatusBanner } from './TransferStatusBanner';
 import type { MyTeamData, MyTeamApiError, SquadPlayerRow } from './types';
 import type { Swap } from '@/lib/transfer-planner';
 
@@ -119,19 +120,16 @@ function LoadedView({
           onSelectGw={onSelectGw}
         />
 
-        {data.viewMode === 'projected' && stagedSwapCount > 0 && (
-          <div className="mb-3 flex items-center justify-between rounded-[8px] border border-dashed border-blue-500/40 bg-blue-500/5 px-4 py-2.5">
-            <p className="text-text font-sans text-[13px]">
-              {stagedSwapCount.toString()} staged transfer{stagedSwapCount !== 1 ? 's' : ''}
-            </p>
-            <button
-              type="button"
-              onClick={onClearSwaps}
-              className="text-muted hover:text-text font-sans text-[12px] underline underline-offset-2 transition-colors"
-            >
-              Clear
-            </button>
-          </div>
+        {data.viewMode === 'projected' && (
+          <TransferStatusBanner
+            bank={data.bank}
+            freeTransfers={data.freeTransfers}
+            stagedTransferCount={data.stagedTransferCount}
+            stagedSwapCount={stagedSwapCount}
+            stagedTransferBankDelta={data.stagedTransferBankDelta}
+            stagedTransferPointCost={data.stagedTransferPointCost}
+            onClearSwaps={onClearSwaps}
+          />
         )}
 
         <StartingXIList
@@ -389,6 +387,10 @@ export function MyTeamPageClient(): JSX.Element {
             squadPlayerIds={squadPlayerIds}
             stagedInIds={stagedInIds}
             subCandidates={subCandidates}
+            // Bank already reflects any earlier staged transfers (via the
+            // server's running-bank computation), so the modal sees the
+            // budget available for THIS transfer specifically.
+            bank={fetchState.data.bank + fetchState.data.stagedTransferBankDelta}
             onSelect={handleSwapSelect}
             onClose={() => {
               setSwappingOut(null);

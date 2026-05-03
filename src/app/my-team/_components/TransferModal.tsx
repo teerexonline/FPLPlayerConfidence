@@ -19,6 +19,13 @@ interface TransferModalProps {
    * triggers a sub (squad_position swap) instead of a transfer.
    */
   readonly subCandidates?: readonly SquadPlayerRow[];
+  /**
+   * Available bank in tenths of millions (£0.1m). Transfer candidates whose
+   * price exceeds (bank + playerOut.nowCost) are filtered out — we only show
+   * affordable replacements. Defaults to Infinity when unknown so behaviour
+   * is non-blocking if a caller forgets to wire it.
+   */
+  readonly bank?: number;
   readonly onSelect: (inId: number) => void;
   readonly onClose: () => void;
 }
@@ -33,9 +40,13 @@ export function TransferModal({
   squadPlayerIds,
   stagedInIds,
   subCandidates = [],
+  bank = Number.POSITIVE_INFINITY,
   onSelect,
   onClose,
 }: TransferModalProps): JSX.Element {
+  // Maximum price the user can buy at: their bank PLUS what they get back
+  // from selling the player going out.
+  const affordableCeiling = bank + playerOut.nowCost;
   const [fetchState, setFetchState] = useState<FetchState>({ kind: 'loading' });
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -78,6 +89,9 @@ export function TransferModal({
       ? fetchState.candidates.filter((c) => {
           if (squadPlayerIds.has(c.playerId)) return false;
           if (stagedInIds.has(c.playerId)) return false;
+          // Budget: drop candidates the user can't afford even after selling
+          // the player going out. Defence-in-depth — the API also rejects.
+          if (c.nowCost > affordableCeiling) return false;
           if (!query) return true;
           const q = query.toLowerCase();
           return c.webName.toLowerCase().includes(q) || c.teamShortName.toLowerCase().includes(q);
@@ -256,7 +270,7 @@ export function TransferModal({
                         {c.webName}
                       </p>
                       <p className="text-muted font-sans text-[11px]">
-                        {c.teamShortName} · {c.position}
+                        {c.teamShortName} · {c.position} · £{(c.nowCost / 10).toFixed(1)}m
                       </p>
                     </div>
                     <ConfidenceNumber
@@ -274,6 +288,15 @@ export function TransferModal({
               ))}
             </ul>
           )}
+          {!isFromBench &&
+            fetchState.kind === 'loaded' &&
+            filtered.length === 0 &&
+            visibleSubs.length === 0 &&
+            affordableCeiling < Number.POSITIVE_INFINITY && (
+              <p className="text-muted/70 mb-2 text-center font-sans text-[11px]">
+                Showing only candidates within budget (£{(affordableCeiling / 10).toFixed(1)}m max).
+              </p>
+            )}
         </div>
       </div>
     </div>

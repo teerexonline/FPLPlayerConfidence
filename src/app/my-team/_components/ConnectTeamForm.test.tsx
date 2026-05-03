@@ -31,6 +31,12 @@ const MOCK_DATA: MyTeamData = {
   viewMode: 'historical',
   projectedTeamXp: null,
   appliedSwaps: [],
+  bank: 0,
+  squadValue: 1000,
+  freeTransfers: 1,
+  stagedTransferCount: 0,
+  stagedTransferBankDelta: 0,
+  stagedTransferPointCost: 0,
 };
 
 function submitForm(): void {

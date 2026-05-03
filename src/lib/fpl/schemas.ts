@@ -93,4 +93,9 @@ export const EntryInfoSchema = z.object({
   name: z.string().min(1), // FPL team name
   summary_overall_rank: z.number().int().positive().nullable(),
   summary_overall_points: z.number().int().nonnegative(),
+  // Bank balance and squad value at the last deadline, in tenths of millions.
+  // Default 0 in case FPL omits the field for a brand-new team.
+  last_deadline_bank: z.number().int().nonnegative().default(0),
+  last_deadline_value: z.number().int().nonnegative().default(0),
+  last_deadline_total_transfers: z.number().int().nonnegative().default(0),
 });

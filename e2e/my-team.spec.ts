@@ -25,6 +25,7 @@ function makePlayer(
     isCaptain,
     isViceCaptain,
     confidence: n % 5,
+    nowCost: 70,
     status: 'a',
     chanceOfPlaying: null,
     news: '',
@@ -73,6 +74,12 @@ const MOCK_DATA: MyTeamData = {
   viewMode: 'historical',
   projectedTeamXp: null,
   appliedSwaps: [],
+  bank: 0,
+  squadValue: 1000,
+  freeTransfers: 1,
+  stagedTransferCount: 0,
+  stagedTransferBankDelta: 0,
+  stagedTransferPointCost: 0,
 };
 
 const MOCK_BODY = JSON.stringify(MOCK_DATA);

@@ -17,6 +17,7 @@ const PLAYER_OUT: SquadPlayerRow = {
   isCaptain: true,
   isViceCaptain: false,
   confidence: 3,
+  nowCost: 70,
   status: 'a',
   chanceOfPlaying: null,
   news: '',

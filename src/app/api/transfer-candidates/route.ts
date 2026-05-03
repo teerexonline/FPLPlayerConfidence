@@ -15,6 +15,9 @@ export interface TransferCandidate {
   readonly position: Position;
   readonly status: string;
   readonly currentConfidence: number;
+  /** Current price in tenths of millions (£0.1m) — used by the modal to
+   * filter unaffordable transfers against the user's bank. */
+  readonly nowCost: number;
 }
 
 export interface TransferCandidatesResponse {
@@ -70,6 +73,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         position: p.position,
         status: p.status,
         currentConfidence: confidenceMap.get(p.id) ?? 0,
+        nowCost: p.now_cost,
       };
     })
     .sort((a, b) => {

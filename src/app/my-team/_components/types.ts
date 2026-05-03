@@ -23,6 +23,8 @@ export interface SquadPlayerRow {
   readonly isViceCaptain: boolean;
   /** Current confidence integer in [-5, +5]. 0 if no snapshot found. */
   readonly confidence: number;
+  /** Current price in tenths of millions (£0.1m). */
+  readonly nowCost: number;
   readonly status: string;
   readonly chanceOfPlaying: number | null;
   readonly news: string;
@@ -84,6 +86,22 @@ export interface MyTeamData {
   readonly projectedTeamXp: number | null;
   /** Echo of the parsed ?swap= input so the client can render staged swaps. */
   readonly appliedSwaps: readonly { readonly outId: number; readonly inId: number }[];
+  /** Bank balance available for new transfers, in tenths of millions (£0.1m). */
+  readonly bank: number;
+  /** Total squad market value at the last deadline, in tenths of millions. */
+  readonly squadValue: number;
+  /**
+   * Free transfers assumed available for the next gameweek. FPL's public API
+   * doesn't expose the rolled-over count, so we default to 1. The UI labels
+   * this as an assumption the user can verify.
+   */
+  readonly freeTransfers: number;
+  /** Number of staged transfers (transfers, not subs) — drives the cost banner. */
+  readonly stagedTransferCount: number;
+  /** Net bank delta after applying staged transfers (positive = money left over). */
+  readonly stagedTransferBankDelta: number;
+  /** Point hit from staged transfers above the free count (negative or zero). */
+  readonly stagedTransferPointCost: number;
 }
 
 /** Shape of error responses from GET /api/my-team. */

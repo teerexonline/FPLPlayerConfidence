@@ -33,6 +33,7 @@ function makePlayer(overrides: Partial<SquadPlayerRow> = {}): SquadPlayerRow {
     isCaptain: false,
     isViceCaptain: false,
     confidence: 3,
+    nowCost: 70,
     status: 'a',
     chanceOfPlaying: null,
     news: '',
