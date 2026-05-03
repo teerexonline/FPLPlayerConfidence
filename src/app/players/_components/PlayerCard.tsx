@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { JSX } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
@@ -23,7 +24,7 @@ interface PlayerCardProps {
  * The xP-primary cell shows the projected xP large with confidence as a small
  * colored sub-line — same pattern as PlayerRow on desktop.
  */
-export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
+function PlayerCardImpl({ player }: PlayerCardProps): JSX.Element {
   const {
     id,
     webName,
@@ -104,3 +105,6 @@ export function PlayerCard({ player }: PlayerCardProps): JSX.Element {
     </div>
   );
 }
+
+// Memoized for the same reason as PlayerRow — see that file's note.
+export const PlayerCard = memo(PlayerCardImpl);

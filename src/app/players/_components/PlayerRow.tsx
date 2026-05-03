@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { JSX } from 'react';
 import { ConfidenceTrend } from '@/components/confidence/ConfidenceTrend';
@@ -18,7 +19,7 @@ interface PlayerRowProps {
   readonly focused?: boolean;
 }
 
-export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Element {
+function PlayerRowImpl({ player, focused = false }: PlayerRowProps): JSX.Element {
   const {
     webName,
     teamShortName,
@@ -130,3 +131,11 @@ export function PlayerRow({ player, focused = false }: PlayerRowProps): JSX.Elem
     </div>
   );
 }
+
+// Memoized — virtualized list re-mounts ~10 rows on scroll, plus parent
+// state changes (focus index, keyboard nav, URL filter changes) re-render
+// PlayersTable. Without memoization every re-render walks all visible rows.
+// Player objects come from the server payload and are referentially stable
+// across renders (same reference until the server returns new data), so the
+// default shallow equality is sufficient.
+export const PlayerRow = memo(PlayerRowImpl);

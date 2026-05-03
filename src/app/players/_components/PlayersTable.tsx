@@ -2,7 +2,7 @@
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { JSX, KeyboardEvent } from 'react';
 import { isEligibleMover } from '@/app/_components/moversFilter';
 import { cn } from '@/lib/utils';
@@ -28,7 +28,24 @@ interface PlayersTableProps {
 export function PlayersTable({ players }: PlayersTableProps): JSX.Element {
   const searchParams = useSearchParams();
   const filters = parseFilters(searchParams);
-  const filtered = applyFilters(players, filters);
+  // Memoize the filter+sort pass — it walks all 500+ players and runs on every
+  // render of this component (URL state changes, parent re-renders, etc.).
+  // Positions is an array so we serialise it to a stable key for the dep list.
+  const positionsKey = filters.positions.join(',');
+  const filtered = useMemo(
+    () => applyFilters(players, filters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- positionsKey is the stable serialisation of filters.positions
+    [
+      players,
+      filters.search,
+      filters.sortKey,
+      filters.sortOrder,
+      filters.minConf,
+      filters.maxConf,
+      filters.onlyEligible,
+      positionsKey,
+    ],
+  );
 
   if (players.length > 0 && filtered.length === 0) {
     return <EmptyFilterState />;
