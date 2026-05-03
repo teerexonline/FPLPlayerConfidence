@@ -81,6 +81,7 @@ function LoadedView({
         <GwTimeline
           currentGameweek={data.currentGameweek}
           firstGameweek={firstGw}
+          lastGameweek={data.lastSeasonGameweek}
           selectedGw={selectedGw}
           onSelectGw={onSelectGw}
         />
@@ -106,6 +107,7 @@ function LoadedView({
           selectedGw={selectedGw}
           currentGameweek={data.currentGameweek}
           firstGameweek={firstGw}
+          lastGameweek={data.lastSeasonGameweek}
           onSelectGw={onSelectGw}
         />
 

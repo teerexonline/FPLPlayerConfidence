@@ -9,10 +9,15 @@ interface GwControlBarProps {
   readonly formation: string;
   /** Currently viewed gameweek. */
   readonly selectedGw: number;
-  /** Latest known gameweek — right arrow is disabled at this boundary. */
+  /** Latest live gameweek — anything beyond is projected. */
   readonly currentGameweek: number;
   /** Earliest navigable gameweek — left arrow is disabled at this boundary. */
   readonly firstGameweek: number;
+  /**
+   * Latest gameweek with a scheduled fixture. Right arrow is disabled here.
+   * Defaults to `currentGameweek` (no forward navigation possible).
+   */
+  readonly lastGameweek?: number;
   /** Called when the user navigates to a new GW via the arrows. */
   readonly onSelectGw: (gw: number) => void;
 }
@@ -30,10 +35,12 @@ export function GwControlBar({
   selectedGw,
   currentGameweek,
   firstGameweek,
+  lastGameweek,
   onSelectGw,
 }: GwControlBarProps): JSX.Element {
+  const upperBound = Math.max(currentGameweek, lastGameweek ?? currentGameweek);
   const canGoPrev = selectedGw > firstGameweek;
-  const canGoNext = selectedGw < currentGameweek;
+  const canGoNext = selectedGw < upperBound;
 
   return (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
