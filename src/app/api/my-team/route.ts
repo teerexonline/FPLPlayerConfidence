@@ -1,7 +1,8 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { fetchEntryInfo, fetchEntryPicks } from '@/lib/fpl/api';
+import { fetchEntryHistory, fetchEntryInfo, fetchEntryPicks } from '@/lib/fpl/api';
+import { deriveFreeTransfers } from '@/lib/fpl/freeTransfers';
 import { resolveSquadPicks } from '@/lib/fpl/resolveSquadPicks';
 import { getRepositories } from '@/lib/db/server';
 import { calculateTeamConfidence, confidenceToPercent } from '@/lib/team-confidence';
@@ -128,7 +129,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // Start entry info fetch immediately so it overlaps with the first picks fetch.
+  // Also start the history fetch — needed to derive the user's actual banked
+  // free-transfer count (replaces the previous hardcoded "1 (assumed)").
   const infoPromise = fetchEntryInfo(teamId);
+  const historyPromise = fetchEntryHistory(teamId);
 
   // ── Determine view mode ────────────────────────────────────────────────────
   // `projected` = viewing a future GW (FPL hasn't generated picks yet — we use
@@ -235,7 +239,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     } = squadResult.value);
   }
 
-  const infoResult = await infoPromise;
+  const [infoResult, historyResult] = await Promise.all([infoPromise, historyPromise]);
 
   if (!infoResult.ok) {
     logger.warn('GET /api/my-team: entry info fetch failed', {
@@ -254,6 +258,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   const info = infoResult.value;
+  // Derive the user's actual banked free transfers by replaying their
+  // transfer history + chip usage. Fall back to 1 (the per-GW grant) when
+  // the history endpoint fails — keeps the page rendering instead of 500ing.
+  const freeTransfers = historyResult.ok ? deriveFreeTransfers(historyResult.value) : 1;
   const now = Date.now();
 
   // Upsert the squad to the manager_squads cache table (default path only;
@@ -662,14 +670,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     appliedSwaps,
     bank: info.last_deadline_bank,
     squadValue: info.last_deadline_value,
-    // FPL doesn't expose the rolled-over free-transfer count in the public
-    // API. Default to 1 (the per-GW grant) and let the UI label it as an
-    // assumption the user can mentally adjust.
-    freeTransfers: 1,
+    // Derived from the manager's transfer + chip history (see deriveFreeTransfers).
+    freeTransfers,
     stagedTransferCount,
     stagedTransferBankDelta: runningBank - info.last_deadline_bank,
     // Each staged transfer beyond the free count costs 4 points.
-    stagedTransferPointCost: -4 * Math.max(0, stagedTransferCount - 1),
+    stagedTransferPointCost: -4 * Math.max(0, stagedTransferCount - freeTransfers),
   };
 
   return NextResponse.json(data);

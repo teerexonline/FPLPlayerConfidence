@@ -87,6 +87,26 @@ export const EntryPicksSchema = z.object({
 
 // GET /api/entry/{team_id}/ — manager profile + season summary.
 // The FPL response contains many more fields; we extract only what we display.
+/**
+ * Per-gameweek entry history. Used to derive the user's banked free-transfer
+ * count from their real transfer activity + any chips played.
+ */
+export const EntryHistoryEventSchema = z.object({
+  event: z.number().int().positive(),
+  event_transfers: z.number().int().nonnegative(),
+  event_transfers_cost: z.number().int().nonnegative(),
+});
+
+export const EntryHistoryChipSchema = z.object({
+  name: z.string(), // 'wildcard' | 'freehit' | 'bboost' | '3xc'
+  event: z.number().int().positive(),
+});
+
+export const EntryHistorySchema = z.object({
+  current: z.array(EntryHistoryEventSchema),
+  chips: z.array(EntryHistoryChipSchema).default([]),
+});
+
 export const EntryInfoSchema = z.object({
   player_first_name: z.string(),
   player_last_name: z.string(),

@@ -3,6 +3,7 @@ import type {
   BootstrapStaticSchema,
   ElementSchema,
   ElementSummarySchema,
+  EntryHistorySchema,
   EntryInfoSchema,
   EntryPickSchema,
   EntryPicksSchema,
@@ -24,6 +25,7 @@ export type Fixtures = z.infer<typeof FixturesSchema>;
 export type EntryPick = z.infer<typeof EntryPickSchema>;
 export type EntryPicks = z.infer<typeof EntryPicksSchema>;
 export type EntryInfo = z.infer<typeof EntryInfoSchema>;
+export type EntryHistory = z.infer<typeof EntryHistorySchema>;
 
 export type FetchError =
   | { readonly type: 'network_error'; readonly message: string }

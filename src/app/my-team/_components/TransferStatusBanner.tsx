@@ -67,13 +67,14 @@ export function TransferStatusBanner({
 
         <span className="text-muted/40">·</span>
 
-        {/* Free transfers — labelled as assumption. */}
+        {/* Free transfers — derived from the manager's real transfer history
+            and chip usage; replays FPL's per-GW grant + 5-FT cap rules. */}
         <span
           className="text-muted"
-          title="FPL doesn't expose your rolled-over free transfers via the public API. Defaults to 1 per gameweek."
+          title="Derived from your FPL transfer history and chips played. Banked transfers cap at 5."
         >
-          {freeTransfers.toString()} free transfer{freeTransfers !== 1 ? 's' : ''}{' '}
-          <span className="text-muted/60 text-[11px]">(assumed)</span>
+          <span className="text-text font-semibold tabular-nums">{freeTransfers.toString()}</span>{' '}
+          free transfer{freeTransfers !== 1 ? 's' : ''}
         </span>
 
         {hasPaidTransfers && (

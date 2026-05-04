@@ -3,6 +3,7 @@ import type { Result } from '@/lib/utils/result';
 import {
   BootstrapStaticSchema,
   ElementSummarySchema,
+  EntryHistorySchema,
   EntryInfoSchema,
   EntryPicksSchema,
   FixturesSchema,
@@ -10,6 +11,7 @@ import {
 import type {
   BootstrapStatic,
   ElementSummary,
+  EntryHistory,
   EntryInfo,
   EntryPicks,
   FetchError,
@@ -119,6 +121,26 @@ export async function fetchEntryInfo(teamId: number): Promise<Result<EntryInfo, 
   if (!raw.ok) return raw;
 
   const parsed = EntryInfoSchema.safeParse(raw.value);
+  if (!parsed.success) {
+    return err({ type: 'invalid_response', message: parsed.error.message });
+  }
+
+  return ok(parsed.data);
+}
+
+/**
+ * Fetches the manager's per-gameweek history (transfers, point cost, bank
+ * balance) and the chips they've used so far. Used by the My Team route to
+ * derive the actual banked free-transfer count by replaying FPL's roll-over
+ * rules across the season.
+ *
+ * Cached for 1 hour to match the entry-info cadence.
+ */
+export async function fetchEntryHistory(teamId: number): Promise<Result<EntryHistory, FetchError>> {
+  const raw = await fetchJson(`${FPL_BASE}entry/${teamId.toString()}/history/`, REVALIDATE_1H);
+  if (!raw.ok) return raw;
+
+  const parsed = EntryHistorySchema.safeParse(raw.value);
   if (!parsed.success) {
     return err({ type: 'invalid_response', message: parsed.error.message });
   }
